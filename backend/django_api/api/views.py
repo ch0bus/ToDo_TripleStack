@@ -45,6 +45,15 @@ ModelViewSet — автоматически создаёт все CRUD опер�
 class TodoViewSet(viewsets.ModelViewSet):
     """
     /api/todos/...
+    
+    API для управления задачами (Todo).
+    
+    list: Получить все задачи текущего пользователя
+    create: Создать новую задачу
+    retrieve: Получить одну задачу по ID
+    update: Обновить всю задачу (PUT)
+    partial_update: Обновить часть задачи (PATCH)
+    destroy: Удалить задачу
     """
     serializer_class = TodoSerializer
     permission_classes = (permissions.IsAuthenticated,)
