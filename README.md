@@ -80,3 +80,67 @@ SQLAlchemy и т.д., но структура должна соответств�
 2. Поднять фронтенд и убедиться, что он работает с API.
 3. Реализовать эквивалентный API на FastAPI и Flask, используя ту же схему данных.
 4. Добавить дополнительные фичи, тесты, Docker (по желанию).
+
+
+# Проверка backend API
+
+## Регистрация
+```
+curl -X POST http://127.0.0.1:8000/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user1",
+    "email": "user1@example.com",
+    "password": "password123"
+  }'
+
+```
+
+## Логин 
+(Скопируй access_token из ответа.)
+```
+curl -X POST http://127.0.0.1:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "user1",
+    "password": "password123"
+  }'
+
+```
+
+## Проверка текущего пользователя (me)
+Убедись, что приходит ответ вида: {"id": ..., "username": "user1"}.
+```
+ACCESS=ПОДСТАВЬ_ТОКЕН
+
+curl http://127.0.0.1:8000/api/auth/me \
+  -H "Authorization: Bearer $ACCESS"
+```
+
+## 2. Проверить todos
+```
+curl http://127.0.0.1:8000/api/todos/ \
+  -H "Authorization: Bearer $ACCESS"
+
+```
+
+## Создать задачу
+```
+curl -X POST http://127.0.0.1:8000/api/todos/ \
+  -H "Authorization: Bearer $ACCESS" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Купить молоко",
+    "description": "2 литра"
+  }'
+
+```
+
+## Проверить, что задача появилась
+```
+curl http://127.0.0.1:8000/api/todos/ \
+  -H "Authorization: Bearer $ACCESS"
+```
+
+## Обновление и удаление
+Обновление/удаление любой задачи по id — по аналогии с другими запросами.
