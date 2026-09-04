@@ -148,7 +148,32 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Todo API',
-    'DESCRIPTION': 'API для управления списком дел',
+    'DESCRIPTION': """
+    API для управления списком дел (Todo List).
+    
+    ## Возможности:
+    - Регистрация и аутентификация пользователей
+    - Создание, редактирование и удаление задач
+    - Фильтрация по статусу выполнения
+    - Поиск по названию и описанию
+    - Просмотр личного профиля
+    
+    ## Аутентификация:
+    Используется JWT токены. Для доступа к защищенным эндпоинтам добавьте:    
+    Authorization: Bearer <ваш_токен>
+    """,
     'VERSION': '1.0.0',
+    'CONTACT': {
+        'name': 'API Support',
+        'email': 'support@example.com',
+    },
+    'LICENSE': {
+        'name': 'MIT',
+    },
     'SERVE_PERMISSIONS': ['rest_framework.permissions.AllowAny'],
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthData': True,  # Сохраняет токен в браузере
+    },
 }
