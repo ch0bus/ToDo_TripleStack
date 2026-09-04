@@ -31,33 +31,36 @@ class MeView(APIView): # APIView — базовая вьюшка для каст
         return Response(serializer.data)
 
 
-"""
-ModelViewSet — автоматически создаёт все CRUD операции:
-
-    GET /api/todos/ — список задач (с пагинацией)
-    POST /api/todos/ — создание
-    GET /api/todos/{id}/ — получение одной
-    PUT /api/todos/{id}/ — полное обновление
-    PATCH /api/todos/{id}/ — частичное обновление
-    DELETE /api/todos/{id}/ — удаление
-
-"""
-class TodoViewSet(viewsets.ModelViewSet):
+class TodoViewSet(viewsets.ModelViewSet): # ModelViewSet — автоматически создаёт все CRUD операции:
     """
     /api/todos/...
     
     API для управления задачами (Todo).
     
-    list: Получить все задачи текущего пользователя
-    create: Создать новую задачу
-    retrieve: Получить одну задачу по ID
-    update: Обновить всю задачу (PUT)
-    partial_update: Обновить часть задачи (PATCH)
-    destroy: Удалить задачу
+    list: Получить все задачи текущего пользователя\n
+    GET /api/todos/ — список задач (с пагинацией)\n
+    
+    create: Создать новую задачу\n
+    POST /api/todos/ — создание\n
+    
+    retrieve: Получить одну задачу по ID\n
+    GET /api/todos/{id}/ — получение одной\n
+    
+
+    update: Обновить всю задачу (PUT)\n
+    PUT /api/todos/{id}/ — полное обновление\n
+    
+    
+    partial_update: Обновить часть задачи (PATCH)\n
+    PATCH /api/todos/{id}/ — частичное обновление\n
+    
+
+    destroy: Удалить задачу\n    
+    DELETE /api/todos/{id}/ — удаление\n
     """
     serializer_class = TodoSerializer
     permission_classes = (permissions.IsAuthenticated,)
-
+    
     def get_queryset(self):
         """
         Фильтрует задачи по двум критериям:
@@ -79,5 +82,8 @@ class TodoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(title__icontains=search) | qs.filter( # __icontains — поиск по частичному совпадению (без учёта регистра)
                 description__icontains=search
             )
+    
 
         return qs
+
+        
