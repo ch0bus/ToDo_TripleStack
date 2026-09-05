@@ -20,18 +20,32 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username")
         read_only_fields = ("id",)
+        extra_kwargs = {
+            'id': {'help_text': 'Уникальный идентификатор пользователя'},
+            'username': {'help_text': 'Имя пользователя'},
+        }
+
 
 
 class RegisterSerializer(serializers.ModelSerializer):
     """
     Используется для регистрации новых пользователей:
     """
-    password = serializers.CharField(write_only=True, min_length=8) # write_only=True — пароль принимается при запросе, но не возвращается в ответе
+    password = serializers.CharField(
+        write_only=True, # write_only=True — пароль принимается при запросе, но не возвращается в ответе
+        min_length=8,
+        help_text='Пароль должен быть минимум 8 символов',) 
 
     class Meta:
         model = User
         fields = ("id", "username", "password", "email")
         read_only_fields = ("id",)
+        extra_kwargs = {
+            'id': {'read_only': True, 'help_text': 'Уникальный ID (генерируется автоматически)'},
+            'username': {'help_text': 'Уникальное имя пользователя'},
+            'email': {'help_text': 'Email адрес пользователя'},
+        }
+
 
     def validate_password(self, value):
         """
@@ -73,6 +87,15 @@ class TodoSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "user_id", "created_at", "updated_at")
+        extra_kwargs = {
+            'id': {'help_text': 'Уникальный ID задачи'},
+            'user_id': {'help_text': 'ID пользователя, которому принадлежит задача'},
+            'title': {'help_text': 'Название задачи', 'max_length': 255},
+            'description': {'help_text': 'Подробное описание задачи'},
+            'completed': {'help_text': 'Статус выполнения (true/false)'},
+            'created_at': {'help_text': 'Дата и время создания'},
+            'updated_at': {'help_text': 'Дата и время последнего обновления'},
+        }
 
     def create(self, validated_data):
         """
