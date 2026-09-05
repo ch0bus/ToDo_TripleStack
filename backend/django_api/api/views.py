@@ -108,7 +108,7 @@ class TodoViewSet(viewsets.ModelViewSet): # ModelViewSet — автоматич�
         1. По статусу завершения
         2. По поисковому запросу
         """
-        qs = Todo.objects.filter(user=self.request.user)
+        qs = Todo.objects.select_related('user').filter(user=self.request.user)
 
         completed = self.request.query_params.get("completed")
         search = self.request.query_params.get("search")
@@ -123,6 +123,11 @@ class TodoViewSet(viewsets.ModelViewSet): # ModelViewSet — автоматич�
             qs = qs.filter(title__icontains=search) | qs.filter( # __icontains — поиск по частичному совпадению (без учёта регистра)
                 description__icontains=search
             )
+        #if search:
+        #    from django.db.models import Q
+        #    qs = qs.filter(
+        #        Q(title__icontains=search) | Q(description__icontains=search)
+        #    )
 
         return qs
 
@@ -146,7 +151,7 @@ class TodoViewSet(viewsets.ModelViewSet): # ModelViewSet — автоматич�
                 required=False,
                 type=str,
                 examples=[
-                    OpenApiExample('Поиск "купить"', value='купить'),
+                    OpenApiExample('Поиск "Купить"', value='Купить'),
                 ],
             ),
         ],
