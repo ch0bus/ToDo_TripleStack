@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 
 type Todo = {
   id: number;
@@ -11,37 +11,101 @@ type Todo = {
 export default function Home() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [title, setTitle] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  function handleAdd(e: FormEvent) {
+  // Загрузка задач при старте
+  useEffect(() => {
+    async function loadTodos() {
+      try {
+        setLoading(true);
+        const res = await fetch("/api/todos");
+        if (!res.ok) throw new Error("Failed to load todos");
+        const data = (await res.json()) as Todo[];
+        setTodos(data);
+      } catch (e) {
+        console.error(e);
+        setError("Не удалось загрузить задачи");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTodos();
+  }, []);
+
+  async function handleAdd(e: FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     if (!trimmed) return;
 
-    setTodos(prev => [
-      ...prev,
-      { id: Date.now(), title: trimmed, completed: false },
-    ]);
-    setTitle("");
+    try {
+      setSubmitting(true);
+      setError("");
+      const res = await fetch("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: trimmed }),
+      });
+      if (!res.ok) throw new Error("Failed to create todo");
+      const newTodo = (await res.json()) as Todo;
+      setTodos(prev => [...prev, newTodo]);
+      setTitle("");
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось добавить задачу");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function toggleTodo(id: number) {
-    setTodos(prev =>
-      prev.map(t =>
-        t.id === id ? { ...t, completed: !t.completed } : t
-      )
-    );
+  async function toggleTodo(id: number, completed: boolean) {
+    try {
+      setError("");
+      const res = await fetch("/api/todos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, completed }),
+      });
+      if (!res.ok) throw new Error("Failed to update todo");
+      const updated = (await res.json()) as Todo;
+
+      setTodos(prev =>
+        prev.map(t => (t.id === updated.id ? updated : t))
+      );
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось обновить задачу");
+    }
   }
 
-  function deleteTodo(id: number) {
-    setTodos(prev => prev.filter(t => t.id !== id));
+  async function deleteTodo(id: number) {
+    try {
+      setError("");
+      const res = await fetch(`/api/todos?id=${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete todo");
+      setTodos(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      console.error(e);
+      setError("Не удалось удалить задачу");
+    }
   }
 
   return (
     <main className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center">
       <div className="w-full max-w-xl px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6 text-center">
+        <h1 className="text-3xl font-bold mb-4 text-center">
           ToDo App
         </h1>
+
+        {error && (
+          <div className="mb-4 rounded-md bg-red-900/40 border border-red-700 px-3 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleAdd} className="flex gap-2 mb-6">
           <input
@@ -55,50 +119,60 @@ export default function Home() {
           />
           <button
             type="submit"
+            disabled={submitting}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
-                       hover:bg-blue-500 active:bg-blue-700 transition-colors"
+                       hover:bg-blue-500 active:bg-blue-700 transition-colors
+                       disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            Добавить
+            {submitting ? "Добавляю..." : "Добавить"}
           </button>
         </form>
 
-        <ul className="space-y-2">
-          {todos.length === 0 && (
-            <li className="text-sm text-slate-400">
-              Пока задач нет. Добавь первую 🙂
-            </li>
-          )}
+        {loading ? (
+          <p className="text-sm text-slate-400">Загрузка задач...</p>
+        ) : (
+          <ul className="space-y-2">
+            {todos.length === 0 && (
+              <li className="text-sm text-slate-400">
+                Пока задач нет. Добавь первую.
+              </li>
+            )}
 
-          {todos.map(todo => (
-            <li
-              key={todo.id}
-              className="flex items-center justify-between rounded-md bg-slate-800 px-3 py-2"
-            >
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={todo.completed}
-                  onChange={() => toggleTodo(todo.id)}
-                  className="h-4 w-4"
-                />
-                <span
-                  className={
-                    "text-sm " +
-                    (todo.completed ? "line-through text-slate-500" : "")
-                  }
-                >
-                  {todo.title}
-                </span>
-              </div>
-              <button
-                onClick={() => deleteTodo(todo.id)}
-                className="text-xs text-red-400 hover:text-red-300"
+            {todos.map(todo => (
+              <li
+                key={todo.id}
+                className="flex items-center justify-between rounded-md bg-slate-800 px-3 py-2"
               >
-                Удалить
-              </button>
-            </li>
-          ))}
-        </ul>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={todo.completed}
+                    onChange={e =>
+                      toggleTodo(todo.id, e.target.checked)
+                    }
+                    className="h-4 w-4"
+                  />
+                  <span
+                    className={
+                      "text-sm " +
+                      (todo.completed
+                        ? "line-through text-slate-500"
+                        : "")
+                    }
+                  >
+                    {todo.title}
+                  </span>
+                </div>
+                <button
+                  onClick={() => deleteTodo(todo.id)}
+                  className="text-xs text-red-400 hover:text-red-300"
+                >
+                  Удалить
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </main>
   );
