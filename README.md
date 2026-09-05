@@ -104,6 +104,15 @@ npx -v
 
 После этого можно пользоваться `npm` и `npx` в проекте (например, для создания фронтенда на Next.js).
 
+```
+npx create-next-app@latest react_app \
+  --typescript \
+  --eslint \
+  --src-dir \
+  --import-alias "@/*" \
+  --use-npm
+```
+
 ## Запуск (план)
 
 1. Реализовать базовый API (auth + todos) на одном фреймворке (например, Django) по спецификации.

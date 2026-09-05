@@ -57,6 +57,7 @@ class MeView(APIView): # APIView — базовая вьюшка для каст
     GET /api/auth/me
     """
     permission_classes = (permissions.IsAuthenticated,)
+    #permission_classes = (permissions.AllowAny,)
 
     @extend_schema(
         summary='Получить текущего пользователя',
@@ -75,33 +76,34 @@ class MeView(APIView): # APIView — базовая вьюшка для каст
 class TodoViewSet(viewsets.ModelViewSet): # ModelViewSet — автоматически создаёт все CRUD операции:
     """
     /api/todos/...
-    
+
     API для управления задачами (Todo).
-    
+
     list: Получить все задачи текущего пользователя\n
     GET /api/todos/ — список задач (с пагинацией)\n
-    
+
     create: Создать новую задачу\n
     POST /api/todos/ — создание\n
-    
+
     retrieve: Получить одну задачу по ID\n
     GET /api/todos/{id}/ — получение одной\n
-    
+
 
     update: Обновить всю задачу (PUT)\n
     PUT /api/todos/{id}/ — полное обновление\n
-    
-    
+
+
     partial_update: Обновить часть задачи (PATCH)\n
     PATCH /api/todos/{id}/ — частичное обновление\n
-    
 
-    destroy: Удалить задачу\n    
+
+    destroy: Удалить задачу\n
     DELETE /api/todos/{id}/ — удаление\n
     """
     serializer_class = TodoSerializer
     permission_classes = (permissions.IsAuthenticated,)
-    
+    #permission_classes = (permissions.AllowAny,)
+
     def get_queryset(self):
         """
         Фильтрует задачи по двум критериям:
@@ -226,6 +228,6 @@ class TodoViewSet(viewsets.ModelViewSet): # ModelViewSet — автоматич�
     )
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
-    
 
-        
+
+

@@ -43,11 +43,13 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'drf_spectacular',
+    'corsheaders',
 
     'todos',
 ]
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -87,7 +89,7 @@ DATABASES = {
     }
 }
 
-AUTH_USER_MODEL = 'account.User' 
+AUTH_USER_MODEL = 'account.User'
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -130,6 +132,9 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
 
 #REST_FRAMEWORK = {
 #    'DEFAULT_PERMISSION_CLASSES': [
@@ -150,16 +155,16 @@ SPECTACULAR_SETTINGS = {
     'TITLE': 'Todo API',
     'DESCRIPTION': """
     API для управления списком дел (Todo List).
-    
+
     ## Возможности:
     - Регистрация и аутентификация пользователей
     - Создание, редактирование и удаление задач
     - Фильтрация по статусу выполнения
     - Поиск по названию и описанию
     - Просмотр личного профиля
-    
+
     ## Аутентификация:
-    Используется JWT токены. Для доступа к защищенным эндпоинтам добавьте:    
+    Используется JWT токены. Для доступа к защищенным эндпоинтам добавьте:
     Authorization: Bearer <ваш_токен>
     """,
     'VERSION': '1.0.0',
