@@ -72,7 +72,37 @@ SQLAlchemy и т.д., но структура должна соответств�
 - При выборке/обновлении/удалении задач backend всегда добавляет условие по `user_id`, чтобы
   исключить доступ к чужим данным.
 
-Детальная спецификация полей и эндпоинтов описана в `docs/API_SPEC.md`.
+## Установка Node.js, npm и npx (через nvm)
+
+Если в системе нет `npm`/`npx`, можно установить их вместе с Node.js через `nvm`.
+
+1. Установить nvm:
+
+```bash
+cd ~
+curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh -o install_nvm.sh
+bash install_nvm.sh
+```
+
+2. Подключить nvm в текущей сессии (без перезапуска терминала):
+
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && . "$NVM_DIR/bash_completion"
+```
+
+3. Установить последнюю LTS-версию Node.js (вместе с npm и npx):
+
+```bash
+nvm install --lts
+nvm use --lts
+node -v
+npm -v
+npx -v
+```
+
+После этого можно пользоваться `npm` и `npx` в проекте (например, для создания фронтенда на Next.js).
 
 ## Запуск (план)
 
