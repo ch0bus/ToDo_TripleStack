@@ -1,171 +1,91 @@
 "use client";
 
 import { useEffect, useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { apiFetch } from "@/lib/api";
-import { getAccessToken, clearTokens } from "@/lib/auth";
-
 import Link from "next/link";
 
-type Todo = {
+import { Header } from "@/components/Header";
+import { apiFetch } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
+
+interface Project {
   id: number;
-  title: string;
+  project_name: string;
+  color: string;
   description?: string;
-  completed: boolean;
-};
+}
 
-export default function Home() {
-  const router = useRouter();
-
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [title, setTitle] = useState("");
+export default function HomePage() {
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [hasToken, setHasToken] = useState(false);
 
-  // проверяем токен и загружаем задачи
+  const [newName, setNewName] = useState("");
+  const [newColor, setNewColor] = useState("#3b82f6");
+  const [newDescription, setNewDescription] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  const hasToken = !!getAccessToken();
+
   useEffect(() => {
-    const token = getAccessToken();
-    setHasToken(!!token);
-
-    if (!token) {
+    if (!hasToken) {
       setLoading(false);
       return;
     }
 
-    async function loadTodos() {
+    async function loadProjects() {
       try {
         setLoading(true);
-        const res = await apiFetch("/todos/");
-
-        if (res.status === 401) {
-          clearTokens();
-          setHasToken(false);
-          setError("Нужно войти в систему.");
-          return;
-        }
-
-        if (!res.ok) throw new Error("Failed to load todos");
-
-        const data = (await res.json()) as Todo[];
-        setTodos(data);
+        setError("");
+        const res = await apiFetch("/projects/");
+        if (!res.ok) throw new Error("Failed to load projects");
+        const data = (await res.json()) as Project[];
+        setProjects(data);
       } catch (e) {
         console.error(e);
-        setError("Не удалось загрузить задачи");
+        setError("Не удалось загрузить проекты");
       } finally {
         setLoading(false);
       }
     }
 
-    loadTodos();
-  }, []);
+    loadProjects();
+  }, [hasToken]);
 
-  async function handleAdd(e: FormEvent) {
+  async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    const trimmed = title.trim();
-    if (!trimmed) return;
+    const name = newName.trim();
+    if (!name) return;
 
     try {
-      setSubmitting(true);
+      setCreating(true);
       setError("");
-      const res = await apiFetch("/todos/", {
+      const res = await apiFetch("/projects/", {
         method: "POST",
-        body: JSON.stringify({ title: trimmed }),
+        body: JSON.stringify({
+          project_name: name,
+          color: newColor,
+          description: newDescription.trim() || undefined,
+        }),
       });
 
-      if (res.status === 401) {
-        clearTokens();
-        setHasToken(false);
-        setError("Сессия истекла. Войдите снова.");
-        return;
-      }
-
-      if (!res.ok) throw new Error("Failed to create todo");
-
-      const newTodo = (await res.json()) as Todo;
-      setTodos((prev) => [...prev, newTodo]);
-      setTitle("");
+      if (!res.ok) throw new Error("Failed to create project");
+      const created = (await res.json()) as Project;
+      setProjects((prev) => [created, ...prev]);
+      setNewName("");
+      setNewDescription("");
     } catch (e) {
       console.error(e);
-      setError("Не удалось добавить задачу");
+      setError("Не удалось создать проект");
     } finally {
-      setSubmitting(false);
+      setCreating(false);
     }
-  }
-
-  async function toggleTodo(id: number, completed: boolean) {
-    try {
-      setError("");
-      const res = await apiFetch(`/todos/${id}/`, {
-        method: "PATCH",
-        body: JSON.stringify({ completed }),
-      });
-
-      if (res.status === 401) {
-        clearTokens();
-        setHasToken(false);
-        setError("Сессия истекла. Войдите снова.");
-        return;
-      }
-
-      if (!res.ok) throw new Error("Failed to update todo");
-
-      const updated = (await res.json()) as Todo;
-
-      setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-    } catch (e) {
-      console.error(e);
-      setError("Не удалось обновить задачу");
-    }
-  }
-
-  async function deleteTodo(id: number) {
-    try {
-      setError("");
-      const res = await apiFetch(`/todos/${id}/`, {
-        method: "DELETE",
-      });
-
-      if (res.status === 401) {
-        clearTokens();
-        setHasToken(false);
-        setError("Сессия истекла. Войдите снова.");
-        return;
-      }
-
-      if (!res.ok) throw new Error("Failed to delete todo");
-
-      setTodos((prev) => prev.filter((t) => t.id !== id));
-    } catch (e) {
-      console.error(e);
-      setError("Не удалось удалить задачу");
-    }
-  }
-
-  function handleLogout() {
-    clearTokens();
-    setHasToken(false);
-    setTodos([]);
-    setError("");
-    router.push("/login");
   }
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center">
-      <div className="w-full max-w-xl px-4 py-8">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold">ToDo App</h1>
-          {hasToken && (
-            <button
-              onClick={handleLogout}
-              className="text-sm text-slate-300 hover:text-slate-100 cursor-pointer hover:underline transition-colors"
-            >
-              Выйти
-            </button>
-          )}
-        </div>
+    <main className="min-h-screen bg-slate-900 text-slate-50">
+      <Header />
 
+      <div className="mx-auto max-w-5xl px-4 py-8">
         {error && (
           <div className="mb-4 rounded-md bg-red-900/40 border border-red-700 px-3 py-2 text-sm text-red-200">
             {error}
@@ -181,67 +101,78 @@ export default function Home() {
             >
               страницу входа
             </Link>
+            .
           </p>
-        ) : loading ? (
-          <p className="text-sm text-slate-400">Загрузка задач...</p>
         ) : (
           <>
-            <form onSubmit={handleAdd} className="flex gap-2 mb-6">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Новая задача..."
-                className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2
-                           text-sm placeholder:text-slate-500 focus:outline-none
-                           focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
-                           hover:bg-blue-500 active:bg-blue-700 transition-colors
-                           disabled:opacity-60 disabled:cursor-not-allowed"
+            <section className="mb-8">
+              <h2 className="mb-3 text-lg font-semibold">Новый проект</h2>
+              <form
+                onSubmit={handleCreate}
+                className="flex flex-col gap-3 md:flex-row md:items-center"
               >
-                {submitting ? "Добавляю..." : "Добавить"}
-              </button>
-            </form>
-
-            <ul className="space-y-2">
-              {todos.length === 0 && (
-                <li className="text-sm text-slate-400"></li>
-              )}
-
-              {todos.map((todo) => (
-                <li
-                  key={todo.id}
-                  className="flex items-center justify-between rounded-md bg-slate-800 px-3 py-2"
+                <input
+                  type="text"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  placeholder="Название проекта..."
+                  className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2
+                             text-sm placeholder:text-slate-500 focus:outline-none
+                             focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="color"
+                  value={newColor}
+                  onChange={(e) => setNewColor(e.target.value)}
+                  className="h-10 w-16 rounded-md border border-slate-700 bg-slate-800"
+                />
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium
+                             hover:bg-blue-500 active:bg-blue-700 transition-colors
+                             disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={todo.completed}
-                      onChange={(e) => toggleTodo(todo.id, e.target.checked)}
-                      className="h-4 w-4"
-                    />
-                    <span
-                      className={
-                        "text-sm " +
-                        (todo.completed ? "line-through text-slate-500" : "")
-                      }
+                  {creating ? "Создаю..." : "Создать"}
+                </button>
+              </form>
+            </section>
+
+            <section>
+              <h2 className="mb-3 text-lg font-semibold">Мои проекты</h2>
+              {loading ? (
+                <p className="text-sm text-slate-400">Загрузка проектов...</p>
+              ) : projects.length === 0 ? (
+                <p className="text-sm text-slate-400">Проектов пока нет.</p>
+              ) : (
+                <ul className="grid gap-4 md:grid-cols-2">
+                  {projects.map((p) => (
+                    <li
+                      key={p.id}
+                      className="rounded-lg border border-slate-800 bg-slate-800/60 px-4 py-3"
                     >
-                      {todo.title}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="text-xs text-red-400 hover:text-red-300"
-                  >
-                    Удалить
-                  </button>
-                </li>
-              ))}
-            </ul>
+                      <Link
+                        href={`/projects/${p.id}`}
+                        className="block"
+                      >
+                        <div className="mb-1 flex items-center gap-2">
+                          <span
+                            className="inline-block h-3 w-3 rounded-full"
+                            style={{ backgroundColor: p.color }}
+                          />
+                          <span className="font-medium">{p.project_name}</span>
+                        </div>
+                        {p.description && (
+                          <p className="text-xs text-slate-400 line-clamp-2">
+                            {p.description}
+                          </p>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </>
         )}
       </div>
