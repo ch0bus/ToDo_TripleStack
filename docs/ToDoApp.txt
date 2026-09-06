@@ -1,0 +1,955 @@
+## Современное ToDo приложение — полный функционал
+### **Ядро функциональности**
+
+| Функция | Описание | Зачем пользователю |
+|---------|---------|-------------------|
+| **Создание задач** | Быстрое добавление с заголовком, описанием, приоритетом | Фиксирование идей на лету |
+| **Организация по проектам** | Группировка задач в папки/проекты | Разделение работы, дома, учёбы |
+| **Теги/категории** | Динамическая разметка (#работа, #срочно) | Быстрая фильтрация |
+| **Приоритеты** | 4 уровня (Critical, High, Medium, Low) | Фокус на важном |
+| **Сроки (Due dates)** | Дата выполнения + напоминания | Не забыть о дедлайнах |
+| **Повторяющиеся задачи** | Еженедельно, ежемесячно, кастомные интервалы | Привычки, регулярные дела |
+| **Вложенные подзадачи** | Разбить большую задачу на этапы | Не чувствовать себя подавленным |
+| **Статусы задач** | ToDo → In Progress → Done (+ custom) | Видимость прогресса |
+| **Быстрый ввод** | Естественный язык ("Встреча завтра в 14:00") | Не замедлять рабочий процесс |
+
+---
+
+### **Продвинутая организация**
+
+| Функция | Описание | Примеры |
+|---------|---------|---------|
+| **Список Inbox** | Быстрый сброс идей без сортировки | Позже обработать и распределить |
+| **Фильтры & поиск** | По проекту, тегу, приоритету, дате, статусу | Найти "срочные задачи на эту неделю" |
+| **Сортировка** | По дате, приоритету, времени создания | Контролировать порядок |
+| **Представления** | Список, календарь, доска Kanban, Gantt | Разные способы смотреть на работу |
+| **Группировка** | По проекту, статусу, приоритету, дате | Визуализация беспорядка |
+| **Smart lists (сохранённые фильтры)** | "Мои задачи на сегодня", "Перекрывают все сроки" | Одна кнопка вместо 5 фильтров |
+
+---
+
+### **Сотрудничество & доступ**
+
+| Функция | Описание |
+|---------|---------|
+| **Общие проекты** | Приглашение других пользователей |
+| **Комментарии** | Обсуждение задач в приложении |
+| **Назначение задач** | Кому-то конкретному, себе, группе |
+| **История изменений** | Кто что изменил и когда |
+| **@упоминания** | Уведомление нужного человека |
+
+---
+
+### **Умные функции**
+
+| Функция | Как работает |
+|---------|-------------|
+| **Аналитика & статистика** | График выполнения, продуктивность по неделям, среднее время на задачу |
+| **Напоминания** | На рабочий стол, в приложение, по email, push-уведомления |
+| **Синхронизация** | Между браузером, мобильными, рабочим столом (real-time) |
+| **Офлайн-режим** | Работает без интернета, синхронизируется при подключении |
+| **Интеграции** | Календарь (Google, Outlook), Slack, email, IFTTT |
+| **Автоматизация** | Шаблоны проектов, автоматическое заполнение полей |
+| **Цели (Goals)** | Связать задачи с большими целями, видеть прогресс |
+
+---
+
+### **UX & доступность**
+
+| Функция | Зачем |
+|---------|--------|
+| **Горячие клавиши** | Опытные пользователи работают быстрее (Cmd+K, Cmd+N для новой задачи) |
+| **Темная тема** | Комфорт вечером, экономия батареи |
+| **Темплейты** | Быстрое создание похожих задач |
+| **Многоязычность** | Глобальная аудитория |
+| **Экспорт & импорт** | CSV, iCal, не привязан к одному сервису |
+
+---
+
+## Пример современного ToDo приложения
+
+**Todoist** — хороший эталон:
+- ✅ Быстрый ввод с естественным языком
+- ✅ Проекты + теги + фильтры
+- ✅ Повторяющиеся задачи с гибким расписанием
+- ✅ Совместное использование
+- ✅ Напоминания & интеграции
+- ✅ Статистика (Karma система — геймификация)
+- ✅ Мобильное приложение
+
+**Things 3** — минималистичный подход:
+- ✅ Очень красивый интерфейс
+- ✅ Inbox → Today → Upcoming
+- ✅ Области (Projects, Headings)
+- ✅ Простота в приоритете
+
+**Notion / Logseq** — знания + задачи:
+- ✅ Интеграция с заметками
+- ✅ Полная кастомизация
+- ✅ Связанные документы
+
+---
+
+## Что нужно для MVP
+
+**Минимум для первого релиза:**
+1. Создание, редактирование, удаление задач
+2. Статусы (To Do, Done)
+3. Приоритеты (High, Medium, Low)
+4. Сроки (due date) + напоминания
+5. Проекты/категории
+6. Поиск & фильтры
+7. Мобильная адаптация
+8. Синхронизация между устройствами
+
+**Позже добавить:**
+- Подзадачи
+- Повторяющиеся задачи
+- Совместное использование
+- Интеграции
+- Аналитика
+
+---
+
+Для **Next.js** это реалистично реализовать, для **Django + HTMX** это тоже возможно — но React лучше справится с интерактивностью (фильтры, сортировка, быстрые обновления без перезагрузки).
+
+Какой уровень сложности ты хочешь реализовать для своего приложения?
+
+**Отлично.** Вот детальный план для реализации ядра функциональности в Next.js.
+
+## Структура базы данных
+
+```typescript
+// Тип данных для задачи
+type Todo = {
+  id: number;
+  title: string;
+  description?: string;
+  projectId: number;           // новое
+  tags: string[];              // новое
+  priority: 'critical' | 'high' | 'medium' | 'low';  // новое
+  dueDate?: string;            // новое (ISO формат: 2026-09-15)
+  status: 'todo' | 'in_progress' | 'done';  // заменяет completed
+  recurrence?: {               // новое
+    type: 'daily' | 'weekly' | 'monthly' | 'custom';
+    interval: number;          // каждые N дней/недель/месяцев
+    endDate?: string;
+  };
+  subtasks?: {                 // новое
+    id: number;
+    title: string;
+    completed: boolean;
+  }[];
+  createdAt: string;           // новое
+  updatedAt: string;           // новое
+  userId: number;              // текущий пользователь
+};
+
+type Project = {
+  id: number;
+  name: string;
+  color?: string;              // для визуализации (#FF5733)
+  description?: string;
+  userId: number;
+  createdAt: string;
+};
+```
+
+---
+
+## Архитектура приложения
+
+```
+src/
+├── app/
+│   ├── layout.tsx
+│   ├── page.tsx              (главная с список проектов)
+│   ├── login/page.tsx
+│   ├── register/page.tsx
+│   ├── projects/
+│   │   ├── [projectId]/
+│   │   │   └── page.tsx      (список задач в проекте)
+│   │   └── create/page.tsx
+│   └── todos/
+│       └── [todoId]/page.tsx (детали задачи)
+│
+├── components/
+│   ├── Header.tsx
+│   ├── TodoList.tsx          (переделать под новые возможности)
+│   ├── TodoItem.tsx          (добавить приоритет, теги, дату)
+│   ├── TodoForm.tsx          (новое — форма создания/редактирования)
+│   ├── ProjectSelector.tsx   (новое — выбор проекта)
+│   ├── TagInput.tsx          (новое — добавление тегов)
+│   ├── PriorityBadge.tsx     (новое — отображение приоритета)
+│   ├── FilterBar.tsx         (новое — фильтры и сортировка)
+│   ├── SubtaskList.tsx       (новое — управление подзадачами)
+│   └── RecurrenceForm.tsx    (новое — настройка повторения)
+│
+└── lib/
+    ├── api.ts                (apiFetch)
+    ├── auth.ts               (getAccessToken, clearTokens)
+    └── utils.ts              (форматирование дат, вычисление цвета приоритета)
+```
+
+---
+
+## API endpoints (что нужно на сервере)
+
+```typescript
+// Projects
+GET    /projects/              - все проекты текущего пользователя
+POST   /projects/              - создать новый проект
+PATCH  /projects/{id}/         - обновить проект
+DELETE /projects/{id}/         - удалить проект
+
+// Todos
+GET    /todos/                 - все задачи (с фильтрами: ?projectId=1&status=todo&priority=high)
+POST   /todos/                 - создать задачу
+PATCH  /todos/{id}/            - обновить задачу
+DELETE /todos/{id}/            - удалить задачу
+
+// Subtasks
+POST   /todos/{todoId}/subtasks/        - добавить подзадачу
+PATCH  /todos/{todoId}/subtasks/{id}/   - обновить подзадачу
+DELETE /todos/{todoId}/subtasks/{id}/   - удалить подзадачу
+
+// Поиск и фильтрация
+GET    /todos/search/?q=купить  - полнотекстовый поиск по названию/описанию
+GET    /todos/by-date/?date=2026-09-15  - задачи на конкретную дату
+```
+
+---
+
+## Компоненты для реализации
+
+### 1. **TodoForm.tsx** — создание/редактирование задачи
+
+```typescript
+// src/components/TodoForm.tsx
+'use client';
+
+import { useState } from 'react';
+import { apiFetch } from '@/lib/api';
+import ProjectSelector from './ProjectSelector';
+import TagInput from './TagInput';
+import PrioritySelector from './PrioritySelector';
+import RecurrenceForm from './RecurrenceForm';
+
+export default function TodoForm({ projectId, onSuccess }: {
+  projectId?: number;
+  onSuccess: () => void;
+}) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [selectedProject, setSelectedProject] = useState(projectId || '');
+  const [tags, setTags] = useState<string[]>([]);
+  const [priority, setPriority] = useState<'medium'>('medium');
+  const [dueDate, setDueDate] = useState('');
+  const [recurrence, setRecurrence] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      await apiFetch('/todos/', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description,
+          project_id: selectedProject,
+          tags,
+          priority,
+          due_date: dueDate || null,
+          recurrence,
+          status: 'todo',
+        }),
+      });
+      setTitle('');
+      setDescription('');
+      setTags([]);
+      setPriority('medium');
+      setDueDate('');
+      onSuccess();
+    } catch (error) {
+      console.error('Error creating todo:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-slate-800 p-4 rounded-lg space-y-4">
+      <input
+        type="text"
+        placeholder="Название задачи"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full px-3 py-2 bg-slate-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        required
+      />
+
+      <textarea
+        placeholder="Описание (опционально)"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        className="w-full px-3 py-2 bg-slate-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+        rows={3}
+      />
+
+      <div className="grid grid-cols-2 gap-3">
+        <ProjectSelector value={selectedProject} onChange={setSelectedProject} />
+        <PrioritySelector value={priority} onChange={setPriority} />
+      </div>
+
+      <TagInput tags={tags} onChange={setTags} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-sm text-slate-300">Срок</label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full px-3 py-2 bg-slate-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <RecurrenceForm value={recurrence} onChange={setRecurrence} />
+      </div>
+
+      <button
+        type="submit"
+        disabled={isLoading || !title}
+        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 text-white font-medium py-2 rounded transition-colors"
+      >
+        {isLoading ? 'Создание...' : 'Создать задачу'}
+      </button>
+    </form>
+  );
+}
+```
+
+### 2. **PriorityBadge.tsx** — визуализация приоритета
+
+```typescript
+// src/components/PriorityBadge.tsx
+type Priority = 'critical' | 'high' | 'medium' | 'low';
+
+const PRIORITY_CONFIG: Record<Priority, { color: string; label: string }> = {
+  critical: { color: 'bg-red-600', label: '🔴 Critical' },
+  high: { color: 'bg-orange-500', label: '🟠 High' },
+  medium: { color: 'bg-yellow-500', label: '🟡 Medium' },
+  low: { color: 'bg-slate-500', label: '⚪ Low' },
+};
+
+export default function PriorityBadge({ priority }: { priority: Priority }) {
+  const { color, label } = PRIORITY_CONFIG[priority];
+  return (
+    <span className={`${color} text-white text-xs px-2 py-1 rounded-full font-medium`}>
+      {label}
+    </span>
+  );
+}
+```
+
+### 3. **FilterBar.tsx** — фильтры и сортировка
+
+```typescript
+// src/components/FilterBar.tsx
+'use client';
+
+import { useState } from 'react';
+
+type FilterOptions = {
+  status?: 'todo' | 'in_progress' | 'done';
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  tags?: string[];
+  dueDate?: 'overdue' | 'today' | 'this_week' | 'this_month';
+  sortBy?: 'priority' | 'date' | 'created' | 'title';
+};
+
+export default function FilterBar({ 
+  onFilterChange 
+}: { 
+  onFilterChange: (filters: FilterOptions) => void;
+}) {
+  const [filters, setFilters] = useState<FilterOptions>({});
+
+  const handleStatusChange = (status: FilterOptions['status']) => {
+    const newFilters = { ...filters, status };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  const handlePriorityChange = (priority: FilterOptions['priority']) => {
+    const newFilters = { ...filters, priority };
+    setFilters(newFilters);
+    onFilterChange(newFilters);
+  };
+
+  return (
+    <div className="bg-slate-800 p-4 rounded-lg space-y-3">
+      <div className="flex gap-2 flex-wrap">
+        {/* Status filter */}
+        <div className="flex gap-2">
+          {(['todo', 'in_progress', 'done'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => handleStatusChange(filters.status === status ? undefined : status)}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                filters.status === status
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              {status === 'in_progress' ? 'In Progress' : status === 'done' ? 'Done' : 'To Do'}
+            </button>
+          ))}
+        </div>
+
+        {/* Priority filter */}
+        <div className="flex gap-2">
+          {(['critical', 'high', 'medium', 'low'] as const).map((priority) => (
+            <button
+              key={priority}
+              onClick={() => handlePriorityChange(filters.priority === priority ? undefined : priority)}
+              className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                filters.priority === priority
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              {priority.charAt(0).toUpperCase() + priority.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sort */}
+      <select
+        onChange={(e) => {
+          const newFilters = { ...filters, sortBy: e.target.value as any };
+          setFilters(newFilters);
+          onFilterChange(newFilters);
+        }}
+        className="px-3 py-2 bg-slate-700 text-white rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="priority">Сортировка: по приоритету</option>
+        <option value="date">по сроку</option>
+        <option value="created">по дате создания</option>
+        <option value="title">по названию</option>
+      </select>
+    </div>
+  );
+}
+```
+
+### 4. **SubtaskList.tsx** — управление подзадачами
+
+```typescript
+// src/components/SubtaskList.tsx
+'use client';
+
+import { useState } from 'react';
+import { apiFetch } from '@/lib/api';
+
+type Subtask = {
+  id: number;
+  title: string;
+  completed: boolean;
+};
+
+export default function SubtaskList({
+  todoId,
+  subtasks,
+  onUpdate,
+}: {
+  todoId: number;
+  subtasks: Subtask[];
+  onUpdate: () => void;
+}) {
+  const [newSubtask, setNewSubtask] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddSubtask = async () => {
+    if (!newSubtask.trim()) return;
+
+    try {
+      await apiFetch(`/todos/${todoId}/subtasks/`, {
+        method: 'POST',
+        body: JSON.stringify({ title: newSubtask }),
+      });
+      setNewSubtask('');
+      onUpdate();
+    } catch (error) {
+      console.error('Error adding subtask:', error);
+    }
+  };
+
+  const handleToggleSubtask = async (subtaskId: number, completed: boolean) => {
+    try {
+      await apiFetch(`/todos/${todoId}/subtasks/${subtaskId}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ completed: !completed }),
+      });
+      onUpdate();
+    } catch (error) {
+      console.error('Error updating subtask:', error);
+    }
+  };
+
+  const handleDeleteSubtask = async (subtaskId: number) => {
+    try {
+      await apiFetch(`/todos/${todoId}/subtasks/${subtaskId}/`, {
+        method: 'DELETE',
+      });
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting subtask:', error);
+    }
+  };
+
+  const completedCount = subtasks.filter((s) => s.completed).length;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-300">
+          Подзадачи ({completedCount}/{subtasks.length})
+        </h3>
+      </div>
+
+      <div className="space-y-2 bg-slate-900 p-3 rounded">
+        {subtasks.map((subtask) => (
+          <div key={subtask.id} className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              checked={subtask.completed}
+              onChange={() => handleToggleSubtask(subtask.id, subtask.completed)}
+              className="w-4 h-4 cursor-pointer"
+            />
+            <span className={subtask.completed ? 'line-through text-slate-500' : 'text-slate-200'}>
+              {subtask.title}
+            </span>
+            <button
+              onClick={() => handleDeleteSubtask(subtask.id)}
+              className="ml-auto text-slate-500 hover:text-red-400 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Добавить подзадачу..."
+          value={newSubtask}
+          onChange={(e) => setNewSubtask(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleAddSubtask()}
+          className="flex-1 px-3 py-2 bg-slate-700 text-white rounded text-sm focus:outline-none focus:ring-2
+          
+
+
+## Главная страница (page.tsx)
+
+Вот полная реализация главной страницы с интеграцией всех компонентов:
+
+```typescript
+// src/app/page.tsx
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Header from '@/components/Header';
+import TodoForm from '@/components/TodoForm';
+import TodoList from '@/components/TodoList';
+import FilterBar from '@/components/FilterBar';
+import ProjectSelector from '@/components/ProjectSelector';
+import { apiFetch } from '@/lib/api';
+import { getAccessToken } from '@/lib/auth';
+
+type Todo = {
+  id: number;
+  title: string;
+  description?: string;
+  projectId: number;
+  tags: string[];
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  dueDate?: string;
+  status: 'todo' | 'in_progress' | 'done';
+  recurrence?: any;
+  subtasks?: { id: number; title: string; completed: boolean }[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+type Project = {
+  id: number;
+  name: string;
+  color?: string;
+  description?: string;
+};
+
+type FilterOptions = {
+  status?: 'todo' | 'in_progress' | 'done';
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  tags?: string[];
+  dueDate?: 'overdue' | 'today' | 'this_week' | 'this_month';
+  sortBy?: 'priority' | 'date' | 'created' | 'title';
+};
+
+export default function Home() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [filters, setFilters] = useState<FilterOptions>({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'today' | 'overdue'>('all');
+
+  // Проверка авторизации
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      router.push('/login');
+      return;
+    }
+    fetchData();
+  }, []);
+
+  // Загрузка проектов и задач
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      const [projectsRes, todosRes] = await Promise.all([
+        apiFetch('/projects/'),
+        apiFetch('/todos/'),
+      ]);
+
+      setProjects(projectsRes);
+      setTodos(todosRes);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Фильтрация и сортировка задач
+  const getFilteredTodos = () => {
+    let filtered = [...todos];
+
+    // Фильтр по проекту
+    if (selectedProject) {
+      filtered = filtered.filter((todo) => todo.projectId === selectedProject);
+    }
+
+    // Фильтр по статусу
+    if (filters.status) {
+      filtered = filtered.filter((todo) => todo.status === filters.status);
+    }
+
+    // Фильтр по приоритету
+    if (filters.priority) {
+      filtered = filtered.filter((todo) => todo.priority === filters.priority);
+    }
+
+    // Фильтр по тегам
+    if (filters.tags && filters.tags.length > 0) {
+      filtered = filtered.filter((todo) =>
+        filters.tags?.some((tag) => todo.tags.includes(tag))
+      );
+    }
+
+    // Фильтр по дате
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (filters.dueDate === 'today') {
+      filtered = filtered.filter((todo) => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() === today.getTime();
+      });
+    } else if (filters.dueDate === 'overdue') {
+      filtered = filtered.filter((todo) => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() < today.getTime() && todo.status !== 'done';
+      });
+    } else if (filters.dueDate === 'this_week') {
+      const weekEnd = new Date(today);
+      weekEnd.setDate(weekEnd.getDate() + 7);
+      filtered = filtered.filter((todo) => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() <= weekEnd.getTime();
+      });
+    } else if (filters.dueDate === 'this_month') {
+      const monthEnd = new Date(today);
+      monthEnd.setMonth(monthEnd.getMonth() + 1);
+      monthEnd.setDate(0);
+      filtered = filtered.filter((todo) => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() <= monthEnd.getTime();
+      });
+    }
+
+    // Фильтр по поиску
+    if (searchQuery) {
+      filtered = filtered.filter((todo) =>
+        todo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        todo.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Фильтр по табам
+    if (activeTab === 'today') {
+      filtered = filtered.filter((todo) => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() === today.getTime();
+      });
+    } else if (activeTab === 'overdue') {
+      filtered = filtered.filter((todo) => {
+        if (!todo.dueDate) return false;
+        const dueDate = new Date(todo.dueDate);
+        dueDate.setHours(0, 0, 0, 0);
+        return dueDate.getTime() < today.getTime() && todo.status !== 'done';
+      });
+    }
+
+    // Сортировка
+    switch (filters.sortBy || 'priority') {
+      case 'priority':
+        const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+        filtered.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+        break;
+      case 'date':
+        filtered.sort((a, b) => {
+          const dateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+          const dateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+          return dateA - dateB;
+        });
+        break;
+      case 'created':
+        filtered.sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        break;
+      case 'title':
+        filtered.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+    }
+
+    return filtered;
+  };
+
+  const filteredTodos = getFilteredTodos();
+
+  // Статистика
+  const stats = {
+    total: todos.length,
+    completed: todos.filter((t) => t.status === 'done').length,
+    inProgress: todos.filter((t) => t.status === 'in_progress').length,
+    overdue: todos.filter((t) => {
+      if (!t.dueDate || t.status === 'done') return false;
+      const dueDate = new Date(t.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return dueDate.getTime() < today.getTime();
+    }).length,
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-slate-300">Загрузка...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950">
+      <Header />
+
+      <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Статистика */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <div className="text-slate-400 text-sm">Всего задач</div>
+            <div className="text-3xl font-bold text-white">{stats.total}</div>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <div className="text-slate-400 text-sm">Выполнено</div>
+            <div className="text-3xl font-bold text-green-400">{stats.completed}</div>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <div className="text-slate-400 text-sm">В процессе</div>
+            <div className="text-3xl font-bold text-blue-400">{stats.inProgress}</div>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg">
+            <div className="text-slate-400 text-sm">Просрочено</div>
+            <div className="text-3xl font-bold text-red-400">{stats.overdue}</div>
+          </div>
+        </div>
+
+        {/* Основная секция */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Левая колонка — фильтры */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Проекты */}
+            <div className="bg-slate-800 p-4 rounded-lg">
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Проекты</h3>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setSelectedProject(null)}
+                  className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                    selectedProject === null
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  Все проекты
+                </button>
+                {projects.map((project) => (
+                  <button
+                    key={project.id}
+                    onClick={() => setSelectedProject(project.id)}
+                    className={`w-full text-left px-3 py-2 rounded transition-colors flex items-center gap-2 ${
+                      selectedProject === project.id
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {project.color && (
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: project.color }}
+                      />
+                    )}
+                    {project.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Быстрые фильтры */}
+            <div className="bg-slate-800 p-4 rounded-lg">
+              <h3 className="text-sm font-semibold text-slate-300 mb-3">Быстрые фильтры</h3>
+              <div className="space-y-2">
+                {(['all', 'today', 'overdue'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`w-full text-left px-3 py-2 rounded transition-colors ${
+                      activeTab === tab
+                        ? 'bg-blue-600 text-white'
+                        : 'text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {tab === 'all' && '📋 Все'}
+                    {tab === 'today' && '📅 Сегодня'}
+                    {tab === 'overdue' && '⚠️ Просрочено'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Создать задачу */}
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded transition-colors"
+            >
+              + Новая задача
+            </button>
+          </div>
+
+          {/* Правая колонка — задачи */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Форма создания */}
+            {showForm && (
+              <div className="sticky top-4">
+                <TodoForm
+                  projectId={selectedProject || undefined}
+                  onSuccess={() => {
+                    setShowForm(false);
+                    fetchData();
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Поиск и фильтры */}
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  placeholder="Поиск задач..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1 px-4 py-2 bg-slate-800 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <FilterBar onFilterChange={setFilters} />
+            </div>
+
+            {/* Список задач */}
+            {filteredTodos.length === 0 ? (
+              <div className="bg-slate-800 p-12 rounded-lg text-center">
+                <div className="text-slate-400 text-lg">
+                  {searchQuery || selectedProject !== null || Object.keys(filters).length > 0
+                    ? '😴 Никаких задач не найдено'
+                    : '🎉 Отлично! У вас нет задач'}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm text-slate-400 mb-4">
+                  Показано {filteredTodos.length} из {todos.length} задач
+                </div>
+                <TodoList
+                  todos={filteredTodos}
+                  onTodoUpdated={fetchData}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+```
+
+---
+
+## Как это выглядит визуально
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📋 ToDo App                                    Logout      │
+└─────────────────────────────────────────────────────────────┘
+
+┌──────────────┐  ┌────────────────────────────────────────────┐
+│  Статистика (4 карточки):                                    │
+│  ├─ Всего: 12       │  ├─ Выполнено: 5                      │
+│  ├─ В процессе: 4   │  └─ Просрочено: 2                      │
+└──────────────────────────────────────────────────────────────┘
+
+┌───────────────────┐  ┌────────────────────────────────────────┐
+│ ЛЕВАЯ КОЛОНКА     │  │ ПРАВАЯ КОЛОНКА                         
