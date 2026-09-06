@@ -27,7 +27,7 @@ class TagKind(models.TextChoices):
     PERSONAL = "personal", "личное"
     HEALTH = "health", "здоровье"
     FINANCE = "finance", "финансы"
-    SHOPPING = "shoping", "покупки"
+    SHOPPING = "shopping", "покупки"
     HOME = "home", "дом"
     HOBBY = "hobby", "хобби"
     OTHER = "other", "другое"
@@ -52,9 +52,16 @@ class Tag(models.Model):
         default=TagKind.OTHER,
     )
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "tag_name"],
+                name="unique_user_tag_name",
+            ),
+        ]
+
     def __str__(self):
         return f"{self.tag_name}"
-
 
 
 class Project(models.Model):
@@ -63,12 +70,20 @@ class Project(models.Model):
         on_delete=models.CASCADE,
         related_name="projects",
         verbose_name="Создатель",
-        db_index=True  # Индекс для быстрого поиска по пользователю
+        db_index=True,  # Индекс для быстрого поиска по пользователю
     )
     project_name = models.CharField(max_length=255, db_index=True)
-    color = models.CharField(max_length=255, db_index=True) # для визуализации (#FF5733)
-    description = models.TextField(blank=True)    
+    color = models.CharField(max_length=255, db_index=True)  # для визуализации (#FF5733)
+    description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "project_name"],
+                name="unique_user_project_name",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.project_name}"
@@ -80,14 +95,16 @@ class Todo(models.Model):
         on_delete=models.CASCADE,
         related_name="todos",
         verbose_name="Автор",
-        db_index=True  # Индекс для быстрого поиска по пользователю
+        db_index=True,  # Индекс для быстрого поиска по пользователю
     )
     project = models.ForeignKey(
         Project,
         on_delete=models.CASCADE,
         related_name="todos",
-        null=True, blank=True,
-        db_index=True)  # Индекс для быстрого поиска по пользователю
+        null=True,
+        blank=True,
+        db_index=True,
+    )  # Индекс для быстрого поиска по пользователю
     tags = models.ManyToManyField(
         Tag,
         blank=True,
@@ -97,51 +114,56 @@ class Todo(models.Model):
     priority = models.CharField(
         max_length=16,
         choices=Priority.choices,
-        default=Priority.MEDIUM
+        default=Priority.MEDIUM,
     )
-    title = models.CharField(max_length=255, db_index=True) # Индекс для поиска
+    title = models.CharField(max_length=255, db_index=True)  # Индекс для поиска
     description = models.TextField(blank=True)
-    #completed = models.BooleanField(default=False, db_index=True) # Индекс для фильтрации
-    status = models.CharField( # заменяет completed
+    status = models.CharField(  # заменяет completed
         max_length=16,
         choices=Status.choices,
-        default=Status.TODO
+        default=Status.TODO,
+        db_index=True,
     )
-    dueDate = models.DateTimeField('Срок выполнения задачи', blank=True, null=True) # срок выполнения задачи
+    due_date = models.DateTimeField(
+        "Срок выполнения задачи",
+        blank=True,
+        null=True,
+        db_index=True,
+    )  # срок выполнения задачи
     recurrence = models.CharField(
         max_length=16,
         choices=Recurrence.choices,
-        default=Recurrence.NEVER
+        default=Recurrence.NEVER,
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=['user', 'completed']),  # Комбинированный индекс
-            models.Index(fields=['user', '-created_at']),  # Для сортировки
+            models.Index(fields=["user", "status"]),  # Комбинированный индекс
+            models.Index(fields=["user", "-created_at"]),  # Для сортировки
         ]
 
     def __str__(self):
-        return f"{self.title} (completed={self.completed})"
+        return f"{self.title} [{self.status}]"
 
 
-class Subtasks(models.Model):
+class Subtask(models.Model):
     todo = models.ForeignKey(
         Todo,
         on_delete=models.CASCADE,
         related_name="subtasks",
     )
-    dueDate = models.DateTimeField(null=True, blank=True) # срок выполнения задачи    
-    title = models.CharField(max_length=255, db_index=True) # Индекс для поиска
-    completed = models.BooleanField(default=False, db_index=True) # Индекс для фильтрации
+    due_date = models.DateTimeField(null=True, blank=True)  # срок выполнения задачи
+    title = models.CharField(max_length=255, db_index=True)  # Индекс для поиска
+    completed = models.BooleanField(
+        default=False,
+        db_index=True,
+    )  # Индекс для фильтрации
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.title} (completed={self.completed})"
-
-
-        
 
