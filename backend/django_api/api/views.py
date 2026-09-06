@@ -7,8 +7,14 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
-from .serializers import RegisterSerializer, UserSerializer, TodoSerializer, TagSerializer
-from todos.models import Todo, Tag
+from .serializers import (
+    RegisterSerializer,
+    UserSerializer,
+    TodoSerializer,
+    TagSerializer,
+    ProjectSerializer,
+)
+from todos.models import Todo, Tag, Project
 
 User = get_user_model()
 
@@ -252,6 +258,40 @@ class TagViewSet(viewsets.ModelViewSet):
     @extend_schema(
         summary="Удалить тег",
         description="Удаляет персональный тег пользователя.",
+    )
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    """Список и управление проектами пользователя."""
+
+    serializer_class = ProjectSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return Project.objects.filter(user=self.request.user).order_by("project_name")
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @extend_schema(
+        summary="Список проектов",
+        description="Возвращает проекты текущего пользователя.",
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Создать проект",
+        description="Создает новый проект пользователя.",
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Удалить проект",
+        description="Удаляет проект пользователя.",
     )
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)

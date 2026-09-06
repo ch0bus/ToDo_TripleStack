@@ -22,10 +22,13 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [hasToken, setHasToken] = useState(false);
 
-  // проверяем токен
+  // проверяем токен и загружаем задачи
   useEffect(() => {
     const token = getAccessToken();
+    setHasToken(!!token);
+
     if (!token) {
       setLoading(false);
       return;
@@ -38,6 +41,7 @@ export default function Home() {
 
         if (res.status === 401) {
           clearTokens();
+          setHasToken(false);
           setError("Нужно войти в систему.");
           return;
         }
@@ -72,6 +76,7 @@ export default function Home() {
 
       if (res.status === 401) {
         clearTokens();
+        setHasToken(false);
         setError("Сессия истекла. Войдите снова.");
         return;
       }
@@ -99,6 +104,7 @@ export default function Home() {
 
       if (res.status === 401) {
         clearTokens();
+        setHasToken(false);
         setError("Сессия истекла. Войдите снова.");
         return;
       }
@@ -123,6 +129,7 @@ export default function Home() {
 
       if (res.status === 401) {
         clearTokens();
+        setHasToken(false);
         setError("Сессия истекла. Войдите снова.");
         return;
       }
@@ -138,26 +145,25 @@ export default function Home() {
 
   function handleLogout() {
     clearTokens();
+    setHasToken(false);
     setTodos([]);
     setError("");
     router.push("/login");
   }
 
-  const hasToken = !!getAccessToken();
-
   return (
     <main className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center">
       <div className="w-full max-w-xl px-4 py-8">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold">ToDo App</h1>      
+          <h1 className="text-3xl font-bold">ToDo App</h1>
           {hasToken && (
-    <button
-      onClick={handleLogout}
-      className="text-sm text-slate-300 hover:text-slate-100 cursor-pointer hover:underline transition-colors"
-    >
-      Выйти
-    </button>
-  )}    
+            <button
+              onClick={handleLogout}
+              className="text-sm text-slate-300 hover:text-slate-100 cursor-pointer hover:underline transition-colors"
+            >
+              Выйти
+            </button>
+          )}
         </div>
 
         {error && (

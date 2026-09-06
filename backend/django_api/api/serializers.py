@@ -68,6 +68,20 @@ class TagSerializer(serializers.ModelSerializer):
         }
 
 
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = ("id", "project_name", "color", "description", "created_at")
+        read_only_fields = ("id", "created_at")
+        extra_kwargs = {
+            "id": {"help_text": "Уникальный ID проекта"},
+            "project_name": {"help_text": "Название проекта"},
+            "color": {"help_text": "Цвет проекта в HEX, например #FF5733"},
+            "description": {"help_text": "Описание проекта"},
+            "created_at": {"help_text": "Дата и время создания"},
+        }
+
+
 class TodoSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
 
