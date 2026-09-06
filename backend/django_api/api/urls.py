@@ -2,10 +2,11 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from .views import RegisterView, MeView, TodoViewSet
+from .views import RegisterView, MeView, TodoViewSet, TagViewSet
 
 router = DefaultRouter()
 router.register(r"todos", TodoViewSet, basename="todo")
+router.register(r"tags", TagViewSet, basename="tag")
 
 urlpatterns = [
     # auth
@@ -13,6 +14,6 @@ urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="auth-login"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
 
-    # todos
+    # api
     path("", include(router.urls)),
 ]
