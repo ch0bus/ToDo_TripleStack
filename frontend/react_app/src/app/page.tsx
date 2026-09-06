@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, clearTokens } from "@/lib/auth";
 
+import Link from "next/link";
+
 type Todo = {
   id: number;
   title: string;
@@ -77,7 +79,7 @@ export default function Home() {
       if (!res.ok) throw new Error("Failed to create todo");
 
       const newTodo = (await res.json()) as Todo;
-      setTodos(prev => [...prev, newTodo]);
+      setTodos((prev) => [...prev, newTodo]);
       setTitle("");
     } catch (e) {
       console.error(e);
@@ -105,9 +107,7 @@ export default function Home() {
 
       const updated = (await res.json()) as Todo;
 
-      setTodos(prev =>
-        prev.map(t => (t.id === updated.id ? updated : t))
-      );
+      setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     } catch (e) {
       console.error(e);
       setError("Не удалось обновить задачу");
@@ -129,7 +129,7 @@ export default function Home() {
 
       if (!res.ok) throw new Error("Failed to delete todo");
 
-      setTodos(prev => prev.filter(t => t.id !== id));
+      setTodos((prev) => prev.filter((t) => t.id !== id));
     } catch (e) {
       console.error(e);
       setError("Не удалось удалить задачу");
@@ -149,22 +149,15 @@ export default function Home() {
     <main className="min-h-screen bg-slate-900 text-slate-50 flex items-center justify-center">
       <div className="w-full max-w-xl px-4 py-8">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-3xl font-bold">ToDo App</h1>
-          {hasToken ? (
-            <button
-              onClick={handleLogout}
-              className="text-sm text-slate-300 hover:text-slate-100"
-            >
-              Выйти
-            </button>
-          ) : (
-            <button
-              onClick={() => router.push("/login")}
-              className="text-sm text-blue-400 hover:text-blue-300"
-            >
-              Войти
-            </button>
-          )}
+          <h1 className="text-3xl font-bold">ToDo App</h1>      
+          {hasToken && (
+    <button
+      onClick={handleLogout}
+      className="text-sm text-slate-300 hover:text-slate-100 cursor-pointer hover:underline transition-colors"
+    >
+      Выйти
+    </button>
+  )}    
         </div>
 
         {error && (
@@ -176,13 +169,12 @@ export default function Home() {
         {!hasToken ? (
           <p className="text-sm text-slate-300">
             Вы не вошли. Перейдите на{" "}
-            <button
-              onClick={() => router.push("/login")}
+            <Link
+              href="/login"
               className="text-blue-400 hover:text-blue-300 underline"
             >
               страницу входа
-            </button>
-            .
+            </Link>
           </p>
         ) : loading ? (
           <p className="text-sm text-slate-400">Загрузка задач...</p>
@@ -192,7 +184,7 @@ export default function Home() {
               <input
                 type="text"
                 value={title}
-                onChange={e => setTitle(e.target.value)}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="Новая задача..."
                 className="flex-1 rounded-md border border-slate-700 bg-slate-800 px-3 py-2
                            text-sm placeholder:text-slate-500 focus:outline-none
@@ -211,11 +203,10 @@ export default function Home() {
 
             <ul className="space-y-2">
               {todos.length === 0 && (
-                <li className="text-sm text-slate-400">
- </li>
+                <li className="text-sm text-slate-400"></li>
               )}
 
-              {todos.map(todo => (
+              {todos.map((todo) => (
                 <li
                   key={todo.id}
                   className="flex items-center justify-between rounded-md bg-slate-800 px-3 py-2"
@@ -224,17 +215,13 @@ export default function Home() {
                     <input
                       type="checkbox"
                       checked={todo.completed}
-                      onChange={e =>
-                        toggleTodo(todo.id, e.target.checked)
-                      }
+                      onChange={(e) => toggleTodo(todo.id, e.target.checked)}
                       className="h-4 w-4"
                     />
                     <span
                       className={
                         "text-sm " +
-                        (todo.completed
-                          ? "line-through text-slate-500"
-                          : "")
+                        (todo.completed ? "line-through text-slate-500" : "")
                       }
                     >
                       {todo.title}

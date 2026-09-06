@@ -4,6 +4,8 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { setTokens } from "@/lib/auth";
 
+import Link from "next/link";
+
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api";
 
@@ -96,6 +98,15 @@ export default function LoginPage() {
           >
             {loading ? "Вхожу..." : "Войти"}
           </button>
+          <p className="text-sm text-slate-300">
+            У вас нету аккаунта?{" "}
+            <Link
+              href="/register"
+              className="text-sm text-slate-400 hover:text-slate-200"
+            >
+              Регистрация
+            </Link>
+          </p>
         </form>
       </div>
     </main>
