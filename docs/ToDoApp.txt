@@ -950,6 +950,445 @@ export default function Home() {
 │  ├─ Всего: 12       │  ├─ Выполнено: 5                      │
 │  ├─ В процессе: 4   │  └─ Просрочено: 2                      │
 └──────────────────────────────────────────────────────────────┘
-
 ┌───────────────────┐  ┌────────────────────────────────────────┐
-│ ЛЕВАЯ КОЛОНКА     │  │ ПРАВАЯ КОЛОНКА                         
+│ ЛЕВАЯ КОЛОНКА     │  │ ПРАВАЯ КОЛОНКА                         │
+├───────────────────┤  ├────────────────────────────────────────┤
+│ Проекты:          │  │ [Поле поиска: Поиск задач...]          │
+│ ✓ Все проекты     │  │                                        │
+│  Работа           │  │ [Фильтры по приоритету, статусу]       │
+│  Личное           │  │                                        │
+│  Учёба            │  │ Показано 5 из 12 задач                 │
+│                   │  │                                        │
+│ Быстрые фильтры:  │  │ ┌──────────────────────────────────┐   │
+│ 📋 Все            │  │ │ 🔴 Critical | Купить продукты   │   │
+│ 📅 Сегодня        │  │ │ Due: Сегодня                     │   │
+│ ⚠️ Просрочено     │  │ │ Tags: #покупки #срочно          │   │
+│                   │  │ │ ☐ In Progress                    │   │
+│ + Новая задача    │  │ │ Подзадачи: 2/3 выполнено       │   │
+│                   │  │ │ [🗑️ Delete]                     │   │
+│                   │  │ └──────────────────────────────────┘   │
+│                   │  │                                        │
+│                   │  │ ┌──────────────────────────────────┐   │
+│                   │  │ │ 🟠 High | Отправить отчёт      │   │
+│                   │  │ │ Due: 16 сентября                 │   │
+│                   │  │ │ Tags: #работа                    │   │
+│                   │  │ │ ☑ To Do                          │   │
+│                   │  │ │ [🗑️ Delete]                     │   │
+│                   │  │ └──────────────────────────────────┘   │
+│                   │  │                                        │
+│                   │  │ ┌──────────────────────────────────┐   │
+│                   │  │ │ 🟡 Medium | Прочитать статью   │   │
+│                   │  │ │ Due: Завтра                      │   │
+│                   │  │ │ Tags: #обучение #статьи         │   │
+│                   │  │ │ ☐ To Do                          │   │
+│                   │  │ │ [🗑️ Delete]                     │   │
+│                   │  │ └──────────────────────────────────┘   │
+└───────────────────┘  └────────────────────────────────────────┘
+```
+
+---
+
+## Обновлённые компоненты для работы с page.tsx
+
+### **TodoItem.tsx** — переделанный вариант
+
+```typescript
+// src/components/TodoItem.tsx
+'use client';
+
+import { useState } from 'react';
+import { apiFetch } from '@/lib/api';
+import PriorityBadge from './PriorityBadge';
+
+type Todo = {
+  id: number;
+  title: string;
+  description?: string;
+  tags: string[];
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  dueDate?: string;
+  status: 'todo' | 'in_progress' | 'done';
+  subtasks?: { id: number; title: string; completed: boolean }[];
+};
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  if (date.getTime() === today.getTime()) return 'Сегодня';
+  if (date.getTime() === tomorrow.getTime()) return 'Завтра';
+
+  return date.toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' });
+};
+
+const isOverdue = (dueDate?: string, status?: string) => {
+  if (!dueDate || status === 'done') return false;
+  const date = new Date(dueDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime() < today.getTime();
+};
+
+export default function TodoItem({
+  todo,
+  onTodoUpdated,
+}: {
+  todo: Todo;
+  onTodoUpdated: () => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const handleStatusChange = async (newStatus: Todo['status']) => {
+    setIsUpdating(true);
+    try {
+      await apiFetch(`/todos/${todo.id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      onTodoUpdated();
+    } catch (error) {
+      console.error('Error updating todo:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('Удалить эту задачу?')) return;
+
+    try {
+      await apiFetch(`/todos/${todo.id}/`, { method: 'DELETE' });
+      onTodoUpdated();
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
+  };
+
+  const completedSubtasks = todo.subtasks?.filter((s) => s.completed).length || 0;
+  const totalSubtasks = todo.subtasks?.length || 0;
+  const statusConfig = {
+    todo: { icon: '☐', label: 'To Do', color: 'text-slate-400' },
+    in_progress: { icon: '◐', label: 'In Progress', color: 'text-blue-400' },
+    done: { icon: '☑', label: 'Done', color: 'text-green-400' },
+  };
+
+  const currentStatus = statusConfig[todo.status];
+
+  return (
+    <div
+      className={`
+        bg-slate-800 rounded-lg overflow-hidden transition-all
+        ${isOverdue(todo.dueDate, todo.status) ? 'border-l-4 border-red-500' : ''}
+      `}
+    >
+      {/* Заголовок задачи */}
+      <div
+        className="p-4 cursor-pointer hover:bg-slate-700 transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-start gap-3">
+          {/* Статус */}
+          <div className="mt-1">
+            <select
+              value={todo.status}
+              onChange={(e) => handleStatusChange(e.target.value as Todo['status'])}
+              onClick={(e) => e.stopPropagation()}
+              disabled={isUpdating}
+              className={`
+                bg-transparent border-none cursor-pointer font-bold text-lg
+                ${currentStatus.color} focus:outline-none
+              `}
+            >
+              <option value="todo">☐</option>
+              <option value="in_progress">◐</option>
+              <option value="done">☑</option>
+            </select>
+          </div>
+
+          {/* Содержимое */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3
+                className={`
+                  font-medium text-white
+                  ${todo.status === 'done' ? 'line-through text-slate-500' : ''}
+                `}
+              >
+                {todo.title}
+              </h3>
+              <PriorityBadge priority={todo.priority} />
+            </div>
+
+            {/* Мета-информация */}
+            <div className="flex items-center gap-4 mt-2 text-sm flex-wrap">
+              {/* Дата */}
+              {todo.dueDate && (
+                <div
+                  className={`
+                    ${
+                      isOverdue(todo.dueDate, todo.status)
+                        ? 'text-red-400 font-medium'
+                        : 'text-slate-400'
+                    }
+                  `}
+                >
+                  📅 {formatDate(todo.dueDate)}
+                </div>
+              )}
+
+              {/* Подзадачи */}
+              {totalSubtasks > 0 && (
+                <div className="text-slate-400">
+                  ✓ {completedSubtasks}/{totalSubtasks}
+                </div>
+              )}
+
+              {/* Теги */}
+              {todo.tags.length > 0 && (
+                <div className="flex gap-2 flex-wrap">
+                  {todo.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="bg-slate-700 text-slate-300 text-xs px-2 py-1 rounded"
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Кнопка удаления */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete();
+            }}
+            className="text-slate-500 hover:text-red-400 transition-colors ml-2"
+          >
+            🗑️
+          </button>
+        </div>
+      </div>
+
+      {/* Развёрнутая информация */}
+      {isExpanded && (
+        <div className="border-t border-slate-700 p-4 bg-slate-900 space-y-4">
+          {/* Описание */}
+          {todo.description && (
+            <div>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">
+                {todo.description}
+              </p>
+            </div>
+          )}
+
+          {/* Подзадачи */}
+          {totalSubtasks > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-300 mb-2">
+                Подзадачи ({completedSubtasks}/{totalSubtasks})
+              </h4>
+              <div className="space-y-2">
+                {todo.subtasks?.map((subtask) => (
+                  <div key={subtask.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={subtask.completed}
+                      readOnly
+                      className="w-4 h-4 cursor-pointer"
+                    />
+                    <span
+                      className={
+                        subtask.completed ? 'line-through text-slate-500' : 'text-slate-300'
+                      }
+                    >
+                      {subtask.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Дополнительная информация */}
+          <div className="pt-2 border-t border-slate-700 text-xs text-slate-500 space-y-1">
+            <div>
+              Создано: {new Date(todo.createdAt).toLocaleDateString('ru-RU')}
+            </div>
+            {todo.updatedAt !== todo.createdAt && (
+              <div>
+                Обновлено: {new Date(todo.updatedAt).toLocaleDateString('ru-RU')}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### **TodoList.tsx** — обновленный вариант
+
+```typescript
+// src/components/TodoList.tsx
+'use client';
+
+import TodoItem from './TodoItem';
+
+type Todo = {
+  id: number;
+  title: string;
+  description?: string;
+  tags: string[];
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  dueDate?: string;
+  status: 'todo' | 'in_progress' | 'done';
+  subtasks?: { id: number; title: string; completed: boolean }[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export default function TodoList({
+  todos,
+  onTodoUpdated,
+}: {
+  todos: Todo[];
+  onTodoUpdated: () => void;
+}) {
+  if (todos.length === 0) {
+    return null;
+  }
+
+  // Группировка по статусам для наглядности
+  const groupedByStatus = {
+    todo: todos.filter((t) => t.status === 'todo'),
+    in_progress: todos.filter((t) => t.status === 'in_progress'),
+    done: todos.filter((t) => t.status === 'done'),
+  };
+
+  const statusLabels = {
+    todo: '📋 К выполнению',
+    in_progress: '⚙️ В процессе',
+    done: '✅ Выполнено',
+  };
+
+  return (
+    <div className="space-y-8">
+      {(Object.entries(groupedByStatus) as [keyof typeof groupedByStatus, Todo[]][]).map(
+        ([status, statusTodos]) => {
+          if (statusTodos.length === 0) return null;
+
+          return (
+            <div key={status}>
+              <h2 className="text-lg font-semibold text-slate-300 mb-3">
+                {statusLabels[status]} ({statusTodos.length})
+              </h2>
+              <div className="space-y-3">
+                {statusTodos.map((todo) => (
+                  <TodoItem
+                    key={todo.id}
+                    todo={todo}
+                    onTodoUpdated={onTodoUpdated}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        }
+      )}
+    </div>
+  );
+}
+```
+
+### **ProjectSelector.tsx** — новый компонент
+
+```typescript
+// src/components/ProjectSelector.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { apiFetch } from '@/lib/api';
+
+type Project = {
+  id: number;
+  name: string;
+  color?: string;
+};
+
+export default function ProjectSelector({
+  value,
+  onChange,
+}: {
+  value: number | string;
+  onChange: (projectId: number | string) => void;
+}) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    try {
+      const data = await apiFetch('/projects/');
+      setProjects(data);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="text-slate-400 text-sm">Загрузка проектов...</div>;
+  }
+
+  return (
+    <div>
+      <label className="text-sm text-slate-300 block mb-2">Проект</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value ? parseInt(e.target.value) : '')}
+        className="w-full px-3 py-2 bg-slate-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        <option value="">Выберите проект...</option>
+        {projects.map((project) => (
+          <option key={project.id} value={project.id}>
+            {project.color && '●'} {project.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+```
+
+### **TagInput.tsx** — новый компонент
+
+```typescript
+// src/components/TagInput.tsx
+'use client';
+
+import { useState } from 'react';
+
+export default function TagInput({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const [inputValue, setInputValue] =
