@@ -68,9 +68,15 @@ class TagSerializer(serializers.ModelSerializer):
         }
 
 
+class SubtasksSummarySerializer(serializers.Serializer):
+    done = serializers.IntegerField()
+    total = serializers.IntegerField()
+
+
 class TodoSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
     tags = TagSerializer(many=True, read_only=True)
+    subtasks_summary = serializers.SerializerMethodField()
     tag_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Tag.objects.all(),
@@ -86,6 +92,7 @@ class TodoSerializer(serializers.ModelSerializer):
             "user_id",
             "tags",
             "tag_ids",
+            "subtasks_summary",
             "title",
             "description",
             "status",
@@ -119,6 +126,17 @@ class TodoSerializer(serializers.ModelSerializer):
             },
             "created_at": {"help_text": "Дата и время создания"},
             "updated_at": {"help_text": "Дата и время последнего обновления"},
+        }
+
+    def get_subtasks_summary(self, obj):
+        total = getattr(obj, "subtasks_total", None)
+        done = getattr(obj, "subtasks_done", None)
+        if total is not None and done is not None:
+            return {"total": total, "done": done}
+        subtasks = obj.subtasks.all()
+        return {
+            "total": subtasks.count(),
+            "done": subtasks.filter(completed=True).count(),
         }
 
     def create(self, validated_data):

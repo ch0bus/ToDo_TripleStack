@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { apiFetch } from "@/lib/api";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import type { TodoRow } from "@/components/TodoList";
+import { apiFetch } from "@/lib/api";
 import {
   formatDueLabel,
   getPriorityColor,
@@ -18,6 +19,7 @@ interface TodoItemProps {
 
 export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
   const [busy, setBusy] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const priorityCls = getPriorityColor(todo.priority);
   const isDone = todo.status === "done";
 
@@ -38,12 +40,12 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
     }
   }
 
-  async function handleDelete() {
-    if (!window.confirm("Удалить задачу?")) return;
+  async function handleDeleteConfirm() {
     try {
       setBusy(true);
       const res = await apiFetch(`/todos/${todo.id}/`, { method: "DELETE" });
       if (!res.ok) throw new Error("delete failed");
+      setConfirmOpen(false);
       onDeleted(todo.id);
     } catch (e) {
       console.error(e);
@@ -53,6 +55,7 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
   }
 
   return (
+    <>
     <li className="rounded-lg border border-slate-800 bg-slate-800/80 p-4 shadow-sm">
       <div className="flex gap-3">
         <input
@@ -102,18 +105,35 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
               </p>
             )}
             <p className="text-slate-300">{getStatusLabel(todo.status)}</p>
+            {todo.subtasks_summary && todo.subtasks_summary.total > 0 && (
+              <p>
+                Подзадачи: {todo.subtasks_summary.done}/
+                {todo.subtasks_summary.total} выполнено
+              </p>
+            )}
           </div>
         </div>
 
         <button
           type="button"
           disabled={busy}
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           className="shrink-0 self-start text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
         >
           🗑️ Delete
         </button>
       </div>
     </li>
+
+    <ConfirmDialog
+      open={confirmOpen}
+      title="Удалить задачу?"
+      message={`«${todo.title}» будет удалена без возможности восстановления.`}
+      confirmLabel="Удалить"
+      loading={busy}
+      onConfirm={handleDeleteConfirm}
+      onCancel={() => setConfirmOpen(false)}
+    />
+    </>
   );
 }

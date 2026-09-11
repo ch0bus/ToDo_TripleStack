@@ -88,8 +88,25 @@ Query (все опционально):
 | `due_from`| Срок ≥ (ISO datetime)             |
 | `due_to`  | Срок ≤ (ISO datetime)             |
 | `search`  | Поиск в title/description         |
+| `overdue` | `true` — просроченные (не `done`) |
+| `due_today` | `true` — срок сегодня (TZ сервера) |
 
 - `200` — массив Todo
+
+Каждый элемент может содержать **`subtasks_summary`**: `{ "done": 2, "total": 3 }`.
+
+### GET `/api/todos/stats/`
+
+- `200`:
+
+```json
+{
+  "total": 12,
+  "done": 5,
+  "in_progress": 4,
+  "overdue": 2
+}
+```
 
 ### POST `/api/todos/`
 

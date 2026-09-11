@@ -1,7 +1,9 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, permissions, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,7 +17,7 @@ from .serializers import (
     TagSerializer,
     SubtaskSerializer,
 )
-from todos.models import Todo, Tag, Subtask
+from todos.models import Todo, Tag, Subtask, Status
 
 User = get_user_model()
 
@@ -79,15 +81,25 @@ class TodoViewSet(viewsets.ModelViewSet):
     serializer_class = TodoSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
+    def _annotated_queryset(self):
+        return (
+            Todo.objects.filter(user=self.request.user)
+            .select_related("user")
+            .prefetch_related("tags")
+            .annotate(
+                subtasks_total=Count("subtasks", distinct=True),
+                subtasks_done=Count(
+                    "subtasks",
+                    filter=Q(subtasks__completed=True),
+                    distinct=True,
+                ),
+            )
+        )
+
     def get_queryset(self):
         """Фильтрация задач по всем нужным параметрам."""
 
-        qs = (
-            Todo.objects.select_related("user")
-            .prefetch_related("tags")
-            .filter(user=self.request.user)
-        )
-
+        qs = self._annotated_queryset()
         params = self.request.query_params
 
         status = params.get("status")
@@ -96,6 +108,8 @@ class TodoViewSet(viewsets.ModelViewSet):
         due_from = params.get("due_from")
         due_to = params.get("due_to")
         search = params.get("search")
+        overdue = params.get("overdue")
+        due_today = params.get("due_today")
 
         if status:
             qs = qs.filter(status=status)
@@ -112,12 +126,37 @@ class TodoViewSet(viewsets.ModelViewSet):
         if due_to:
             qs = qs.filter(due_date__lte=due_to)
 
+        if overdue in ("true", "1", "yes"):
+            qs = qs.filter(due_date__lt=timezone.now()).exclude(status=Status.DONE)
+
+        if due_today in ("true", "1", "yes"):
+            qs = qs.filter(due_date__date=timezone.localdate())
+
         if search:
             qs = qs.filter(
                 Q(title__icontains=search) | Q(description__icontains=search)
             )
 
         return qs.distinct()
+
+    @extend_schema(
+        summary="Сводная статистика задач",
+        description="Количество задач по категориям для текущего пользователя.",
+    )
+    @action(detail=False, methods=["get"])
+    def stats(self, request):
+        qs = Todo.objects.filter(user=request.user)
+        now = timezone.now()
+        return Response(
+            {
+                "total": qs.count(),
+                "done": qs.filter(status=Status.DONE).count(),
+                "in_progress": qs.filter(status=Status.IN_PROGRESS).count(),
+                "overdue": qs.filter(due_date__lt=now)
+                .exclude(status=Status.DONE)
+                .count(),
+            }
+        )
 
     @extend_schema(
         summary="Получить все задачи пользователя",
@@ -161,6 +200,18 @@ class TodoViewSet(viewsets.ModelViewSet):
                 description="Поиск по названию или описанию задачи (регистронезависимый)",
                 required=False,
                 type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="overdue",
+                description="true — только просроченные (due_date в прошлом, не done)",
+                required=False,
+                type=OpenApiTypes.BOOL,
+            ),
+            OpenApiParameter(
+                name="due_today",
+                description="true — срок выполнения сегодня (локальная дата сервера)",
+                required=False,
+                type=OpenApiTypes.BOOL,
             ),
         ],
     )

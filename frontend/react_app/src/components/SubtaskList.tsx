@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiFetch } from "@/lib/api";
 
 interface Subtask {
@@ -17,6 +18,8 @@ export function SubtaskList({ todoId }: SubtaskListProps) {
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Subtask | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const base = `/todos/${todoId}/subtasks/`;
 
@@ -75,17 +78,25 @@ export function SubtaskList({ todoId }: SubtaskListProps) {
     }
   }
 
-  async function remove(id: number) {
+  async function confirmRemove() {
+    if (!deleteTarget) return;
     try {
-      const res = await apiFetch(`${base}${id}/`, { method: "DELETE" });
+      setDeleteBusy(true);
+      const res = await apiFetch(`${base}${deleteTarget.id}/`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("delete failed");
-      setItems((prev) => prev.filter((s) => s.id !== id));
+      setItems((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } catch (e) {
       console.error(e);
+    } finally {
+      setDeleteBusy(false);
     }
   }
 
   return (
+    <>
     <section className="mt-8 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
       <h2 className="mb-3 text-sm font-semibold text-slate-100">Подзадачи</h2>
 
@@ -134,7 +145,7 @@ export function SubtaskList({ todoId }: SubtaskListProps) {
               </span>
               <button
                 type="button"
-                onClick={() => remove(s.id)}
+                onClick={() => setDeleteTarget(s)}
                 className="text-xs text-red-400 hover:underline"
               >
                 Удалить
@@ -144,5 +155,20 @@ export function SubtaskList({ todoId }: SubtaskListProps) {
         </ul>
       )}
     </section>
+
+    <ConfirmDialog
+      open={deleteTarget !== null}
+      title="Удалить подзадачу?"
+      message={
+        deleteTarget
+          ? `«${deleteTarget.title}» будет удалена.`
+          : ""
+      }
+      confirmLabel="Удалить"
+      loading={deleteBusy}
+      onConfirm={confirmRemove}
+      onCancel={() => setDeleteTarget(null)}
+    />
+    </>
   );
 }

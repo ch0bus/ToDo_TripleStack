@@ -8,9 +8,16 @@ interface TagOption {
 interface DashboardSidebarProps {
   tags: TagOption[];
   onNewTask: () => void;
+  onNavigate?: () => void;
+  className?: string;
 }
 
-export function DashboardSidebar({ tags, onNewTask }: DashboardSidebarProps) {
+export function DashboardSidebar({
+  tags,
+  onNewTask,
+  onNavigate,
+  className = "",
+}: DashboardSidebarProps) {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const activeTag = searchParams.get("tag") ?? "";
@@ -20,6 +27,7 @@ export function DashboardSidebar({ tags, onNewTask }: DashboardSidebarProps) {
     const next = new URLSearchParams(searchParams);
     updater(next);
     setSearchParams(next);
+    onNavigate?.();
   }
 
   function selectTag(tagId: string) {
@@ -43,10 +51,20 @@ export function DashboardSidebar({ tags, onNewTask }: DashboardSidebarProps) {
     });
   }
 
+  function handleNewTask() {
+    onNewTask();
+    onNavigate?.();
+  }
+
   const allTasksActive = !activeTag && preset === "all";
 
   return (
-    <aside className="space-y-6 rounded-lg border border-slate-800 bg-slate-900/60 p-4 lg:sticky lg:top-4 lg:self-start">
+    <aside
+      className={
+        "space-y-6 rounded-lg border border-slate-800 bg-slate-900/60 p-4 lg:sticky lg:top-24 lg:self-start " +
+        className
+      }
+    >
       <div>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
           Теги
@@ -112,7 +130,7 @@ export function DashboardSidebar({ tags, onNewTask }: DashboardSidebarProps) {
 
       <button
         type="button"
-        onClick={onNewTask}
+        onClick={handleNewTask}
         className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-500"
       >
         + Новая задача
