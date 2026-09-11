@@ -1,22 +1,42 @@
-"use client";
-
-import { useState, FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { apiFetch } from "@/lib/api";
 
+interface TagOption {
+  id: number;
+  tag_name: string;
+}
+
 interface TodoFormProps {
-  projectId: number;
   onCreated?: (todo: unknown) => void;
 }
 
-export function TodoForm({ projectId, onCreated }: TodoFormProps) {
+export function TodoForm({ onCreated }: TodoFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [status, setStatus] = useState("todo");
   const [dueDate, setDueDate] = useState("");
+  const [tagIds, setTagIds] = useState<number[]>([]);
+  const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadTags() {
+      const res = await apiFetch("/tags/");
+      if (res.ok) {
+        setTags((await res.json()) as TagOption[]);
+      }
+    }
+    loadTags();
+  }, []);
+
+  function toggleTag(id: number) {
+    setTagIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
+    );
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -27,16 +47,18 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
       setLoading(true);
       setError("");
 
-      const body: any = {
+      const body: Record<string, unknown> = {
         title: trimmed,
         description: description.trim() || undefined,
         priority,
         status,
-        project: projectId,
       };
 
       if (dueDate) {
         body.due_date = new Date(dueDate).toISOString();
+      }
+      if (tagIds.length) {
+        body.tag_ids = tagIds;
       }
 
       const res = await apiFetch("/todos/", {
@@ -47,13 +69,14 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
       if (!res.ok) throw new Error("Failed to create todo");
 
       const created = await res.json();
-      if (onCreated) onCreated(created);
+      onCreated?.(created);
 
       setTitle("");
       setDescription("");
       setDueDate("");
       setPriority("medium");
       setStatus("todo");
+      setTagIds([]);
     } catch (e) {
       console.error(e);
       setError("Не удалось создать задачу");
@@ -65,7 +88,7 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-sm">
       {error && (
-        <div className="rounded-md bg-red-900/40 border border-red-700 px-2 py-1 text-xs text-red-200">
+        <div className="rounded-md border border-red-700 bg-red-900/40 px-2 py-1 text-xs text-red-200">
           {error}
         </div>
       )}
@@ -76,9 +99,7 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1
-                     text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2
-                     focus:ring-blue-500"
+          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
           placeholder="Новая задача..."
         />
       </div>
@@ -89,14 +110,12 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1
-                     text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2
-                     focus:ring-blue-500"
+          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
         />
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <div className="flex-1 min-w-[120px] space-y-1">
+        <div className="min-w-[120px] flex-1 space-y-1">
           <label className="text-xs text-slate-300">Приоритет</label>
           <select
             value={priority}
@@ -110,7 +129,7 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
           </select>
         </div>
 
-        <div className="flex-1 min-w-[120px] space-y-1">
+        <div className="min-w-[120px] flex-1 space-y-1">
           <label className="text-xs text-slate-300">Статус</label>
           <select
             value={status}
@@ -134,12 +153,31 @@ export function TodoForm({ projectId, onCreated }: TodoFormProps) {
         />
       </div>
 
+      {tags.length > 0 && (
+        <div className="space-y-1">
+          <span className="text-xs text-slate-300">Теги</span>
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <label
+                key={tag.id}
+                className="flex cursor-pointer items-center gap-1 text-xs text-slate-300"
+              >
+                <input
+                  type="checkbox"
+                  checked={tagIds.includes(tag.id)}
+                  onChange={() => toggleTag(tag.id)}
+                />
+                {tag.tag_name}
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium
-                   hover:bg-blue-500 active:bg-blue-700 transition-colors
-                   disabled:opacity-60 disabled:cursor-not-allowed"
+        className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-blue-500 active:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {loading ? "Создаю..." : "Создать задачу"}
       </button>

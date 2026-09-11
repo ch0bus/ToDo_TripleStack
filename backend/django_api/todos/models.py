@@ -64,31 +64,6 @@ class Tag(models.Model):
         return f"{self.tag_name}"
 
 
-class Project(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="projects",
-        verbose_name="Создатель",
-        db_index=True,  # Индекс для быстрого поиска по пользователю
-    )
-    project_name = models.CharField(max_length=255, db_index=True)
-    color = models.CharField(max_length=255, db_index=True)  # для визуализации (#FF5733)
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["user", "project_name"],
-                name="unique_user_project_name",
-            ),
-        ]
-
-    def __str__(self):
-        return f"{self.project_name}"
-
-
 class Todo(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -97,14 +72,6 @@ class Todo(models.Model):
         verbose_name="Автор",
         db_index=True,  # Индекс для быстрого поиска по пользователю
     )
-    project = models.ForeignKey(
-        Project,
-        on_delete=models.CASCADE,
-        related_name="todos",
-        null=True,
-        blank=True,
-        db_index=True,
-    )  # Индекс для быстрого поиска по пользователю
     tags = models.ManyToManyField(
         Tag,
         blank=True,

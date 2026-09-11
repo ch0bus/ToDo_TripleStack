@@ -13,11 +13,13 @@ ToDoApp/
   frontend/
     react_app/
   docs/
+    API_SPEC.md
+    DB_SCHEMA.md
 ```
 
 - `backend/` — три реализации одного и того же REST API.
-- `frontend/` — единый React-клиент, переключающийся между бекэндами через переменные окружения.
-- `docs/` — документация и спецификации (API, заметки и т.д.).
+- `frontend/react_app/` — SPA на **Vite + React Router**, общается с API через JWT (`VITE_API_URL` или proxy в dev).
+- `docs/` — [`API_SPEC.md`](docs/API_SPEC.md), [`DB_SCHEMA.md`](docs/DB_SCHEMA.md), заметки (`ToDoApp.txt`).
 
 ## Схема БД (общее логическое представление)
 
@@ -102,23 +104,42 @@ npm -v
 npx -v
 ```
 
-После этого можно пользоваться `npm` и `npx` в проекте (например, для создания фронтенда на Next.js).
+После этого можно пользоваться `npm` в каталоге `frontend/react_app/`.
 
+## Запуск (локально)
+
+### Backend (Django)
+
+```bash
+cd backend/django_api
+python -m venv venv   # если ещё нет
+source venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
 ```
-npx create-next-app@latest react_app \
-  --typescript \
-  --eslint \
-  --src-dir \
-  --import-alias "@/*" \
-  --use-npm
+
+API: `http://127.0.0.1:8000/api/` · Swagger: `http://127.0.0.1:8000/api/docs/`
+
+### Frontend (Vite + React Router)
+
+В отдельном терминале:
+
+```bash
+cd frontend/react_app
+npm install
+npm run dev
 ```
 
-## Запуск (план)
+Интерфейс: `http://localhost:5173/`
 
-1. Реализовать базовый API (auth + todos) на одном фреймворке (например, Django) по спецификации.
-2. Поднять фронтенд и убедиться, что он работает с API.
-3. Реализовать эквивалентный API на FastAPI и Flask, используя ту же схему данных.
-4. Добавить дополнительные фичи, тесты, Docker (по желанию).
+В режиме разработки запросы к `/api` проксируются на Django (`vite.config.ts`).  
+Для прямого URL API задайте в `.env`: `VITE_API_URL=http://127.0.0.1:8000/api`.
+
+## Дальнейший план
+
+1. Эквивалентный API на FastAPI и Flask.
+2. Дополнительные фичи (подзадачи, тесты, Docker — по желанию).
 
 
 # Проверка backend API

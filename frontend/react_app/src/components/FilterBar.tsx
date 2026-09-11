@@ -1,23 +1,44 @@
-"use client";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { apiFetch } from "@/lib/api";
+
+interface TagOption {
+  id: number;
+  tag_name: string;
+}
 
 export function FilterBar() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tags, setTags] = useState<TagOption[]>([]);
 
   const currentStatus = searchParams.get("status") ?? "";
   const currentPriority = searchParams.get("priority") ?? "";
+  const currentTag = searchParams.get("tag") ?? "";
   const currentSearch = searchParams.get("search") ?? "";
 
+  useEffect(() => {
+    async function loadTags() {
+      try {
+        const res = await apiFetch("/tags/");
+        if (!res.ok) return;
+        const data = (await res.json()) as TagOption[];
+        setTags(data);
+      } catch {
+        /* ignore */
+      }
+    }
+    loadTags();
+  }, []);
+
   function updateParam(name: string, value: string) {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams);
     if (value) {
       params.set(name, value);
     } else {
       params.delete(name);
     }
-    router.push(`?${params.toString()}`);
+    setSearchParams(params);
   }
 
   return (
@@ -46,13 +67,25 @@ export function FilterBar() {
           <option value="low">Низкий</option>
         </select>
 
+        <select
+          value={currentTag}
+          onChange={(e) => updateParam("tag", e.target.value)}
+          className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs md:text-sm"
+        >
+          <option value="">Все теги</option>
+          {tags.map((tag) => (
+            <option key={tag.id} value={String(tag.id)}>
+              {tag.tag_name}
+            </option>
+          ))}
+        </select>
+
         <input
           type="text"
           placeholder="Поиск по названию и описанию..."
           defaultValue={currentSearch}
           onBlur={(e) => updateParam("search", e.target.value)}
-          className="min-w-[160px] flex-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1
-                     text-xs md:text-sm placeholder:text-slate-500"
+          className="min-w-[160px] flex-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs placeholder:text-slate-500 md:text-sm"
         />
       </div>
     </div>

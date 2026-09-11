@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -12,9 +13,9 @@ from .serializers import (
     UserSerializer,
     TodoSerializer,
     TagSerializer,
-    ProjectSerializer,
+    SubtaskSerializer,
 )
-from todos.models import Todo, Tag, Project
+from todos.models import Todo, Tag, Subtask
 
 User = get_user_model()
 
@@ -82,7 +83,7 @@ class TodoViewSet(viewsets.ModelViewSet):
         """Фильтрация задач по всем нужным параметрам."""
 
         qs = (
-            Todo.objects.select_related("user", "project")
+            Todo.objects.select_related("user")
             .prefetch_related("tags")
             .filter(user=self.request.user)
         )
@@ -91,7 +92,6 @@ class TodoViewSet(viewsets.ModelViewSet):
 
         status = params.get("status")
         priority = params.get("priority")
-        project_id = params.get("project")
         tag_id = params.get("tag")
         due_from = params.get("due_from")
         due_to = params.get("due_to")
@@ -102,9 +102,6 @@ class TodoViewSet(viewsets.ModelViewSet):
 
         if priority:
             qs = qs.filter(priority=priority)
-
-        if project_id:
-            qs = qs.filter(project_id=project_id)
 
         if tag_id:
             qs = qs.filter(tags__id=tag_id)
@@ -126,7 +123,7 @@ class TodoViewSet(viewsets.ModelViewSet):
         summary="Получить все задачи пользователя",
         description=(
             "Возвращает список всех задач текущего пользователя с поддержкой фильтрации по "
-            "status, priority, project, tag, due_from, due_to и текстового поиска по title/description."
+            "status, priority, tag, due_from, due_to и текстового поиска по title/description."
         ),
         parameters=[
             OpenApiParameter(
@@ -140,12 +137,6 @@ class TodoViewSet(viewsets.ModelViewSet):
                 description="Приоритет задачи (critical, high, medium, low)",
                 required=False,
                 type=OpenApiTypes.STR,
-            ),
-            OpenApiParameter(
-                name="project",
-                description="ID проекта для фильтрации задач",
-                required=False,
-                type=OpenApiTypes.INT,
             ),
             OpenApiParameter(
                 name="tag",
@@ -187,8 +178,7 @@ class TodoViewSet(viewsets.ModelViewSet):
                     "description": "Молоко, хлеб, яйца",
                     "status": "todo",
                     "priority": "medium",
-                    "project": 1,
-                    "tags": [1, 2],
+                    "tag_ids": [1, 2],
                     "due_date": "2026-09-04T18:00:00Z",
                     "recurrence": "never",
                 },
@@ -263,35 +253,45 @@ class TagViewSet(viewsets.ModelViewSet):
         return super().destroy(request, *args, **kwargs)
 
 
-class ProjectViewSet(viewsets.ModelViewSet):
-    """Список и управление проектами пользователя."""
+class SubtaskViewSet(viewsets.ModelViewSet):
+    """Подзадачи внутри задачи пользователя."""
 
-    serializer_class = ProjectSerializer
+    serializer_class = SubtaskSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
+    def _get_todo(self) -> Todo:
+        return get_object_or_404(
+            Todo,
+            pk=self.kwargs["todo_pk"],
+            user=self.request.user,
+        )
+
     def get_queryset(self):
-        return Project.objects.filter(user=self.request.user).order_by("project_name")
+        return Subtask.objects.filter(todo=self._get_todo()).order_by("-created_at")
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        serializer.save(todo=self._get_todo())
 
-    @extend_schema(
-        summary="Список проектов",
-        description="Возвращает проекты текущего пользователя.",
-    )
+    @extend_schema(summary="Список подзадач задачи")
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
-        summary="Создать проект",
-        description="Создает новый проект пользователя.",
-    )
+    @extend_schema(summary="Создать подзадачу")
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
-    @extend_schema(
-        summary="Удалить проект",
-        description="Удаляет проект пользователя.",
-    )
+    @extend_schema(summary="Получить подзадачу")
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(summary="Обновить подзадачу")
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @extend_schema(summary="Частично обновить подзадачу")
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @extend_schema(summary="Удалить подзадачу")
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)

@@ -1,59 +1,45 @@
-"use client";
-
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { Link, useNavigate } from "react-router-dom";
 
-import { getAccessToken, clearTokens } from "@/lib/auth";
+import { clearTokens, getAccessToken } from "@/lib/auth";
 
 export function Header() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [hasToken, setHasToken] = useState(false);
 
   useEffect(() => {
-    const token = getAccessToken();
-    setHasToken(!!token);
+    setHasToken(!!getAccessToken());
   }, []);
 
   function handleLogout() {
     clearTokens();
     setHasToken(false);
-    router.push("/login");
+    navigate("/login");
   }
 
   return (
     <header className="w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-      <div className="mx-auto max-w-5xl px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="text-xl font-semibold">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <Link to="/" className="text-xl font-semibold">
           ToDo App
         </Link>
 
         <nav className="flex items-center gap-4 text-sm text-slate-300">
           {hasToken ? (
-            <>
-              <Link
-                href="/projects/create"
-                className="hover:text-slate-100 hover:underline"
-              >
-                Новый проект
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="hover:text-slate-100 hover:underline"
-              >
-                Выйти
-              </button>
-            </>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="hover:text-slate-100 hover:underline"
+            >
+              Выйти
+            </button>
           ) : (
             <>
-              <Link
-                href="/login"
-                className="hover:text-slate-100 hover:underline"
-              >
+              <Link to="/login" className="hover:text-slate-100 hover:underline">
                 Вход
               </Link>
               <Link
-                href="/register"
+                to="/register"
                 className="hover:text-slate-100 hover:underline"
               >
                 Регистрация

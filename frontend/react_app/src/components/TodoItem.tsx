@@ -1,8 +1,6 @@
-"use client";
+import { Link } from "react-router-dom";
 
-import Link from "next/link";
-
-import { getPriorityColor, formatDateTime } from "@/lib/utils";
+import { formatDateTime, getPriorityColor } from "@/lib/utils";
 
 interface TodoItemProps {
   todo: {
@@ -22,7 +20,7 @@ export function TodoItem({ todo }: TodoItemProps) {
   return (
     <li className="flex items-start justify-between rounded-md bg-slate-800 px-3 py-2">
       <div className="flex-1 pr-3">
-        <Link href={`/todos/${todo.id}`} className="block">
+        <Link to={`/todos/${todo.id}`} className="block">
           <div className="flex items-center gap-2">
             <span
               className={
@@ -36,20 +34,16 @@ export function TodoItem({ todo }: TodoItemProps) {
           </div>
 
           {todo.description && (
-            <p className="mt-1 text-xs text-slate-400 line-clamp-2">
+            <p className="mt-1 line-clamp-2 text-xs text-slate-400">
               {todo.description}
             </p>
           )}
 
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
-            {todo.due_date && (
-              <span>до {formatDateTime(todo.due_date)}</span>
-            )}
+            {todo.due_date && <span>до {formatDateTime(todo.due_date)}</span>}
 
             {todo.tags && todo.tags.length > 0 && (
-              <span>
-                {todo.tags.map((t) => `#${t.tag_name}`).join(" ")}
-              </span>
+              <span>{todo.tags.map((t) => `#${t.tag_name}`).join(" ")}</span>
             )}
 
             <span>{todo.status}</span>

@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from todos.models import Todo, Tag, Project, Status, Priority, Recurrence
+from todos.models import Todo, Tag, Subtask, Status, Priority, Recurrence
 
 
 User = get_user_model()
@@ -68,30 +68,24 @@ class TagSerializer(serializers.ModelSerializer):
         }
 
 
-class ProjectSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Project
-        fields = ("id", "project_name", "color", "description", "created_at")
-        read_only_fields = ("id", "created_at")
-        extra_kwargs = {
-            "id": {"help_text": "Уникальный ID проекта"},
-            "project_name": {"help_text": "Название проекта"},
-            "color": {"help_text": "Цвет проекта в HEX, например #FF5733"},
-            "description": {"help_text": "Описание проекта"},
-            "created_at": {"help_text": "Дата и время создания"},
-        }
-
-
 class TodoSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Tag.objects.all(),
+        source="tags",
+        write_only=True,
+        required=False,
+    )
 
     class Meta:
         model = Todo
         fields = (
             "id",
             "user_id",
-            "project",
             "tags",
+            "tag_ids",
             "title",
             "description",
             "status",
@@ -105,13 +99,8 @@ class TodoSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             "id": {"help_text": "Уникальный ID задачи"},
             "user_id": {"help_text": "ID пользователя, которому принадлежит задача"},
-            "project": {
-                "help_text": "ID проекта, к которому относится задача (опционально)",
-                "required": False,
-                "allow_null": True,
-            },
-            "tags": {
-                "help_text": "Список ID тегов, связанных с задачей",
+            "tag_ids": {
+                "help_text": "Список ID тегов при создании/обновлении",
                 "required": False,
             },
             "title": {"help_text": "Название задачи", "max_length": 255},
@@ -138,3 +127,17 @@ class TodoSerializer(serializers.ModelSerializer):
         request = self.context["request"]
         validated_data["user"] = request.user
         return super().create(validated_data)
+
+
+class SubtaskSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subtask
+        fields = (
+            "id",
+            "title",
+            "completed",
+            "due_date",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")

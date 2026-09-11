@@ -1,9 +1,17 @@
-"use client";
-
 import { TodoItem } from "@/components/TodoItem";
 
+export interface TodoRow {
+  id: number;
+  title: string;
+  description?: string;
+  status: string;
+  priority: string;
+  due_date?: string | null;
+  tags?: { id: number; tag_name: string }[];
+}
+
 interface TodoListProps {
-  todos: any[];
+  todos: TodoRow[];
   loading?: boolean;
 }
 

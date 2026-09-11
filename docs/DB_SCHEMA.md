@@ -1,165 +1,72 @@
 # Схема БД ToDoApp
 
-Общее логическое представление схемы БД для всех трёх бекэндов (Django, FastAPI, Flask).
-Фактическая реализация (типы полей, названия таблиц, миграции) может отличаться, но
-структура и семантика данных должны быть одинаковыми.
+Логическая модель для Django / FastAPI / Flask. Имена таблиц в ORM могут отличаться;
+семантика полей и связей — общая.
 
-## 1. Таблица `users`
+> Сущность **Project** удалена: группировка через **теги** и фильтры API.
 
-Минимальный набор полей:
+## users
 
-- `id` — первичный ключ (integer, auto-increment).
-- `username` — строка, 3..150 символов, **уникальная**, NOT NULL.
-- `password_hash` — строка с хэшом пароля (NOT NULL).
-- `created_at` — datetime (UTC), NOT NULL.
-- `updated_at` — datetime (UTC), NOT NULL.
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | auto |
+| username | string, unique | 3..150 |
+| email | string, unique | Django: обязателен |
+| password | hash | не отдаётся в API |
 
-Рекомендации по хэшированию паролей:
+Django: `account.User` (`AbstractUser`).
 
-- использовать современные алгоритмы: Argon2, PBKDF2, BCrypt (в зависимости от фреймворка); 
-- пароль никогда не хранится в открытом виде и не возвращается в ответах API.
+## tags
 
-### Реализация по фреймворкам
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users, NULL | NULL = системный тег |
+| tag_name | string | уникален в паре (user, tag_name) |
+| kind | enum | work, personal, health, finance, shopping, home, hobby, other |
 
-#### Django
+## todos
 
-Варианты:
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users | владелец, индекс |
+| title | string 255 | NOT NULL, индекс |
+| description | text | optional |
+| status | enum | todo, in_progress, done (default todo) |
+| priority | enum | critical, high, medium, low |
+| due_date | datetime | NULL |
+| recurrence | enum | daily, weekly, monthly, never |
+| created_at | datetime | auto |
+| updated_at | datetime | auto |
 
-1. Использовать встроенную модель `User` (`django.contrib.auth.models.User`).
-2. Либо завести кастомную модель пользователя (рекомендуется для реальных проектов).
+M2M: **todos ↔ tags** через промежуточную таблицу.
 
-Для учебного проекта можно использовать встроенный `User` и маппить:
+Индексы (Django): `(user, status)`, `(user, -created_at)`, отдельные на title, status, due_date.
 
-- `username` → поле `username` Django User.
-- `id` → первичный ключ Django User.
-- `password_hash` → стандартное поле `password` (Django сам хранит хэш).
+## subtasks
 
-#### FastAPI (SQLAlchemy)
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| todo_id | FK → todos | CASCADE |
+| title | string 255 | |
+| completed | bool | default false |
+| due_date | datetime | NULL |
+| created_at | datetime | |
+| updated_at | datetime | |
 
-Пример модели (логически):
+## Связи
 
-```python
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(150), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), nullable=False)
-    updated_at = Column(DateTime(timezone=True), nullable=False)
-
-    todos = relationship("Todo", back_populates="user")
+```text
+User 1 ── * Todo
+User 1 ── * Tag (личные; системные без user)
+Todo * ── * Tag
+Todo 1 ── * Subtask
 ```
 
-#### Flask (SQLAlchemy)
+## Правила доступа
 
-Модель будет почти идентична FastAPI‑варианту, отличие — только в стиле объявления
-(через `db.Model` или чистый SQLAlchemy Base, в зависимости от стека).
-
-## 2. Таблица `todos`
-
-Поля:
-
-- `id` — первичный ключ (integer, auto-increment).
-- `user_id` — внешний ключ на `users.id` (владелец задачи), NOT NULL.
-- `title` — строка, 1..255 символов, NOT NULL.
-- `description` — текст, NULLable.
-- `completed` — boolean, NOT NULL, по умолчанию `false`.
-- `created_at` — datetime (UTC), NOT NULL.
-- `updated_at` — datetime (UTC), NOT NULL.
-
-### Ограничения и индексы
-
-- Внешний ключ `user_id` → `users.id`.
-- Индекс по `user_id` (для выборки задач пользователя).
-- Опционально индексы по `completed` и/или `title` (для фильтрации и поиска).
-
-### Реализация по фреймворкам
-
-#### Django (пример логической модели)
-
-```python
-from django.conf import settings
-from django.db import models
-
-
-class Todo(models.Model):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="todos",
-    )
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    completed = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"{self.title} (completed={self.completed})"
-```
-
-#### FastAPI / Flask (SQLAlchemy, логика одинаковая)
-
-```python
-class Todo(Base):
-    __tablename__ = "todos"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    completed = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), nullable=False)
-    updated_at = Column(DateTime(timezone=True), nullable=False)
-
-    user = relationship("User", back_populates="todos")
-```
-
-## 3. Связи между сущностями
-
-- Один `User` может иметь много `Todo` (связь `One-to-Many`).
-- Каждая задача (`Todo`) принадлежит ровно одному пользователю (`user_id`).
-
-В ORM это представлено как:
-
-- у `User` — коллекция `todos`;
-- у `Todo` — ссылка `user`.
-
-## 4. Связь схемы БД с API
-
-См. `docs/API_SPEC.md`.
-
-Ключевые моменты:
-
-- API никогда не отдаёт и не принимает пароль в чистом виде, только `username` и `password`
-  в запросе при регистрации/логине.
-- В ответах API сущность пользователя представлена как:
-
-  ```json
-  {
-    "id": 1,
-    "username": "user1"
-  }
-  ```
-
-- Поле `user_id` в модели `Todo`:
-  - **read-only** в API (возвращается клиенту);
-  - никогда не задаётся напрямую клиентом (сервер берёт его из текущего пользователя).
-- Все операции с задачами (`/api/todos/...`) должны фильтроваться по `user_id` равному ID
-  аутентифицированного пользователя.
-
-## 5. Минимальный набор таблиц
-
-Для реализации текущей спецификации достаточно двух таблиц:
-
-- `users`
-- `todos`
-
-Дополнительно в реальном проекте могут появиться:
-
-- таблицы для refresh‑токенов;
-- таблицы аудита/логов;
-- таблица ролей/прав доступа и т.п.
-
-Но для учебного проекта достаточно базовой схемы из этого документа.
+- Все выборки todos/subtasks по `user_id` из JWT.
+- `user_id` в JSON todo — read-only.
+- Подзадачи только через todo, принадлежащий пользователю.
