@@ -19,9 +19,9 @@ export function Header() {
 
   return (
     <header className="w-full border-b border-slate-800 bg-slate-900/80 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link to="/" className="text-xl font-semibold">
-          ToDo App
+          📋 ToDo App
         </Link>
 
         <nav className="flex items-center gap-4 text-sm text-slate-300">

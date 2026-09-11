@@ -13,21 +13,41 @@ export interface TodoRow {
 interface TodoListProps {
   todos: TodoRow[];
   loading?: boolean;
+  emptyMessage?: string;
+  onUpdated: (todo: TodoRow) => void;
+  onDeleted: (id: number) => void;
 }
 
-export function TodoList({ todos, loading }: TodoListProps) {
+export function TodoList({
+  todos,
+  loading,
+  emptyMessage,
+  onUpdated,
+  onDeleted,
+}: TodoListProps) {
   if (loading) {
     return <p className="text-sm text-slate-400">Загрузка задач...</p>;
   }
 
   if (!todos.length) {
-    return <p className="text-sm text-slate-400">Задач пока нет.</p>;
+    return (
+      <div className="rounded-lg bg-slate-800/60 p-12 text-center">
+        <p className="text-lg text-slate-400">
+          {emptyMessage ?? "Задач пока нет."}
+        </p>
+      </div>
+    );
   }
 
   return (
-    <ul className="space-y-2">
+    <ul className="space-y-3">
       {todos.map((todo) => (
-        <TodoItem key={todo.id} todo={todo} />
+        <TodoItem
+          key={todo.id}
+          todo={todo}
+          onUpdated={onUpdated}
+          onDeleted={onDeleted}
+        />
       ))}
     </ul>
   );
