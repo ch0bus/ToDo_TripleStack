@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { TodoItem } from "@/components/TodoItem";
 
 export interface TodoRow {
@@ -16,6 +18,7 @@ interface TodoListProps {
   todos: TodoRow[];
   loading?: boolean;
   emptyMessage?: string;
+  emptyAction?: ReactNode;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
 }
@@ -24,6 +27,7 @@ export function TodoList({
   todos,
   loading,
   emptyMessage,
+  emptyAction,
   onUpdated,
   onDeleted,
 }: TodoListProps) {
@@ -37,12 +41,13 @@ export function TodoList({
         <p className="text-lg text-slate-400">
           {emptyMessage ?? "Задач пока нет."}
         </p>
+        {emptyAction && <div className="mt-4">{emptyAction}</div>}
       </div>
     );
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-2.5">
       {todos.map((todo) => (
         <TodoItem
           key={todo.id}

@@ -1,3 +1,7 @@
+import { useEffect } from "react";
+
+import { useFocusTrap } from "@/lib/useFocusTrap";
+
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
@@ -19,17 +23,37 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const panelRef = useFocusTrap(open);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !loading) {
+        onCancel();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, loading, onCancel]);
+
   if (!open) return null;
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-      aria-describedby="confirm-dialog-desc"
+      role="presentation"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !loading) onCancel();
+      }}
     >
-      <div className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl">
+      <div
+        ref={panelRef}
+        className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-desc"
+      >
         <h2 id="confirm-dialog-title" className="text-lg font-semibold text-slate-50">
           {title}
         </h2>

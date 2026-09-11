@@ -3,9 +3,14 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
+import {
+  PrioritySelect,
+  StatusSelect,
+} from "@/components/StatusPrioritySelects";
 import { apiFetch } from "@/lib/api";
 import { type RecurrenceValue } from "@/lib/recurrence";
 import type { TagOption } from "@/lib/tags";
+import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
 interface TodoFormProps {
   tags: TagOption[];
@@ -95,7 +100,7 @@ export function TodoForm({ tags, onCreated }: TodoFormProps) {
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          className={inputClass}
           placeholder="Новая задача..."
         />
       </div>
@@ -106,36 +111,23 @@ export function TodoForm({ tags, onCreated }: TodoFormProps) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          className={inputClass}
         />
       </div>
 
       <div className="flex flex-wrap gap-2">
         <div className="min-w-[120px] flex-1 space-y-1">
           <label className="text-xs text-slate-300">Приоритет</label>
-          <select
+          <PrioritySelect
             value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
-          >
-            <option value="critical">Критический</option>
-            <option value="high">Высокий</option>
-            <option value="medium">Средний</option>
-            <option value="low">Низкий</option>
-          </select>
+            onChange={setPriority}
+            fullWidth
+          />
         </div>
 
         <div className="min-w-[120px] flex-1 space-y-1">
           <label className="text-xs text-slate-300">Статус</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
-          >
-            <option value="todo">TODO</option>
-            <option value="in_progress">В работе</option>
-            <option value="done">Готово</option>
-          </select>
+          <StatusSelect value={status} onChange={setStatus} fullWidth />
         </div>
       </div>
 
@@ -146,12 +138,15 @@ export function TodoForm({ tags, onCreated }: TodoFormProps) {
             type="datetime-local"
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
+            className={inputClass}
           />
         </div>
         <div className="min-w-[140px] flex-1 space-y-1">
           <label className="text-xs text-slate-300">Повторение</label>
           <RecurrenceSelect value={recurrence} onChange={setRecurrence} />
+          <p className="text-[10px] text-slate-500">
+            Следующие экземпляры по расписанию пока не создаются автоматически.
+          </p>
         </div>
       </div>
 
@@ -203,11 +198,7 @@ export function TodoForm({ tags, onCreated }: TodoFormProps) {
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium transition-colors hover:bg-blue-500 active:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <button type="submit" disabled={loading} className={btnPrimary + " w-full"}>
         {loading ? "Создаю..." : "Создать задачу"}
       </button>
     </form>

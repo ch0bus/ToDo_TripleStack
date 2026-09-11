@@ -1,14 +1,16 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { TagsSettingsSection } from "@/components/TagsSettingsSection";
+import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import { clearTokens } from "@/lib/auth";
-import { TagsSettingsSection } from "@/components/TagsSettingsSection";
 import {
   defaultApiBaseHint,
   getApiBaseOverride,
   setApiBaseOverride,
 } from "@/lib/settings";
+import { btnPrimary, btnSecondary, inputClass } from "@/lib/uiClasses";
 
 interface Profile {
   id: number;
@@ -19,6 +21,7 @@ interface Profile {
 
 export function SettingsPage() {
   const navigate = useNavigate();
+  const { pushToast } = useToast();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -27,7 +30,6 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingApi, setSavingApi] = useState(false);
-  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -53,7 +55,6 @@ export function SettingsPage() {
 
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
-    setMessage("");
     setError("");
     try {
       setSavingProfile(true);
@@ -79,9 +80,11 @@ export function SettingsPage() {
       const updated = (await res.json()) as Profile;
       setProfile(updated);
       setPassword("");
-      setMessage("Профиль сохранён");
+      pushToast("Профиль сохранён", "success");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Ошибка сохранения");
+      const msg = e instanceof Error ? e.message : "Ошибка сохранения";
+      setError(msg);
+      pushToast(msg, "error");
     } finally {
       setSavingProfile(false);
     }
@@ -91,14 +94,17 @@ export function SettingsPage() {
     e.preventDefault();
     setSavingApi(true);
     setApiBaseOverride(apiUrl);
-    setMessage("URL API сохранён. Обновите страницу, если запросы ведут себя странно.");
+    pushToast(
+      "URL API сохранён. Обновите страницу, если запросы ведут себя странно.",
+      "success",
+    );
     setSavingApi(false);
   }
 
   function handleApiReset() {
     setApiUrl("");
     setApiBaseOverride("");
-    setMessage("Сброшено на значение по умолчанию.");
+    pushToast("Сброшено на значение по умолчанию.", "info");
   }
 
   function handleLogout() {
@@ -119,18 +125,13 @@ export function SettingsPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Настройки</h1>
         <Link to="/" className="text-sm text-blue-400 hover:underline">
-          ← Inbox
+          ← Входящие
         </Link>
       </div>
 
       {error && (
         <div className="mb-4 rounded-md border border-red-700 bg-red-900/40 px-3 py-2 text-sm text-red-200">
           {error}
-        </div>
-      )}
-      {message && (
-        <div className="mb-4 rounded-md border border-green-800 bg-green-900/30 px-3 py-2 text-sm text-green-200">
-          {message}
         </div>
       )}
 
@@ -152,7 +153,7 @@ export function SettingsPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
+              className={inputClass}
             />
           </div>
           <div>
@@ -162,7 +163,7 @@ export function SettingsPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+7..."
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
+              className={inputClass}
             />
           </div>
           <div>
@@ -175,14 +176,10 @@ export function SettingsPage() {
               onChange={(e) => setPassword(e.target.value)}
               minLength={8}
               autoComplete="new-password"
-              className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
+              className={inputClass}
             />
           </div>
-          <button
-            type="submit"
-            disabled={savingProfile}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500 disabled:opacity-60"
-          >
+          <button type="submit" disabled={savingProfile} className={btnPrimary}>
             {savingProfile ? "Сохранение..." : "Сохранить профиль"}
           </button>
         </form>
@@ -204,21 +201,13 @@ export function SettingsPage() {
             value={apiUrl}
             onChange={(e) => setApiUrl(e.target.value)}
             placeholder="http://127.0.0.1:8000/api"
-            className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm placeholder:text-slate-500"
+            className={inputClass}
           />
           <div className="flex flex-wrap gap-2">
-            <button
-              type="submit"
-              disabled={savingApi}
-              className="rounded-md bg-slate-700 px-4 py-2 text-sm hover:bg-slate-600 disabled:opacity-60"
-            >
+            <button type="submit" disabled={savingApi} className={btnSecondary}>
               Сохранить URL
             </button>
-            <button
-              type="button"
-              onClick={handleApiReset}
-              className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-300 hover:bg-slate-800"
-            >
+            <button type="button" onClick={handleApiReset} className={btnSecondary}>
               Сбросить
             </button>
           </div>

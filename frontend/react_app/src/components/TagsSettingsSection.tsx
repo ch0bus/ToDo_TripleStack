@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { TagCreateForm } from "@/components/TagCreateForm";
+import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import { TAG_KIND_OPTIONS, type TagOption } from "@/lib/tags";
 
@@ -10,11 +11,11 @@ function kindLabel(kind: string): string {
 }
 
 export function TagsSettingsSection() {
+  const { pushToast } = useToast();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<TagOption | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [notice, setNotice] = useState("");
 
   const loadTags = useCallback(async () => {
     setLoading(true);
@@ -38,7 +39,7 @@ export function TagsSettingsSection() {
         a.tag_name.localeCompare(b.tag_name, "ru"),
       ),
     );
-    setNotice(`Тег «${tag.tag_name}» создан`);
+    pushToast(`Тег «${tag.tag_name}» создан`, "success");
   }
 
   async function confirmDelete() {
@@ -50,10 +51,10 @@ export function TagsSettingsSection() {
       });
       if (!res.ok) throw new Error("delete failed");
       setTags((prev) => prev.filter((t) => t.id !== deleteTarget.id));
-      setNotice(`Тег «${deleteTarget.tag_name}» удалён`);
+      pushToast(`Тег «${deleteTarget.tag_name}» удалён`, "success");
       setDeleteTarget(null);
     } catch {
-      setNotice("Не удалось удалить тег");
+      pushToast("Не удалось удалить тег", "error");
     } finally {
       setDeleteBusy(false);
     }
@@ -68,10 +69,6 @@ export function TagsSettingsSection() {
         Системные теги общие для всех. Свои теги можно создавать и удалять здесь;
         они появятся в фильтрах на главной.
       </p>
-
-      {notice && (
-        <p className="mb-3 text-sm text-green-300/90">{notice}</p>
-      )}
 
       {loading ? (
         <p className="text-sm text-slate-400">Загрузка тегов...</p>

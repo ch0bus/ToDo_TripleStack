@@ -12,6 +12,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { hasActiveFilters, type QuickPreset } from "@/lib/todoFilters";
 import type { TagOption } from "@/lib/tags";
+import { btnPrimary } from "@/lib/uiClasses";
 
 interface TodoStats {
   total: number;
@@ -128,7 +129,7 @@ export function HomePage() {
     }
 
     load();
-  }, [hasToken, refreshDashboard]);
+  }, [hasToken, refreshDashboard, location.pathname]);
 
   useEffect(() => {
     setSearchInput(search ?? "");
@@ -190,7 +191,7 @@ export function HomePage() {
   if (!hasToken) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <h1 className="mb-3 text-2xl font-semibold">Inbox задач</h1>
+        <h1 className="mb-3 text-2xl font-semibold">Входящие</h1>
         <p className="mb-6 text-sm text-slate-400">
           Войдите, чтобы видеть и создавать задачи.
         </p>
@@ -213,7 +214,16 @@ export function HomePage() {
       )}
 
       <div className="sticky top-0 z-20 -mx-4 mb-6 space-y-4 border-b border-slate-800/80 bg-slate-900/95 px-4 py-4 backdrop-blur md:static md:mx-0 md:border-b-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
-        <h1 className="text-2xl font-semibold">Inbox</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-semibold">Входящие</h1>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className={btnPrimary + " hidden md:inline-flex"}
+          >
+            + Новая задача
+          </button>
+        </div>
         <StatsCards
           total={stats.total}
           done={stats.done}
@@ -262,8 +272,19 @@ export function HomePage() {
             loading={loading}
             emptyMessage={
               filtersActive
-                ? "😴 Никаких задач не найдено"
-                : "🎉 Отлично! У вас нет задач"
+                ? "По выбранным фильтрам задач нет"
+                : "Задач пока нет — создайте первую"
+            }
+            emptyAction={
+              !filtersActive ? (
+                <button
+                  type="button"
+                  onClick={() => setShowForm(true)}
+                  className={btnPrimary}
+                >
+                  Создать задачу
+                </button>
+              ) : undefined
             }
             onUpdated={handleTodoUpdated}
             onDeleted={handleTodoDeleted}

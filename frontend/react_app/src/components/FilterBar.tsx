@@ -1,5 +1,11 @@
 import { useSearchParams } from "react-router-dom";
 
+import {
+  PRIORITY_SELECT_OPTIONS,
+  STATUS_SELECT_OPTIONS,
+} from "@/lib/labels";
+import { selectClass } from "@/lib/uiClasses";
+
 export function FilterBar() {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -21,24 +27,27 @@ export function FilterBar() {
       <select
         value={currentStatus}
         onChange={(e) => updateParam("status", e.target.value)}
-        className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
+        className={selectClass}
       >
         <option value="">Все статусы</option>
-        <option value="todo">To Do</option>
-        <option value="in_progress">In Progress</option>
-        <option value="done">Done</option>
+        {STATUS_SELECT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
 
       <select
         value={currentPriority}
         onChange={(e) => updateParam("priority", e.target.value)}
-        className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
+        className={selectClass}
       >
         <option value="">Все приоритеты</option>
-        <option value="critical">Critical</option>
-        <option value="high">High</option>
-        <option value="medium">Medium</option>
-        <option value="low">Low</option>
+        {PRIORITY_SELECT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
       </select>
     </div>
   );

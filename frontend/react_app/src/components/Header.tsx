@@ -52,7 +52,7 @@ export function Header() {
             </button>
           )}
           <Link to="/" className="truncate text-xl font-semibold">
-            📋 ToDo App
+            ToDo App
           </Link>
         </div>
 

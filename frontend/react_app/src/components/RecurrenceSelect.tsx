@@ -1,4 +1,5 @@
 import { RECURRENCE_OPTIONS, type RecurrenceValue } from "@/lib/recurrence";
+import { selectClassFull } from "@/lib/uiClasses";
 
 interface RecurrenceSelectProps {
   value: RecurrenceValue;
@@ -12,7 +13,7 @@ export function RecurrenceSelect({ value, onChange, id }: RecurrenceSelectProps)
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value as RecurrenceValue)}
-      className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
+      className={selectClassFull}
     >
       {RECURRENCE_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>
