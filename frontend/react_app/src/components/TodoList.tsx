@@ -9,6 +9,7 @@ export interface TodoRow {
   due_date?: string | null;
   tags?: { id: number; tag_name: string }[];
   subtasks_summary?: { done: number; total: number };
+  recurrence?: string;
 }
 
 interface TodoListProps {

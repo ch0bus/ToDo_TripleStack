@@ -2,25 +2,16 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { SubtaskList } from "@/components/SubtaskList";
+import { TodoEditForm, type TodoEditData } from "@/components/TodoEditForm";
 import { apiFetch } from "@/lib/api";
-import { formatDateTime } from "@/lib/utils";
-
-interface TodoDetail {
-  id: number;
-  title: string;
-  description?: string;
-  status: string;
-  priority: string;
-  due_date: string | null;
-  recurrence: string;
-  tags?: { id: number; tag_name: string }[];
-}
+import type { TagOption } from "@/lib/tags";
 
 export function TodoDetailPage() {
   const { todoId } = useParams();
   const id = Number(todoId);
 
-  const [todo, setTodo] = useState<TodoDetail | null>(null);
+  const [todo, setTodo] = useState<TodoEditData | null>(null);
+  const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -31,13 +22,19 @@ export function TodoDetailPage() {
       return;
     }
 
-    async function loadTodo() {
+    async function load() {
       try {
         setLoading(true);
         setError("");
-        const res = await apiFetch(`/todos/${id}/`);
-        if (!res.ok) throw new Error("Failed to load todo");
-        setTodo((await res.json()) as TodoDetail);
+        const [todoRes, tagsRes] = await Promise.all([
+          apiFetch(`/todos/${id}/`),
+          apiFetch("/tags/"),
+        ]);
+        if (!todoRes.ok) throw new Error("Failed to load todo");
+        setTodo((await todoRes.json()) as TodoEditData);
+        if (tagsRes.ok) {
+          setTags((await tagsRes.json()) as TagOption[]);
+        }
       } catch (e) {
         console.error(e);
         setError("Не удалось загрузить задачу");
@@ -46,7 +43,7 @@ export function TodoDetailPage() {
       }
     }
 
-    loadTodo();
+    load();
   }, [id]);
 
   return (
@@ -65,37 +62,9 @@ export function TodoDetailPage() {
         <p className="text-sm text-slate-400">Загрузка задачи...</p>
       ) : (
         <>
-          <h1 className="mb-2 text-2xl font-semibold">{todo.title}</h1>
-          {todo.description && (
-            <p className="mb-4 text-sm text-slate-200">{todo.description}</p>
-          )}
+          <h1 className="mb-4 text-2xl font-semibold">{todo.title}</h1>
 
-          <dl className="mb-6 grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-            <div>
-              <dt className="text-xs text-slate-400">Статус</dt>
-              <dd className="font-medium">{todo.status}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-400">Приоритет</dt>
-              <dd className="font-medium">{todo.priority}</dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-400">Срок</dt>
-              <dd className="font-medium">
-                {todo.due_date ? formatDateTime(todo.due_date) : "—"}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-xs text-slate-400">Повторение</dt>
-              <dd className="font-medium">{todo.recurrence || "never"}</dd>
-            </div>
-          </dl>
-
-          {todo.tags && todo.tags.length > 0 && (
-            <p className="mb-4 text-sm text-slate-300">
-              Теги: {todo.tags.map((t) => `#${t.tag_name}`).join(" ")}
-            </p>
-          )}
+          <TodoEditForm todo={todo} tags={tags} onSaved={setTodo} />
 
           <SubtaskList todoId={todo.id} />
         </>

@@ -3,6 +3,7 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, permissions, viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +14,8 @@ from drf_spectacular.types import OpenApiTypes
 from .serializers import (
     RegisterSerializer,
     UserSerializer,
+    ProfileSerializer,
+    ProfileUpdateSerializer,
     TodoSerializer,
     TagSerializer,
     SubtaskSerializer,
@@ -61,18 +64,34 @@ class RegisterView(generics.CreateAPIView):
 
 
 class MeView(APIView):
-    """GET /api/auth/me"""
+    """GET/PATCH /api/auth/me"""
 
     permission_classes = (permissions.IsAuthenticated,)
 
     @extend_schema(
-        summary="Получить текущего пользователя",
-        description="Возвращает информацию о вошедшем в систему пользователе.",
-        responses={200: UserSerializer},
+        summary="Получить профиль",
+        description="Профиль текущего пользователя для настроек.",
+        responses={200: ProfileSerializer},
     )
     def get(self, request, *args, **kwargs):
-        serializer = UserSerializer(request.user)
+        serializer = ProfileSerializer(request.user)
         return Response(serializer.data)
+
+    @extend_schema(
+        summary="Обновить профиль",
+        description="Email, телефон и опционально новый пароль.",
+        request=ProfileUpdateSerializer,
+        responses={200: ProfileSerializer},
+    )
+    def patch(self, request, *args, **kwargs):
+        serializer = ProfileUpdateSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ProfileSerializer(request.user).data)
 
 
 class TodoViewSet(viewsets.ModelViewSet):
@@ -281,6 +300,11 @@ class TagViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.user_id is None:
+            raise PermissionDenied("Системные теги нельзя удалить.")
+        super().perform_destroy(instance)
 
     @extend_schema(
         summary="Список тегов",

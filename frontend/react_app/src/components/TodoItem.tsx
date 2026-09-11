@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import type { TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
+import { getRecurrenceLabel } from "@/lib/recurrence";
 import {
   formatDueLabel,
   getPriorityColor,
@@ -105,6 +106,12 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
               </p>
             )}
             <p className="text-slate-300">{getStatusLabel(todo.status)}</p>
+            {todo.recurrence && todo.recurrence !== "never" && (
+              <p>
+                <span className="text-slate-500">Повтор: </span>
+                {getRecurrenceLabel(todo.recurrence)}
+              </p>
+            )}
             {todo.subtasks_summary && todo.subtasks_summary.total > 0 && (
               <p>
                 Подзадачи: {todo.subtasks_summary.done}/

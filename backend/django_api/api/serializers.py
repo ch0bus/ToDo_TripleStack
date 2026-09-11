@@ -21,6 +21,40 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
 
+class ProfileSerializer(serializers.ModelSerializer):
+    """Профиль для страницы настроек."""
+
+    class Meta:
+        model = User
+        fields = ("id", "username", "email", "phone_number")
+        read_only_fields = ("id", "username")
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        min_length=8,
+    )
+
+    class Meta:
+        model = User
+        fields = ("email", "phone_number", "password")
+
+    def validate_password(self, value):
+        validate_password(value)
+        return value
+
+    def update(self, instance, validated_data):
+        password = validated_data.pop("password", None)
+        for attr, val in validated_data.items():
+            setattr(instance, attr, val)
+        if password:
+            instance.set_password(password)
+        instance.save()
+        return instance
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     """Используется для регистрации новых пользователей."""
 
@@ -57,15 +91,21 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class TagSerializer(serializers.ModelSerializer):
+    is_system = serializers.SerializerMethodField()
+
     class Meta:
         model = Tag
-        fields = ("id", "tag_name", "kind")
-        read_only_fields = ("id",)
+        fields = ("id", "tag_name", "kind", "is_system")
+        read_only_fields = ("id", "is_system")
         extra_kwargs = {
             "id": {"help_text": "Уникальный ID тега"},
             "tag_name": {"help_text": "Название тега"},
             "kind": {"help_text": "Тип тега (work, personal, ... )"},
+            "is_system": {"help_text": "Системный тег (read-only)"},
         }
+
+    def get_is_system(self, obj):
+        return obj.user_id is None
 
 
 class SubtasksSummarySerializer(serializers.Serializer):

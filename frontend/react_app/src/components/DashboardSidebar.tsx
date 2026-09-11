@@ -1,15 +1,45 @@
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
-interface TagOption {
-  id: number;
-  tag_name: string;
-}
+import type { TagOption } from "@/lib/tags";
 
 interface DashboardSidebarProps {
   tags: TagOption[];
   onNewTask: () => void;
   onNavigate?: () => void;
   className?: string;
+}
+
+function TagList({
+  items,
+  activeTag,
+  onSelect,
+}: {
+  items: TagOption[];
+  activeTag: string;
+  onSelect: (id: string) => void;
+}) {
+  if (!items.length) {
+    return <p className="px-2 py-1 text-xs text-slate-500">Пока нет</p>;
+  }
+  return (
+    <ul className="space-y-1 text-sm">
+      {items.map((tag) => (
+        <li key={tag.id}>
+          <button
+            type="button"
+            onClick={() => onSelect(String(tag.id))}
+            className={
+              activeTag === String(tag.id)
+                ? "w-full rounded-md bg-slate-800 px-2 py-1.5 text-left text-blue-300"
+                : "w-full rounded-md px-2 py-1.5 text-left text-slate-300 hover:bg-slate-800"
+            }
+          >
+            {tag.tag_name}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function DashboardSidebar({
@@ -22,6 +52,9 @@ export function DashboardSidebar({
 
   const activeTag = searchParams.get("tag") ?? "";
   const preset = searchParams.get("preset") ?? "all";
+
+  const systemTags = tags.filter((t) => t.is_system);
+  const userTags = tags.filter((t) => !t.is_system);
 
   function setParams(updater: (p: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams);
@@ -69,7 +102,7 @@ export function DashboardSidebar({
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
           Теги
         </h2>
-        <ul className="space-y-1 text-sm">
+        <ul className="mb-3 space-y-1 text-sm">
           <li>
             <button
               type="button"
@@ -83,22 +116,24 @@ export function DashboardSidebar({
               ✓ Все задачи
             </button>
           </li>
-          {tags.map((tag) => (
-            <li key={tag.id}>
-              <button
-                type="button"
-                onClick={() => selectTag(String(tag.id))}
-                className={
-                  activeTag === String(tag.id)
-                    ? "w-full rounded-md bg-slate-800 px-2 py-1.5 text-left text-blue-300"
-                    : "w-full rounded-md px-2 py-1.5 text-left text-slate-300 hover:bg-slate-800"
-                }
-              >
-                {tag.tag_name}
-              </button>
-            </li>
-          ))}
         </ul>
+
+        <p className="mb-1 px-2 text-[10px] uppercase text-slate-500">Системные</p>
+        <TagList
+          items={systemTags}
+          activeTag={activeTag}
+          onSelect={selectTag}
+        />
+
+        <p className="mb-1 mt-3 px-2 text-[10px] uppercase text-slate-500">Мои</p>
+        <TagList items={userTags} activeTag={activeTag} onSelect={selectTag} />
+
+        <p className="mt-2 px-2 text-[10px] text-slate-500">
+          Создать тег — в{" "}
+          <Link to="/settings" className="text-blue-400 hover:underline">
+            Настройках
+          </Link>
+        </p>
       </div>
 
       <div>

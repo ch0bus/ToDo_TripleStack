@@ -43,8 +43,15 @@ REST API для задач с JWT-аутентификацией. Контрак
 
 ### GET `/api/auth/me/`
 
-- `200` — `{ "id", "username" }`
+- `200` — `{ "id", "username", "email", "phone_number" }`
 - `401`
+
+### PATCH `/api/auth/me/`
+
+Тело (любое подмножество): `{ "email", "phone_number", "password" }` (пароль ≥ 8).
+
+- `200` — обновлённый профиль
+- `400` — валидация
 
 ---
 

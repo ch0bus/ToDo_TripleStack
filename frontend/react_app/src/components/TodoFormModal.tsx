@@ -1,12 +1,19 @@
 import { TodoForm } from "@/components/TodoForm";
+import type { TagOption } from "@/lib/tags";
 
 interface TodoFormModalProps {
   open: boolean;
+  tags: TagOption[];
   onClose: () => void;
   onCreated: (todo: unknown) => void;
 }
 
-export function TodoFormModal({ open, onClose, onCreated }: TodoFormModalProps) {
+export function TodoFormModal({
+  open,
+  tags,
+  onClose,
+  onCreated,
+}: TodoFormModalProps) {
   if (!open) return null;
 
   return (
@@ -31,6 +38,7 @@ export function TodoFormModal({ open, onClose, onCreated }: TodoFormModalProps) 
           </button>
         </div>
         <TodoForm
+          tags={tags}
           onCreated={(todo) => {
             onCreated(todo);
             onClose();

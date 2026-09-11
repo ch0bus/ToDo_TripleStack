@@ -1,36 +1,27 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
+import { Link } from "react-router-dom";
+
+import { RecurrenceSelect } from "@/components/RecurrenceSelect";
 import { apiFetch } from "@/lib/api";
-
-interface TagOption {
-  id: number;
-  tag_name: string;
-}
+import { type RecurrenceValue } from "@/lib/recurrence";
+import type { TagOption } from "@/lib/tags";
 
 interface TodoFormProps {
+  tags: TagOption[];
   onCreated?: (todo: unknown) => void;
 }
 
-export function TodoForm({ onCreated }: TodoFormProps) {
+export function TodoForm({ tags, onCreated }: TodoFormProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [status, setStatus] = useState("todo");
   const [dueDate, setDueDate] = useState("");
+  const [recurrence, setRecurrence] = useState<RecurrenceValue>("never");
   const [tagIds, setTagIds] = useState<number[]>([]);
-  const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    async function loadTags() {
-      const res = await apiFetch("/tags/");
-      if (res.ok) {
-        setTags((await res.json()) as TagOption[]);
-      }
-    }
-    loadTags();
-  }, []);
 
   function toggleTag(id: number) {
     setTagIds((prev) =>
@@ -52,6 +43,7 @@ export function TodoForm({ onCreated }: TodoFormProps) {
         description: description.trim() || undefined,
         priority,
         status,
+        recurrence,
       };
 
       if (dueDate) {
@@ -76,6 +68,7 @@ export function TodoForm({ onCreated }: TodoFormProps) {
       setDueDate("");
       setPriority("medium");
       setStatus("todo");
+      setRecurrence("never");
       setTagIds([]);
     } catch (e) {
       console.error(e);
@@ -84,6 +77,9 @@ export function TodoForm({ onCreated }: TodoFormProps) {
       setLoading(false);
     }
   }
+
+  const systemTags = tags.filter((t) => t.is_system);
+  const userTags = tags.filter((t) => !t.is_system);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-sm">
@@ -143,35 +139,68 @@ export function TodoForm({ onCreated }: TodoFormProps) {
         </div>
       </div>
 
-      <div className="space-y-1">
-        <label className="text-xs text-slate-300">Срок</label>
-        <input
-          type="datetime-local"
-          value={dueDate}
-          onChange={(e) => setDueDate(e.target.value)}
-          className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
-        />
+      <div className="flex flex-wrap gap-2">
+        <div className="min-w-[140px] flex-1 space-y-1">
+          <label className="text-xs text-slate-300">Срок</label>
+          <input
+            type="datetime-local"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-sm"
+          />
+        </div>
+        <div className="min-w-[140px] flex-1 space-y-1">
+          <label className="text-xs text-slate-300">Повторение</label>
+          <RecurrenceSelect value={recurrence} onChange={setRecurrence} />
+        </div>
       </div>
 
-      {tags.length > 0 && (
-        <div className="space-y-1">
+      {tags.length > 0 ? (
+        <div className="space-y-2">
           <span className="text-xs text-slate-300">Теги</span>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <label
-                key={tag.id}
-                className="flex cursor-pointer items-center gap-1 text-xs text-slate-300"
-              >
-                <input
-                  type="checkbox"
-                  checked={tagIds.includes(tag.id)}
-                  onChange={() => toggleTag(tag.id)}
-                />
-                {tag.tag_name}
-              </label>
-            ))}
-          </div>
+          {systemTags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {systemTags.map((tag) => (
+                <label
+                  key={tag.id}
+                  className="flex cursor-pointer items-center gap-1 text-xs text-slate-300"
+                >
+                  <input
+                    type="checkbox"
+                    checked={tagIds.includes(tag.id)}
+                    onChange={() => toggleTag(tag.id)}
+                  />
+                  {tag.tag_name}
+                </label>
+              ))}
+            </div>
+          )}
+          {userTags.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {userTags.map((tag) => (
+                <label
+                  key={tag.id}
+                  className="flex cursor-pointer items-center gap-1 text-xs text-slate-300"
+                >
+                  <input
+                    type="checkbox"
+                    checked={tagIds.includes(tag.id)}
+                    onChange={() => toggleTag(tag.id)}
+                  />
+                  {tag.tag_name}
+                </label>
+              ))}
+            </div>
+          )}
         </div>
+      ) : (
+        <p className="text-xs text-slate-500">
+          Нет тегов. Добавьте их в{" "}
+          <Link to="/settings" className="text-blue-400 hover:underline">
+            Настройках
+          </Link>
+          .
+        </p>
       )}
 
       <button

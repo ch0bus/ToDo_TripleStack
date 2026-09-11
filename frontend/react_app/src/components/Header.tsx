@@ -58,13 +58,21 @@ export function Header() {
 
         <nav className="flex shrink-0 items-center gap-4 text-sm text-slate-300">
           {hasToken ? (
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="hover:text-slate-100 hover:underline"
-            >
-              Выйти
-            </button>
+            <>
+              <Link
+                to="/settings"
+                className="hover:text-slate-100 hover:underline"
+              >
+                Настройки
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="hover:text-slate-100 hover:underline"
+              >
+                Выйти
+              </button>
+            </>
           ) : (
             <>
               <Link to="/login" className="hover:text-slate-100 hover:underline">

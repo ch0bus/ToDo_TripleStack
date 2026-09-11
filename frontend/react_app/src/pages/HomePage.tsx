@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { useAppShell } from "@/contexts/AppShellContext";
@@ -11,11 +11,7 @@ import { TodoList, type TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { hasActiveFilters, type QuickPreset } from "@/lib/todoFilters";
-
-interface TagOption {
-  id: number;
-  tag_name: string;
-}
+import type { TagOption } from "@/lib/tags";
 
 interface TodoStats {
   total: number;
@@ -51,6 +47,7 @@ function buildTodosQuery(params: {
 
 export function HomePage() {
   const { registerFiltersToggle } = useAppShell();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [stats, setStats] = useState<TodoStats>(emptyStats);
   const [todos, setTodos] = useState<TodoRow[]>([]);
@@ -112,7 +109,7 @@ export function HomePage() {
       if (res.ok) setTags((await res.json()) as TagOption[]);
     }
     loadTags();
-  }, [hasToken]);
+  }, [hasToken, location.pathname]);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -237,7 +234,10 @@ export function HomePage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,_240px)_minmax(0,_1fr)]">
         <div className="hidden lg:block">
-          <DashboardSidebar tags={tags} onNewTask={() => setShowForm(true)} />
+          <DashboardSidebar
+            tags={tags}
+            onNewTask={() => setShowForm(true)}
+          />
         </div>
 
         <div className="space-y-4">
@@ -285,6 +285,7 @@ export function HomePage() {
 
       <TodoFormModal
         open={showForm}
+        tags={tags}
         onClose={() => setShowForm(false)}
         onCreated={handleTodoCreated}
       />
