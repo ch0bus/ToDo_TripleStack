@@ -9,6 +9,7 @@ interface TodoFormModalProps {
   tags: TagOption[];
   onClose: () => void;
   onCreated: (todo: unknown) => void;
+  defaultDueDate?: string;
 }
 
 export function TodoFormModal({
@@ -16,6 +17,7 @@ export function TodoFormModal({
   tags,
   onClose,
   onCreated,
+  defaultDueDate,
 }: TodoFormModalProps) {
   const panelRef = useFocusTrap(open, "#new-todo-title-input");
 
@@ -60,6 +62,7 @@ export function TodoFormModal({
         </div>
         <TodoForm
           tags={tags}
+          defaultDueDate={defaultDueDate}
           onCreated={(todo) => {
             onCreated(todo);
             onClose();

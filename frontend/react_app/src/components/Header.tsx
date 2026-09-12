@@ -17,7 +17,7 @@ export function Header() {
 
   const showFiltersMenu =
     hasToken &&
-    location.pathname === "/" &&
+    (location.pathname === "/" || location.pathname === "/calendar") &&
     typeof filtersToggle === "function";
 
   function handleLogout() {

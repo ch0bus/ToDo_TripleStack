@@ -2,11 +2,22 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .views import RegisterView, MeView, TodoViewSet, TagViewSet, SubtaskViewSet
+from .views import (
+    RegisterView,
+    MeView,
+    TodoViewSet,
+    TagViewSet,
+    SubtaskViewSet,
+    ShiftKindViewSet,
+    ShiftPatternView,
+    ShiftDaysView,
+    ShiftDayDetailView,
+)
 
 router = DefaultRouter()
 router.register(r"todos", TodoViewSet, basename="todo")
 router.register(r"tags", TagViewSet, basename="tag")
+router.register(r"shift-kinds", ShiftKindViewSet, basename="shift-kind")
 
 subtask_list = SubtaskViewSet.as_view({"get": "list", "post": "create"})
 subtask_detail = SubtaskViewSet.as_view(
@@ -36,6 +47,13 @@ urlpatterns = [
         name="todo-subtask-detail",
     ),
 
+    path("shift-pattern/", ShiftPatternView.as_view(), name="shift-pattern"),
+    path("shift-days/", ShiftDaysView.as_view(), name="shift-days"),
+    path(
+        "shift-days/<str:day>/",
+        ShiftDayDetailView.as_view(),
+        name="shift-day-detail",
+    ),
     # api
     path("", include(router.urls)),
 ]

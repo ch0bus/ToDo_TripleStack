@@ -198,6 +198,48 @@ CRUD подзадачи в рамках родительской задачи.
 
 ---
 
+## Смены (календарь)
+
+Типы смен задаёт пользователь (имя + цвет `#RRGGBB`). Один шаблон-цикл на пользователя
+разворачивается с `start_date`. Ручная метка дня перекрывает шаблон.
+
+### GET / POST `/api/shift-kinds/`
+
+- `GET` — типы смен текущего пользователя
+- `POST` — `{ "name": "Ночь", "color": "#7c3aed" }`
+
+### PATCH / DELETE `/api/shift-kinds/{id}/`
+
+### GET / PUT `/api/shift-pattern/`
+
+```json
+{
+  "start_date": "2026-09-01",
+  "slots": [
+    { "kind_id": 1 },
+    { "kind_id": 1 },
+    { "kind_id": null },
+    { "kind_id": null }
+  ]
+}
+```
+
+`kind_id: null` — выходной в цикле. Пустой `slots` — только ручные метки.
+
+### GET `/api/shift-days/?from=YYYY-MM-DD&to=YYYY-MM-DD`
+
+Развёрнутые дни (`pattern` или `override`). Диапазон не больше 62 дней.
+
+### PUT `/api/shift-days/`
+
+`{ "date": "2026-09-15", "kind_id": 1 }` — ручная метка. `kind_id: null` — выходной.
+
+### DELETE `/api/shift-days/{date}/`
+
+Убрать ручную метку, вернуть день к шаблону.
+
+---
+
 ## Статусы HTTP (сводка)
 
 | Код | Когда |
@@ -216,4 +258,4 @@ CRUD подзадачи в рамках родительской задачи.
 - Dev: `http://localhost:5173`, proxy `/api` → Django `:8000`.
 - Переменная: `VITE_API_URL` (пусто = `/api` через proxy).
 
-Маршруты UI: `/`, `/todos/:id`, `/login`, `/register`.
+Маршруты UI: `/`, `/todos/:id`, `/calendar`, `/login`, `/register`.

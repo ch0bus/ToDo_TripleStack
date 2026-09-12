@@ -1,9 +1,11 @@
+from datetime import date
+
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import generics, permissions, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework import generics, permissions, status, viewsets
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -19,9 +21,22 @@ from .serializers import (
     TodoSerializer,
     TagSerializer,
     SubtaskSerializer,
+    ShiftKindSerializer,
+    ShiftPatternSerializer,
+    ShiftDaySerializer,
 )
-from todos.models import Todo, Tag, Subtask, Status, Recurrence
+from todos.models import (
+    Todo,
+    Tag,
+    Subtask,
+    Status,
+    Recurrence,
+    ShiftKind,
+    ShiftPattern,
+    ShiftDayOverride,
+)
 from todos.recurrence_utils import spawn_next_occurrence
+from todos.shift_utils import expand_shift_days
 
 User = get_user_model()
 
@@ -383,3 +398,101 @@ class SubtaskViewSet(viewsets.ModelViewSet):
     @extend_schema(summary="Удалить подзадачу")
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
+
+
+def _parse_query_date(value: str | None, field: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationError({field: "Ожидается дата YYYY-MM-DD."})
+
+
+class ShiftKindViewSet(viewsets.ModelViewSet):
+    serializer_class = ShiftKindSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return ShiftKind.objects.filter(user=self.request.user)
+
+
+class ShiftPatternView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        pattern = (
+            ShiftPattern.objects.filter(user=request.user)
+            .prefetch_related("slots__kind")
+            .first()
+        )
+        return Response(ShiftPatternSerializer(pattern).data)
+
+    def put(self, request):
+        serializer = ShiftPatternSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        pattern = serializer.save()
+        return Response(ShiftPatternSerializer(pattern).data)
+
+
+class ShiftDaysView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        start = _parse_query_date(request.query_params.get("from"), "from")
+        end = _parse_query_date(request.query_params.get("to"), "to")
+        if not start or not end:
+            raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
+        if (end - start).days > 62:
+            raise ValidationError({"detail": "Диапазон не больше 62 дней."})
+        days = expand_shift_days(request.user, start, end)
+        return Response(
+            [
+                {
+                    "date": row["date"].isoformat(),
+                    "kind": ShiftKindSerializer(row["kind"]).data
+                    if row["kind"]
+                    else None,
+                    "source": row["source"],
+                }
+                for row in days
+            ]
+        )
+
+    def put(self, request):
+        serializer = ShiftDaySerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        override = serializer.save()
+        return Response(
+            {
+                "date": override.date.isoformat(),
+                "kind": ShiftKindSerializer(override.kind).data
+                if override.kind
+                else None,
+                "source": "override",
+            }
+        )
+
+
+class ShiftDayDetailView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, day: str):
+        try:
+            parsed = date.fromisoformat(day)
+        except ValueError:
+            raise ValidationError({"detail": "Ожидается дата YYYY-MM-DD."})
+        deleted, _ = ShiftDayOverride.objects.filter(
+            user=request.user,
+            date=parsed,
+        ).delete()
+        if not deleted:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)

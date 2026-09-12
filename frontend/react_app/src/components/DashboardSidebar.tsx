@@ -1,4 +1,4 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, cardClass } from "@/lib/uiClasses";
@@ -52,7 +52,11 @@ export function DashboardSidebar({
   onNavigate,
   className = "",
 }: DashboardSidebarProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const onCalendar = location.pathname === "/calendar";
+  const onInbox = location.pathname === "/";
 
   const activeTag = searchParams.get("tag") ?? "";
   const preset = searchParams.get("preset") ?? "all";
@@ -68,6 +72,11 @@ export function DashboardSidebar({
   }
 
   function selectTag(tagId: string) {
+    if (!onInbox) {
+      navigate(tagId ? `/?tag=${encodeURIComponent(tagId)}` : "/");
+      onNavigate?.();
+      return;
+    }
     setParams((p) => {
       if (tagId) p.set("tag", tagId);
       else p.delete("tag");
@@ -75,6 +84,11 @@ export function DashboardSidebar({
   }
 
   function selectPreset(value: string) {
+    if (!onInbox) {
+      navigate(value === "all" ? "/" : `/?preset=${encodeURIComponent(value)}`);
+      onNavigate?.();
+      return;
+    }
     setParams((p) => {
       if (value === "all") p.delete("preset");
       else p.set("preset", value);
@@ -82,6 +96,11 @@ export function DashboardSidebar({
   }
 
   function clearTagsAndPreset() {
+    if (!onInbox) {
+      navigate("/");
+      onNavigate?.();
+      return;
+    }
     setParams((p) => {
       p.delete("tag");
       p.delete("preset");
@@ -101,6 +120,32 @@ export function DashboardSidebar({
         "space-y-6 p-4 lg:sticky lg:top-24 lg:self-start " + cardClass + " " + className
       }
     >
+      <div>
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
+          Разделы
+        </h2>
+        <ul className="space-y-1 text-sm">
+          <li>
+            <Link
+              to="/"
+              onClick={() => onNavigate?.()}
+              className={"block " + navButtonClass(onInbox)}
+            >
+              Входящие
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/calendar"
+              onClick={() => onNavigate?.()}
+              className={"block " + navButtonClass(onCalendar)}
+            >
+              Календарь
+            </Link>
+          </li>
+        </ul>
+      </div>
+
       <div>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
           Теги

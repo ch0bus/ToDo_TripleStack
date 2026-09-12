@@ -57,6 +57,43 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | created_at | datetime | |
 | updated_at | datetime | |
 
+## shift_kinds
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users | |
+| name | string 80 | уникален в паре (user, name) |
+| color | string 7 | `#RRGGBB` |
+| created_at | datetime | |
+
+## shift_patterns
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users, unique | один цикл на пользователя |
+| start_date | date | начало цикла |
+| updated_at | datetime | |
+
+## shift_pattern_slots
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| pattern_id | FK → shift_patterns | CASCADE |
+| position | int | порядок в цикле |
+| kind_id | FK → shift_kinds, NULL | NULL = выходной |
+
+## shift_day_overrides
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users | |
+| date | date | уникален в паре (user, date) |
+| kind_id | FK → shift_kinds, NULL | NULL = выходной поверх шаблона |
+
 ## Связи
 
 ```text
@@ -64,6 +101,9 @@ User 1 ── * Todo
 User 1 ── * Tag (личные; системные без user)
 Todo * ── * Tag
 Todo 1 ── * Subtask
+User 1 ── * ShiftKind
+User 1 ── 1 ShiftPattern ── * ShiftPatternSlot
+User 1 ── * ShiftDayOverride
 ```
 
 ## Правила доступа

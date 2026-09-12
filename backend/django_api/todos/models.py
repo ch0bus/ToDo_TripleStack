@@ -139,3 +139,102 @@ class Subtask(models.Model):
     def __str__(self):
         return f"{self.title} (completed={self.completed})"
 
+
+HEX_COLOR_RE = r"^#[0-9A-Fa-f]{6}$"
+
+
+class ShiftKind(models.Model):
+    """Тип смены: имя и цвет задаёт пользователь."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="shift_kinds",
+    )
+    name = models.CharField("Название", max_length=80)
+    color = models.CharField("Цвет", max_length=7)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="unique_user_shift_kind_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.color})"
+
+
+class ShiftPattern(models.Model):
+    """Один активный цикл смен на пользователя."""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="shift_pattern",
+    )
+    start_date = models.DateField("Начало цикла")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"pattern {self.user_id} from {self.start_date}"
+
+
+class ShiftPatternSlot(models.Model):
+    """Слот цикла. kind=NULL — выходной / пустой день в шаблоне."""
+
+    pattern = models.ForeignKey(
+        ShiftPattern,
+        on_delete=models.CASCADE,
+        related_name="slots",
+    )
+    position = models.PositiveSmallIntegerField()
+    kind = models.ForeignKey(
+        ShiftKind,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pattern_slots",
+    )
+
+    class Meta:
+        ordering = ["position"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pattern", "position"],
+                name="unique_pattern_slot_position",
+            ),
+        ]
+
+
+class ShiftDayOverride(models.Model):
+    """Ручная правка дня. kind=NULL — снять смену (в т.ч. поверх шаблона)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="shift_day_overrides",
+    )
+    date = models.DateField()
+    kind = models.ForeignKey(
+        ShiftKind,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="day_overrides",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "date"],
+                name="unique_user_shift_day",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "date"]),
+        ]
+

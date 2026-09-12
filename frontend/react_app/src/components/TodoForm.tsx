@@ -28,6 +28,7 @@ import {
 interface TodoFormProps {
   tags: TagOption[];
   onCreated?: (todo: unknown) => void;
+  defaultDueDate?: string;
 }
 
 const propertyControlClass =
@@ -55,13 +56,13 @@ function PropertyField({
   );
 }
 
-export function TodoForm({ tags, onCreated }: TodoFormProps) {
+export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps) {
   const { pushToast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("low");
   const [status, setStatus] = useState("todo");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(defaultDueDate);
   const [recurrence, setRecurrence] = useState<RecurrenceValue>("never");
   const [tagIds, setTagIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
