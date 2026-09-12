@@ -1,0 +1,29 @@
+name: todoapp
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    env_file:
+      - .env
+    environment:
+      DJANGO_DB_PATH: /app/data/db.sqlite3
+    volumes:
+      - todo_data:/app/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    ports:
+      - "${HOST_PORT:-8006}:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  todo_data:

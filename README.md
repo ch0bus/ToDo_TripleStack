@@ -95,4 +95,8 @@ curl http://127.0.0.1:8000/api/todos/ \
 
 ## Дальше по стеку
 
-Эквивалент API на FastAPI и Flask, тесты и Docker — по желанию. Новые поля и эндпоинты сначала фиксируйте в `docs/API_SPEC.md` и `docs/DB_SCHEMA.md`.
+## Деплой на VPS
+
+Без домена, отдельный порт рядом с уже запущенными приложениями: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
+Эквивалент API на FastAPI и Flask — по желанию. Новые поля и эндпоинты сначала фиксируйте в `docs/API_SPEC.md` и `docs/DB_SCHEMA.md`.
