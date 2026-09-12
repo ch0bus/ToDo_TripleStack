@@ -4,7 +4,9 @@ import {
   PRIORITY_SELECT_OPTIONS,
   STATUS_SELECT_OPTIONS,
 } from "@/lib/labels";
-import { selectClass } from "@/lib/uiClasses";
+
+const filterSelectClass =
+  "w-0 min-w-0 flex-1 rounded-md border border-app bg-app-input px-2 py-1.5 text-xs text-app focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none sm:px-3 sm:py-2 sm:text-sm";
 
 export function FilterBar() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -23,13 +25,13 @@ export function FilterBar() {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 text-sm">
+    <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
       <select
         value={currentStatus}
         onChange={(e) => updateParam("status", e.target.value)}
-        className={selectClass}
+        className={filterSelectClass}
       >
-        <option value="">Все статусы</option>
+        <option value="">Статус</option>
         {STATUS_SELECT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
@@ -40,9 +42,9 @@ export function FilterBar() {
       <select
         value={currentPriority}
         onChange={(e) => updateParam("priority", e.target.value)}
-        className={selectClass}
+        className={filterSelectClass}
       >
-        <option value="">Все приоритеты</option>
+        <option value="">Приоритет</option>
         {PRIORITY_SELECT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}

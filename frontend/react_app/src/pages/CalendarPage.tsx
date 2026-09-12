@@ -5,6 +5,7 @@ import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
+import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
 import { TodoFormModal } from "@/components/TodoFormModal";
 import { TodoItem } from "@/components/TodoItem";
@@ -39,7 +40,7 @@ import {
   type ShiftPattern,
 } from "@/lib/shifts";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary } from "@/lib/uiClasses";
+import { btnPrimary, btnSecondary } from "@/lib/uiClasses";
 import { isOverdue, pluralRu, toDatetimeLocalValue } from "@/lib/utils";
 
 const emptyPattern: ShiftPattern = { start_date: null, slots: [] };
@@ -71,6 +72,7 @@ export function CalendarPage() {
   const [shiftDays, setShiftDays] = useState<ShiftDay[]>([]);
   const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
   const [paint, setPaint] = useState<PaintTool>({ type: "select" });
+  const [showShifts, setShowShifts] = useState(false);
 
   const hasToken = !!getAccessToken();
   const today = useMemo(() => new Date(), []);
@@ -318,34 +320,52 @@ export function CalendarPage() {
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                   <button
                     type="button"
                     onClick={() => setMonth(addMonths(month, -1))}
-                    className="rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
+                    className="shrink-0 rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
                     aria-label="Предыдущий месяц"
                   >
                     ←
                   </button>
-                  <h1 className="min-w-[12rem] text-center text-xl font-semibold text-app">
-                    {formatMonthTitle(month)}
-                  </h1>
+                  <MonthYearPicker value={month} onChange={setMonth} />
                   <button
                     type="button"
                     onClick={() => setMonth(addMonths(month, 1))}
-                    className="rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
+                    className="shrink-0 rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
                     aria-label="Следующий месяц"
                   >
                     →
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selectDay(today)}
+                    className="shrink-0 rounded-md border border-app px-2.5 py-1.5 text-xs text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3 sm:text-sm"
+                  >
+                    Сегодня
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => selectDay(today)}
-                    className="rounded-md border border-app px-3 py-1.5 text-sm text-app-muted hover:bg-app-surface-muted hover:text-app"
+                    aria-expanded={showShifts}
+                    aria-controls="shift-schedule"
+                    onClick={() => {
+                      if (showShifts) {
+                        setPaint({ type: "select" });
+                        setShowShifts(false);
+                      } else {
+                        setShowShifts(true);
+                      }
+                    }}
+                    className={
+                      showShifts
+                        ? btnSecondary + " shrink-0 px-3 py-2 text-xs sm:text-sm"
+                        : "shrink-0 rounded-md border border-app px-3 py-2 text-xs text-app-muted hover:bg-app-surface-muted hover:text-app sm:text-sm"
+                    }
                   >
-                    Сегодня
+                    График смен
                   </button>
                   <button
                     type="button"
@@ -357,15 +377,17 @@ export function CalendarPage() {
                 </div>
               </div>
 
-              <ShiftSchedulePanel
-                kinds={shiftKinds}
-                pattern={shiftPattern}
-                paint={paint}
-                onPaintChange={setPaint}
-                onCreateKind={handleCreateKind}
-                onDeleteKind={handleDeleteKind}
-                onSavePattern={handleSavePattern}
-              />
+              {showShifts && (
+                <ShiftSchedulePanel
+                  kinds={shiftKinds}
+                  pattern={shiftPattern}
+                  paint={paint}
+                  onPaintChange={setPaint}
+                  onCreateKind={handleCreateKind}
+                  onDeleteKind={handleDeleteKind}
+                  onSavePattern={handleSavePattern}
+                />
+              )}
 
               <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
                 <div className="grid grid-cols-7 border-b border-app bg-app-surface-muted/50">

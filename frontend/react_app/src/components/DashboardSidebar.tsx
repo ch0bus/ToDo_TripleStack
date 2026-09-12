@@ -102,7 +102,7 @@ export function DashboardSidebar({
   return (
     <aside
       className={
-        "space-y-6 p-4 lg:sticky lg:top-24 lg:self-start " + cardClass + " " + className
+        "space-y-6 p-4 lg:sticky lg:top-6 lg:self-start " + cardClass + " " + className
       }
     >
       <div>

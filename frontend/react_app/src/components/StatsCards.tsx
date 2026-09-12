@@ -33,7 +33,7 @@ export function StatsCards({
   overdue,
 }: StatsCardsProps) {
   return (
-    <div className="grid min-w-0 flex-1 grid-cols-4 gap-x-1 sm:gap-x-2 md:gap-x-4">
+    <div className="grid min-w-0 grid-cols-4 gap-x-1 sm:gap-x-2 md:gap-x-4">
       <StatCard label="Всего" value={total} />
       <StatCard label="Выполнено" value={done} accent="text-emerald-600" />
       <StatCard label="В процессе" value={inProgress} accent="text-blue-600" />

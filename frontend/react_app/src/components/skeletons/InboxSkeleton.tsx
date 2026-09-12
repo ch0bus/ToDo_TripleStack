@@ -1,14 +1,6 @@
 export function InboxSkeleton() {
   return (
     <div className="animate-pulse space-y-4" aria-hidden>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="animate-pulse space-y-2 px-1" aria-hidden>
-            <div className="h-3 w-16 rounded bg-app-border" />
-            <div className="h-7 w-10 rounded bg-app-border" />
-          </div>
-        ))}
-      </div>
       <div className="h-10 rounded-lg border border-app bg-app-surface" />
       <div className="flex gap-2">
         <div className="h-10 w-36 rounded-md border border-app bg-app-surface" />

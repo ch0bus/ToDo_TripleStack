@@ -35,7 +35,6 @@ export function ShiftSchedulePanel({
   onDeleteKind,
   onSavePattern,
 }: ShiftSchedulePanelProps) {
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [color, setColor] = useState("#2563eb");
   const [startDate, setStartDate] = useState(pattern.start_date ?? "");
@@ -44,11 +43,6 @@ export function ShiftSchedulePanel({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  function syncPatternFromProps() {
-    setStartDate(pattern.start_date ?? "");
-    setSlots(pattern.slots.map((s) => s.kind_id));
-  }
 
   async function handleCreateKind() {
     const trimmed = name.trim();
@@ -82,20 +76,11 @@ export function ShiftSchedulePanel({
   }
 
   return (
-    <section className="rounded-xl border border-app bg-app-surface px-3 py-3 sm:px-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-app">График смен</h2>
-        <button
-          type="button"
-          onClick={() => {
-            if (!open) syncPatternFromProps();
-            setOpen((v) => !v);
-          }}
-          className="text-xs text-app-accent hover:underline"
-        >
-          {open ? "Скрыть настройки" : "Типы и шаблон"}
-        </button>
-      </div>
+    <section
+      id="shift-schedule"
+      className="rounded-xl border border-app bg-app-surface px-3 py-3 sm:px-4"
+    >
+      <h2 className="text-sm font-semibold text-app">График смен</h2>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         <button
@@ -156,23 +141,7 @@ export function ShiftSchedulePanel({
         </button>
       </div>
 
-      {kinds.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-app-subtle">
-          {kinds.map((kind) => (
-            <li key={kind.id} className="inline-flex items-center gap-1">
-              <span
-                className="h-2 w-2 rounded-sm"
-                style={{ backgroundColor: kind.color }}
-                aria-hidden
-              />
-              {kind.name}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {open && (
-        <div className="mt-4 space-y-4 border-t border-app pt-4">
+      <div className="mt-4 space-y-4 border-t border-app pt-4">
           {error && (
             <p className="text-xs text-[var(--app-danger)]">{error}</p>
           )}
@@ -307,8 +276,7 @@ export function ShiftSchedulePanel({
               Сохранить шаблон
             </button>
           </div>
-        </div>
-      )}
+      </div>
     </section>
   );
 }

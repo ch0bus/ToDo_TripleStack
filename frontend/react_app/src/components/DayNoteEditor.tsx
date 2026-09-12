@@ -1,10 +1,12 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { apiFetch } from "@/lib/api";
 import { toDateKey } from "@/lib/calendar";
 import type { DayNote } from "@/lib/dayNotes";
+import { useFocusTrap } from "@/lib/useFocusTrap";
+import { btnPrimary, btnSecondary } from "@/lib/uiClasses";
 import { formatDueDateShort } from "@/lib/utils";
-import { btnPrimary } from "@/lib/uiClasses";
 
 interface DayNoteEditorProps {
   dateKey: string;
@@ -56,19 +58,21 @@ function MoreIcon() {
 
 export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) {
   const menuId = useId();
+  const titleId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
   const [text, setText] = useState(note?.text ?? "");
-  const [editing, setEditing] = useState(!note);
+  const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const panelRef = useFocusTrap(open, "#day-note-text");
 
   useEffect(() => {
-    setText(note?.text ?? "");
-    setEditing(!note);
-    setError("");
-    setMenuOpen(false);
-  }, [dateKey, note?.text, note]);
+    if (!open) {
+      setText(note?.text ?? "");
+      setError("");
+    }
+  }, [dateKey, note?.text, open, note]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -88,10 +92,36 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (!open) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Escape" || busy) return;
+      e.preventDefault();
+      e.stopPropagation();
+      closeModal();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, busy]);
+
   const trimmed = text.trim();
   const dirty = trimmed !== (note?.text ?? "");
   const [title, ...restParts] = (note?.text ?? "").split(/\n+/);
   const rest = restParts.join(" ");
+
+  function openModal() {
+    setText(note?.text ?? "");
+    setError("");
+    setMenuOpen(false);
+    setOpen(true);
+  }
+
+  function closeModal() {
+    if (busy) return;
+    setOpen(false);
+    setText(note?.text ?? "");
+    setError("");
+  }
 
   async function save() {
     if (!trimmed) return;
@@ -104,7 +134,7 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
       });
       if (!res.ok) throw new Error("save failed");
       onChanged((await res.json()) as DayNote);
-      setEditing(false);
+      setOpen(false);
     } catch (e) {
       console.error(e);
       setError("Не удалось сохранить заметку");
@@ -130,8 +160,92 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
     }
   }
 
-  if (note && !editing) {
+  const modal = open
+    ? createPortal(
+        <div
+          className="overlay-app fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !busy) closeModal();
+          }}
+        >
+          <div
+            ref={panelRef}
+            className="w-full max-w-md rounded-xl border border-app bg-app-modal p-4 shadow-app sm:p-5"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 id={titleId} className="text-lg font-semibold text-app">
+                {note ? "Изменить заметку" : "Новая заметка"}
+              </h2>
+              <button
+                type="button"
+                onClick={closeModal}
+                disabled={busy}
+                className="rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
+                aria-label="Закрыть"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="mb-3 text-sm text-app-subtle">{dateLabel(dateKey)}</p>
+            <textarea
+              id="day-note-text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              rows={5}
+              maxLength={2000}
+              disabled={busy}
+              placeholder="Напишите заметку к этому дню"
+              className="w-full resize-y rounded-md border border-app bg-app-input px-3 py-2 text-sm text-app placeholder:text-app-subtle focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none"
+            />
+            {error && (
+              <p className="mt-2 text-xs text-[var(--app-danger)]">{error}</p>
+            )}
+            <div className="mt-4 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={closeModal}
+                className={btnSecondary}
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                disabled={busy || !trimmed || !dirty}
+                onClick={() => void save()}
+                className={btnPrimary}
+              >
+                {busy ? "Сохраняю..." : "Сохранить"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )
+    : null;
+
+  if (!note) {
     return (
+      <>
+        <button
+          type="button"
+          onClick={openModal}
+          className="flex w-full items-center gap-2 rounded-lg border border-dashed border-app px-3 py-2.5 text-left text-sm text-app-subtle hover:bg-app-surface-muted hover:text-app"
+        >
+          <NoteIcon />
+          Добавить заметку
+        </button>
+        {modal}
+      </>
+    );
+  }
+
+  return (
+    <>
       <ul className="space-y-3">
         <li
           className={
@@ -167,7 +281,7 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
               <button
                 type="button"
                 disabled={busy}
-                onClick={() => setMenuOpen((open) => !open)}
+                onClick={() => setMenuOpen((isOpen) => !isOpen)}
                 className="rounded-md p-1.5 text-app-subtle opacity-70 hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 disabled:opacity-40"
                 aria-label="Действия с заметкой"
                 aria-haspopup="menu"
@@ -185,10 +299,7 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => {
-                      setMenuOpen(false);
-                      setEditing(true);
-                    }}
+                    onClick={openModal}
                     className="w-full px-3 py-1.5 text-left text-sm text-app hover:bg-app-surface-muted"
                   >
                     Изменить
@@ -208,53 +319,7 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
           </div>
         </li>
       </ul>
-    );
-  }
-
-  return (
-    <div
-      className={
-        "space-y-2 rounded-lg border bg-app-surface px-3 py-3 " +
-        (note ? "calendar-day-note" : "border-app")
-      }
-    >
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
-        {note ? "Заметка дня" : "Новая заметка"}
-      </p>
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={3}
-        maxLength={2000}
-        disabled={busy}
-        placeholder="Напишите заметку к этому дню"
-        className="w-full resize-y rounded-md border border-app bg-app-input px-3 py-2 text-sm text-app placeholder:text-app-subtle focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none"
-      />
-      {error && <p className="text-xs text-[var(--app-danger)]">{error}</p>}
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={busy || !trimmed || !dirty}
-          onClick={() => void save()}
-          className={btnPrimary}
-        >
-          {busy ? "Сохраняю..." : "Сохранить"}
-        </button>
-        {note && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setText(note.text);
-              setEditing(false);
-              setError("");
-            }}
-            className="rounded-md px-3 py-2 text-sm text-app-muted hover:bg-app-surface-muted"
-          >
-            Отмена
-          </button>
-        )}
-      </div>
-    </div>
+      {modal}
+    </>
   );
 }

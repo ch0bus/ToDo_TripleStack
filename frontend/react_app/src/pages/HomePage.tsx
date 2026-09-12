@@ -267,26 +267,6 @@ export function HomePage() {
         </div>
       )}
 
-      <div className="sticky top-0 z-20 -mx-4 mb-6 border-b border-app bg-app-header px-4 py-3 backdrop-blur md:static md:mx-0 md:border-b-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
-        {loading ? (
-          <div className="grid grid-cols-4 gap-1 sm:gap-3">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="animate-pulse space-y-2 px-1" aria-hidden>
-                <div className="h-3 w-16 rounded bg-app-border" />
-                <div className="h-7 w-10 rounded bg-app-border" />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <StatsCards
-            total={stats.total}
-            done={stats.done}
-            inProgress={stats.in_progress}
-            overdue={stats.overdue}
-          />
-        )}
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,_240px)_minmax(0,_1fr)]">
         <div className="hidden lg:block">
           <DashboardSidebar
@@ -296,6 +276,23 @@ export function HomePage() {
         </div>
 
         <div className="space-y-4">
+          {loading ? (
+            <div className="grid grid-cols-4 gap-1 sm:gap-3" aria-hidden>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="animate-pulse space-y-2 px-1">
+                  <div className="h-3 w-16 rounded bg-app-border" />
+                  <div className="h-7 w-10 rounded bg-app-border" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <StatsCards
+              total={stats.total}
+              done={stats.done}
+              inProgress={stats.in_progress}
+              overdue={stats.overdue}
+            />
+          )}
           {loading ? (
             <InboxSkeleton />
           ) : (
@@ -308,14 +305,14 @@ export function HomePage() {
             className={inputClass}
           />
 
-          <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex min-w-0 w-full items-center gap-1.5 sm:gap-2">
             <FilterBar />
             <button
               type="button"
               onClick={() => setShowForm(true)}
-              className={btnPrimary + " shrink-0"}
+              className="btn-primary shrink-0 rounded-md px-2 py-1.5 text-xs font-medium shadow-sm sm:px-3 sm:py-2 sm:text-sm"
             >
-              + Новая задача
+              + Задача
             </button>
           </div>
 
