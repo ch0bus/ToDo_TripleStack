@@ -157,7 +157,8 @@ class TodoViewSet(viewsets.ModelViewSet):
                 Q(title__icontains=search) | Q(description__icontains=search)
             )
 
-        return qs.distinct()
+        # distinct() после annotate/join с тегами сбрасывает Meta.ordering.
+        return qs.distinct().order_by("-created_at")
 
     @extend_schema(
         summary="Сводная статистика задач",

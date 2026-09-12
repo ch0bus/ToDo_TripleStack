@@ -18,6 +18,7 @@ import { type RecurrenceValue } from "@/lib/recurrence";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary } from "@/lib/uiClasses";
 import {
+  formatDateStamp,
   formatDueCountdown,
   getCalendarDayDiff,
   getPriorityBorderClass,
@@ -36,6 +37,8 @@ export interface TodoEditData {
   recurrence: string;
   tags?: { id: number; tag_name: string }[];
   subtasks_summary?: { done: number; total: number };
+  created_at?: string;
+  completed_at?: string | null;
 }
 
 interface TodoEditFormProps {
@@ -324,6 +327,36 @@ export function TodoEditForm({
                 </p>
               )}
             </SideProperty>
+
+            {todo.created_at && (
+              <SideProperty label="Создана">
+                <p
+                  title={new Date(todo.created_at).toLocaleString()}
+                  className="px-1.5 text-sm text-app-muted"
+                >
+                  {formatDateStamp(todo.created_at)}
+                </p>
+              </SideProperty>
+            )}
+
+            {status === "done" && (
+              <SideProperty label="Готово">
+                <p
+                  title={
+                    todo.completed_at
+                      ? new Date(todo.completed_at).toLocaleString()
+                      : undefined
+                  }
+                  className="px-1.5 text-sm text-app-muted"
+                >
+                  {todo.status === "done" && todo.completed_at
+                    ? formatDateStamp(todo.completed_at)
+                    : todo.status === "done"
+                      ? "не зафиксирована"
+                      : "запишется при сохранении"}
+                </p>
+              </SideProperty>
+            )}
 
             {allTags.length > 0 && (
               <SideProperty label="Теги">

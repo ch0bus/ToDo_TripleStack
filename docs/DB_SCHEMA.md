@@ -39,6 +39,7 @@ Django: `account.User` (`AbstractUser`).
 | recurrence | enum | daily, weekly, monthly, never |
 | created_at | datetime | auto |
 | updated_at | datetime | auto |
+| completed_at | datetime | NULL; ставится при входе в done, сбрасывается при выходе |
 
 M2M: **todos ↔ tags** через промежуточную таблицу.
 

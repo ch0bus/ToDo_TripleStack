@@ -80,13 +80,15 @@ REST API для задач с JWT-аутентификацией. Контрак
     { "id": 1, "tag_name": "покупки", "kind": "shopping" }
   ],
   "created_at": "2026-09-04T12:00:00Z",
-  "updated_at": "2026-09-04T12:30:00Z"
+  "updated_at": "2026-09-04T12:30:00Z",
+  "completed_at": null
 }
 ```
 
 **status:** `todo` | `in_progress` | `done`  
 **priority:** `critical` | `high` | `medium` | `low`  
-**recurrence:** `daily` | `weekly` | `monthly` | `never`
+**recurrence:** `daily` | `weekly` | `monthly` | `never`  
+**completed_at:** read-only. Ставится при переходе в `done`, сбрасывается при любом другом статусе.
 
 При **создании/обновлении** теги передаются полем **`tag_ids`**: `[1, 2]` (write-only).
 

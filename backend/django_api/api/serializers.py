@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from rest_framework import serializers
 
 from todos.models import Todo, Tag, Subtask, Status, Priority, Recurrence
@@ -141,8 +142,15 @@ class TodoSerializer(serializers.ModelSerializer):
             "recurrence",
             "created_at",
             "updated_at",
+            "completed_at",
         )
-        read_only_fields = ("id", "user_id", "created_at", "updated_at")
+        read_only_fields = (
+            "id",
+            "user_id",
+            "created_at",
+            "updated_at",
+            "completed_at",
+        )
         extra_kwargs = {
             "id": {"help_text": "Уникальный ID задачи"},
             "user_id": {"help_text": "ID пользователя, которому принадлежит задача"},
@@ -166,6 +174,9 @@ class TodoSerializer(serializers.ModelSerializer):
             },
             "created_at": {"help_text": "Дата и время создания"},
             "updated_at": {"help_text": "Дата и время последнего обновления"},
+            "completed_at": {
+                "help_text": "Когда статус стал «Готово»; сбрасывается при другом статусе",
+            },
         }
 
     def get_subtasks_summary(self, obj):
@@ -184,7 +195,20 @@ class TodoSerializer(serializers.ModelSerializer):
 
         request = self.context["request"]
         validated_data["user"] = request.user
+        self._apply_completed_at(validated_data, previous_status=None)
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        self._apply_completed_at(validated_data, previous_status=instance.status)
+        return super().update(instance, validated_data)
+
+    def _apply_completed_at(self, validated_data, previous_status):
+        new_status = validated_data.get("status", previous_status or Status.TODO)
+        if new_status == Status.DONE:
+            if previous_status != Status.DONE:
+                validated_data["completed_at"] = timezone.now()
+        else:
+            validated_data["completed_at"] = None
 
 
 class SubtaskSerializer(serializers.ModelSerializer):

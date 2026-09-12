@@ -104,6 +104,11 @@ class Todo(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
+    completed_at = models.DateTimeField(
+        "Дата завершения",
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]
