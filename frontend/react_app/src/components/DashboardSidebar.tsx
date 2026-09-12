@@ -55,7 +55,6 @@ export function DashboardSidebar({
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const onCalendar = location.pathname === "/calendar";
   const onInbox = location.pathname === "/";
 
   const activeTag = searchParams.get("tag") ?? "";
@@ -120,32 +119,6 @@ export function DashboardSidebar({
         "space-y-6 p-4 lg:sticky lg:top-24 lg:self-start " + cardClass + " " + className
       }
     >
-      <div>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
-          Разделы
-        </h2>
-        <ul className="space-y-1 text-sm">
-          <li>
-            <Link
-              to="/"
-              onClick={() => onNavigate?.()}
-              className={"block " + navButtonClass(onInbox)}
-            >
-              Входящие
-            </Link>
-          </li>
-          <li>
-            <Link
-              to="/calendar"
-              onClick={() => onNavigate?.()}
-              className={"block " + navButtonClass(onCalendar)}
-            >
-              Календарь
-            </Link>
-          </li>
-        </ul>
-      </div>
-
       <div>
         <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
           Теги

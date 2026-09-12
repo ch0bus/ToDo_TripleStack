@@ -23,9 +23,24 @@ export function Header() {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-app bg-app-header backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-        <Link to="/" className="min-w-0 truncate text-xl font-semibold text-app">
-          ToDo App
-        </Link>
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <Link to="/" className="min-w-0 truncate text-xl font-semibold text-app">
+            ToDo App
+          </Link>
+          {hasToken && (
+            <Link
+              to="/calendar"
+              className={
+                "shrink-0 text-sm hover:text-app hover:underline " +
+                (location.pathname === "/calendar"
+                  ? "font-medium text-app"
+                  : "text-app-muted")
+              }
+            >
+              Календарь
+            </Link>
+          )}
+        </div>
 
         <nav className="flex shrink-0 items-center gap-2 text-sm text-app-muted sm:gap-3">
           {!hasToken && (

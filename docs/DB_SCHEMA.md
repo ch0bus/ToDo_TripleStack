@@ -3,7 +3,10 @@
 Логическая модель для Django / FastAPI / Flask. Имена таблиц в ORM могут отличаться;
 семантика полей и связей — общая.
 
-> Сущность **Project** удалена: группировка через **теги** и фильтры API.
+> Сущность **Project** нет: группировка через **теги** и фильтры API.  
+> Отдельной таблицы календаря нет: это UI над `todos` и сменами пользователя.
+
+Все пользовательские сущности привязаны к `users`. Выборки в API — только свои строки.
 
 ## users
 
@@ -12,6 +15,7 @@
 | id | PK | auto |
 | username | string, unique | 3..150 |
 | email | string, unique | Django: обязателен |
+| phone_number | string 15 | NULL, профиль |
 | password | hash | не отдаётся в API |
 
 Django: `account.User` (`AbstractUser`).
@@ -36,7 +40,7 @@ Django: `account.User` (`AbstractUser`).
 | status | enum | todo, in_progress, done (default todo) |
 | priority | enum | critical, high, medium, low |
 | due_date | datetime | NULL |
-| recurrence | enum | daily, weekly, monthly, never; шаг в окне created_at…due_date |
+| recurrence | enum | daily, weekly, monthly, never. Шаг превью на календаре в окне created_at…due_date; отдельных строк на каждое вхождение нет |
 | created_at | datetime | auto |
 | updated_at | datetime | auto |
 | completed_at | datetime | NULL; ставится при входе в done, сбрасывается при выходе |
@@ -108,6 +112,8 @@ User 1 ── * ShiftDayOverride
 
 ## Правила доступа
 
-- Все выборки todos/subtasks по `user_id` из JWT.
-- `user_id` в JSON todo — read-only.
-- Подзадачи только через todo, принадлежащий пользователю.
+- Todos, личные теги, смены и правки дней — только `user_id` из JWT.
+- `user_id` в JSON todo — read-only, при создании берётся из токена.
+- Подзадачи только через todo владельца.
+- Системные теги (`user_id` NULL) видны всем; создать/удалить может ограничение реализации.
+- Календарь не шарится: каждый видит свои сроки, повторы и смены.
