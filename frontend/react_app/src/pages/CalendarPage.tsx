@@ -40,7 +40,6 @@ import {
   type ShiftPattern,
 } from "@/lib/shifts";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary, btnSecondary } from "@/lib/uiClasses";
 import { isOverdue, pluralRu, toDatetimeLocalValue } from "@/lib/utils";
 
 const emptyPattern: ShiftPattern = { start_date: null, slots: [] };
@@ -319,7 +318,7 @@ export function CalendarPage() {
             <CalendarSkeleton />
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
                 <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                   <button
                     type="button"
@@ -360,9 +359,10 @@ export function CalendarPage() {
                       }
                     }}
                     className={
-                      showShifts
-                        ? btnSecondary + " shrink-0 px-3 py-2 text-xs sm:text-sm"
-                        : "shrink-0 rounded-md border border-app px-3 py-2 text-xs text-app-muted hover:bg-app-surface-muted hover:text-app sm:text-sm"
+                      "h-10 min-w-0 flex-1 rounded-md px-3 text-sm font-medium md:h-auto md:flex-none md:px-4 md:py-2 " +
+                      (showShifts
+                        ? "border border-app-strong bg-app-surface-muted text-app"
+                        : "border border-app text-app-muted hover:bg-app-surface-muted hover:text-app")
                     }
                   >
                     График смен
@@ -370,7 +370,7 @@ export function CalendarPage() {
                   <button
                     type="button"
                     onClick={() => setShowForm(true)}
-                    className={btnPrimary + " shrink-0"}
+                    className="btn-primary h-10 min-w-0 flex-1 rounded-md px-3 text-sm font-medium shadow-sm md:h-auto md:flex-none md:px-4 md:py-2"
                   >
                     + Новая задача
                   </button>
