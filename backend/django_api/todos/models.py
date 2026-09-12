@@ -96,7 +96,13 @@ class Todo(models.Model):
         blank=True,
         null=True,
         db_index=True,
-    )  # срок выполнения задачи
+    )
+    event_date = models.DateTimeField(
+        "Дата события",
+        blank=True,
+        null=True,
+        db_index=True,
+    )
     recurrence = models.CharField(
         max_length=16,
         choices=Recurrence.choices,

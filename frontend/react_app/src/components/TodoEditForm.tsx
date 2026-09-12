@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
+import { DateTimeField } from "@/components/DateTimeField";
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
 import type { TodoRow } from "@/components/TodoList";
 import {
@@ -75,6 +76,9 @@ export function TodoEditForm({
   const [description, setDescription] = useState(todo.description ?? "");
   const [priority, setPriority] = useState(todo.priority);
   const [status, setStatus] = useState(todo.status);
+  const [eventDate, setEventDate] = useState(() =>
+    toDatetimeLocalValue(todo.event_date),
+  );
   const [dueDate, setDueDate] = useState(() => toDatetimeLocalValue(todo.due_date));
   const [recurrence, setRecurrence] = useState<RecurrenceValue>(
     (todo.recurrence as RecurrenceValue) || "never",
@@ -90,6 +94,7 @@ export function TodoEditForm({
     setDescription(todo.description ?? "");
     setPriority(todo.priority);
     setStatus(todo.status);
+    setEventDate(toDatetimeLocalValue(todo.event_date));
     setDueDate(toDatetimeLocalValue(todo.due_date));
     setRecurrence((todo.recurrence as RecurrenceValue) || "never");
     setTagIds(todo.tags?.map((t) => t.id) ?? []);
@@ -107,6 +112,7 @@ export function TodoEditForm({
     description !== (todo.description ?? "") ||
     priority !== todo.priority ||
     status !== todo.status ||
+    eventDate !== toDatetimeLocalValue(todo.event_date) ||
     dueDate !== toDatetimeLocalValue(todo.due_date) ||
     recurrence !== ((todo.recurrence as RecurrenceValue) || "never") ||
     !sameIdSet(tagIds, todo.tags?.map((t) => t.id) ?? []);
@@ -132,6 +138,7 @@ export function TodoEditForm({
         priority,
         status,
         recurrence,
+        event_date: eventDate ? new Date(eventDate).toISOString() : null,
         due_date: dueDate ? new Date(dueDate).toISOString() : null,
         tag_ids: tagIds,
       };
@@ -148,6 +155,7 @@ export function TodoEditForm({
       setDescription(updated.description ?? "");
       setPriority(updated.priority);
       setStatus(updated.status);
+      setEventDate(toDatetimeLocalValue(updated.event_date));
       setDueDate(toDatetimeLocalValue(updated.due_date));
       setRecurrence((updated.recurrence as RecurrenceValue) || "never");
       setTagIds(updated.tags?.map((t) => t.id) ?? []);
@@ -277,6 +285,14 @@ export function TodoEditForm({
               </div>
             </SideProperty>
 
+            <SideProperty label="Событие" htmlFor="todo-event">
+              <DateTimeField
+                id="todo-event"
+                value={eventDate}
+                onChange={setEventDate}
+              />
+            </SideProperty>
+
             <SideProperty label="Срок" htmlFor="todo-due">
               <p
                 title={dueIso ? new Date(dueIso).toLocaleString() : undefined}
@@ -291,12 +307,10 @@ export function TodoEditForm({
               >
                 {dueLabel}
               </p>
-              <input
+              <DateTimeField
                 id="todo-due"
-                type="datetime-local"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className={propertyControlClass}
+                onChange={setDueDate}
               />
             </SideProperty>
 
@@ -309,7 +323,7 @@ export function TodoEditForm({
               />
               {recurrence !== "never" && (
                 <p className="px-1.5 text-[10px] leading-snug text-app-subtle">
-                  Повтор ставится от даты создания до срока с выбранным шагом.
+                  Повтор от создания до даты события, а если её нет — до срока.
                 </p>
               )}
             </SideProperty>

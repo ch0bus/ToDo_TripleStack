@@ -39,9 +39,10 @@ Django: `account.User` (`AbstractUser`).
 | description | text | optional |
 | status | enum | todo, in_progress, done (default todo) |
 | priority | enum | critical, high, medium, low |
-| due_date | datetime | NULL |
-| recurrence | enum | daily, weekly, monthly, never. Шаг превью на календаре в окне created_at…due_date; отдельных строк на каждое вхождение нет |
-| created_at | datetime | auto |
+| event_date | datetime | NULL; когда происходит событие |
+| due_date | datetime | NULL; дедлайн выполнения |
+| recurrence | enum | daily, weekly, monthly, never. Превью на календаре в окне created_at…event_date (или due_date) |
+| created_at | datetime | auto, момент создания карточки |
 | updated_at | datetime | auto |
 | completed_at | datetime | NULL; ставится при входе в done, сбрасывается при выходе |
 

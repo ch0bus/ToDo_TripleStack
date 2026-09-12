@@ -10,6 +10,9 @@ import { TODO_PRIORITIES, getPriorityLabel } from "@/lib/labels";
 import { getRecurrenceLabel } from "@/lib/recurrence";
 import {
   formatDueCountdown,
+  formatDueDateShort,
+  formatEventCountdown,
+  formatTimeShort,
   getCalendarDayDiff,
   getPriorityBorderClass,
   getPriorityStripeClass,
@@ -65,17 +68,24 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const overdue = isOverdue(todo.due_date, todo.status);
+  const showingEvent = !!todo.event_date;
+  const overdue =
+    !showingEvent && isOverdue(todo.due_date, todo.status);
   const stripe = getPriorityStripeClass(todo.priority);
   const isDone = todo.status === "done";
-  const dueLabel = todo.due_date
-    ? formatDueCountdown(todo.due_date, todo.status)
+  const dateIso = todo.event_date || todo.due_date || null;
+  const dateLabel = dateIso
+    ? showingEvent
+      ? formatEventCountdown(dateIso, todo.status)
+      : formatDueCountdown(dateIso, todo.status)
     : null;
-  const dueSoon =
-    !!todo.due_date &&
+  const dateShort = dateIso ? formatDueDateShort(dateIso) : null;
+  const eventTime = showingEvent && dateIso ? formatTimeShort(dateIso) : null;
+  const dateSoon =
+    !!dateIso &&
     !isDone &&
     !overdue &&
-    getCalendarDayDiff(todo.due_date) === 0;
+    getCalendarDayDiff(dateIso) === 0;
 
   const subTotal = todo.subtasks_summary?.total ?? 0;
   const subDone = todo.subtasks_summary?.done ?? 0;
@@ -145,6 +155,7 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
       status: todo.status,
       priority: todo.priority,
       due_date: todo.due_date ?? null,
+      event_date: todo.event_date ?? null,
       recurrence: todo.recurrence ?? "never",
       tag_ids: todo.tags?.map((t) => t.id) ?? [],
     };
@@ -170,6 +181,7 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
                     status: snapshot.status,
                     priority: snapshot.priority,
                     due_date: snapshot.due_date,
+                    event_date: snapshot.event_date,
                     recurrence: snapshot.recurrence,
                     tag_ids: snapshot.tag_ids,
                   }),
@@ -225,42 +237,53 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
             className="mt-0.5"
           />
 
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Link
-                to={`/todos/${todo.id}`}
-                title={todo.title}
-                className={
-                  "min-w-0 flex-1 truncate text-[15px] font-medium leading-snug hover:text-app-accent " +
-                  (isDone ? "text-app-subtle line-through" : "text-app")
-                }
-              >
-                {todo.title}
-              </Link>
-              {dueLabel && todo.due_date && (
-                <span
-                  title={new Date(todo.due_date).toLocaleString()}
-                  className={
-                    "inline-flex max-w-[10.5rem] shrink-0 items-center justify-end gap-1 text-right text-xs leading-snug " +
-                    (overdue
-                      ? "font-medium text-[var(--app-danger)]"
-                      : dueSoon
-                        ? "font-medium text-app"
-                        : "text-app-subtle")
-                  }
-                >
-                  {overdue && <OverdueClockIcon />}
-                  {dueLabel}
-                </span>
-              )}
-            </div>
-
+          <div className="min-w-0 flex-1 pt-px">
+            <Link
+              to={`/todos/${todo.id}`}
+              title={todo.title}
+              className={
+                "block truncate text-[15px] font-medium leading-snug hover:text-app-accent " +
+                (isDone ? "text-app-subtle line-through" : "text-app")
+              }
+            >
+              {todo.title}
+            </Link>
             {metaParts.length > 0 && (
               <p className="mt-0.5 truncate text-[12px] leading-relaxed text-app-subtle">
                 {metaParts.join(" · ")}
               </p>
             )}
           </div>
+
+          {dateLabel && dateIso && (
+            <div
+              title={new Date(dateIso).toLocaleString()}
+              className={
+                "flex w-28 shrink-0 flex-col items-end pt-0.5 text-right leading-tight " +
+                (overdue
+                  ? "font-medium text-[var(--app-danger)]"
+                  : dateSoon
+                    ? "font-medium text-app"
+                    : "text-app-subtle")
+              }
+            >
+              <span className="inline-flex items-center justify-end gap-1 text-xs">
+                {overdue && <OverdueClockIcon />}
+                {dateLabel}
+              </span>
+              {dateShort &&
+                dateShort.toLowerCase() !== dateLabel.toLowerCase() && (
+                  <span className="text-[11px] font-normal text-app-subtle">
+                    {dateShort}
+                  </span>
+                )}
+              {eventTime && (
+                <span className="text-[11px] font-normal text-app-subtle">
+                  {eventTime}
+                </span>
+              )}
+            </div>
+          )}
 
           <div ref={menuRef} className="relative shrink-0">
             <button

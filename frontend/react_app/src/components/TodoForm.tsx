@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { DateTimeField } from "@/components/DateTimeField";
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
 import { StatusCycleButton, nextStatus } from "@/components/TodoMarks";
 import { useToast } from "@/contexts/ToastContext";
@@ -24,6 +25,7 @@ import {
 interface TodoFormProps {
   tags: TagOption[];
   onCreated?: (todo: unknown) => void;
+  defaultEventDate?: string;
   defaultDueDate?: string;
 }
 
@@ -49,12 +51,18 @@ function PropertyField({
   );
 }
 
-export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps) {
+export function TodoForm({
+  tags,
+  onCreated,
+  defaultEventDate = "",
+  defaultDueDate = "",
+}: TodoFormProps) {
   const { pushToast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("low");
   const [status, setStatus] = useState("todo");
+  const [eventDate, setEventDate] = useState(defaultEventDate);
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [recurrence, setRecurrence] = useState<RecurrenceValue>("never");
   const [tagIds, setTagIds] = useState<number[]>([]);
@@ -90,6 +98,9 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
         recurrence,
       };
 
+      if (eventDate) {
+        body.event_date = new Date(eventDate).toISOString();
+      }
       if (dueDate) {
         body.due_date = new Date(dueDate).toISOString();
       }
@@ -110,6 +121,7 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
 
       setTitle("");
       setDescription("");
+      setEventDate("");
       setDueDate("");
       setPriority("low");
       setStatus("todo");
@@ -217,6 +229,14 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
           </PropertyField>
 
           <div className="grid gap-4 sm:grid-cols-2">
+            <PropertyField label="Событие" htmlFor="new-todo-event">
+              <DateTimeField
+                id="new-todo-event"
+                value={eventDate}
+                onChange={setEventDate}
+              />
+            </PropertyField>
+
             <PropertyField label="Срок" htmlFor="new-todo-due">
               {dueLabel && (
                 <p
@@ -232,29 +252,27 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
                   {dueLabel}
                 </p>
               )}
-              <input
+              <DateTimeField
                 id="new-todo-due"
-                type="datetime-local"
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className={propertyControlClass}
+                onChange={setDueDate}
               />
-            </PropertyField>
-
-            <PropertyField label="Повтор" htmlFor="new-todo-recurrence">
-              <RecurrenceSelect
-                id="new-todo-recurrence"
-                value={recurrence}
-                onChange={setRecurrence}
-                className={propertyControlClass}
-              />
-              {recurrence !== "never" && (
-                <p className="text-[10px] leading-snug text-app-subtle">
-                  Нужен срок: повтор ставится от создания до срока.
-                </p>
-              )}
             </PropertyField>
           </div>
+
+          <PropertyField label="Повтор" htmlFor="new-todo-recurrence">
+            <RecurrenceSelect
+              id="new-todo-recurrence"
+              value={recurrence}
+              onChange={setRecurrence}
+              className={propertyControlClass}
+            />
+            {recurrence !== "never" && (
+              <p className="text-[10px] leading-snug text-app-subtle">
+                Повтор от создания до даты события, а если её нет — до срока.
+              </p>
+            )}
+          </PropertyField>
 
           {allTags.length > 0 ? (
             <PropertyField label="Теги">

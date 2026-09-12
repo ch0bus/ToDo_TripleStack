@@ -96,7 +96,7 @@ export function CalendarPage() {
     return groupTodosForMonth(todos, rangeFrom, rangeTo);
   }, [todos, rangeFrom, rangeTo]);
   const undated = useMemo(
-    () => todos.filter((todo) => !todo.due_date),
+    () => todos.filter((todo) => !todo.due_date && !todo.event_date),
     [todos],
   );
   const monthTodos = useMemo(
@@ -567,7 +567,7 @@ export function CalendarPage() {
       <TodoFormModal
         open={showForm}
         tags={tags}
-        defaultDueDate={toDatetimeLocalValue(
+        defaultEventDate={toDatetimeLocalValue(
           defaultDueAtDay(selectedDay).toISOString(),
         )}
         onClose={() => setShowForm(false)}

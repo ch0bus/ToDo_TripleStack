@@ -139,6 +139,7 @@ class TodoSerializer(serializers.ModelSerializer):
             "status",
             "priority",
             "due_date",
+            "event_date",
             "recurrence",
             "created_at",
             "updated_at",
@@ -167,10 +168,13 @@ class TodoSerializer(serializers.ModelSerializer):
                 "help_text": "Приоритет задачи (critical, high, medium, low)",
             },
             "due_date": {
-                "help_text": "Срок выполнения задачи (дата/время)",
+                "help_text": "Дедлайн: до какого момента задачу нужно сделать",
+            },
+            "event_date": {
+                "help_text": "Когда происходит само событие (календарь и повтор)",
             },
             "recurrence": {
-                "help_text": "Шаг повтора в окне от создания до срока (daily, weekly, monthly, never)",
+                "help_text": "Шаг повтора от создания до даты события (или срока, если события нет)",
             },
             "created_at": {"help_text": "Дата и время создания"},
             "updated_at": {"help_text": "Дата и время последнего обновления"},
