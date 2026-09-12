@@ -4,7 +4,9 @@ WORKDIR /src
 COPY frontend/react_app/package.json frontend/react_app/package-lock.json ./
 RUN npm ci
 COPY frontend/react_app/ ./
-RUN npm run build
+# tsc на слабом VPS часто валится по памяти (exit 2); Vite достаточно для образа
+ENV NODE_OPTIONS=--max-old-space-size=512
+RUN npm run build:docker
 
 FROM nginx:1.27-alpine
 

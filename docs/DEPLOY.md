@@ -45,6 +45,7 @@ rsync -av --exclude venv --exclude node_modules --exclude .git \
 
 # на сервере
 cd /opt/todoapp
+docker compose build --no-cache web
 docker compose up -d --build
 ```
 
