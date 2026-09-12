@@ -29,8 +29,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# только корневые каталоги упаковки Python, не frontend/src/lib
+/lib/
+/lib64/
+!frontend/react_app/src/lib/
 parts/
 sdist/
 var/

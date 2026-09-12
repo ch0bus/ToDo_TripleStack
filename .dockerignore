@@ -13,5 +13,7 @@ docs
 backend/fastapi_api
 backend/flask_api
 frontend/react_app/src/app
+!frontend/react_app/src/lib
+!frontend/react_app/src/lib/**
 *.md
 !README.md
