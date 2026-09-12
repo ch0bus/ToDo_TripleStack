@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 
 import { apiFetch } from "@/lib/api";
 import type { TagOption } from "@/lib/tags";
+import { btnSecondary, inputClass } from "@/lib/uiClasses";
 
 interface TagCreateFormProps {
   onCreated: (tag: TagOption) => void;
@@ -43,7 +44,11 @@ export function TagCreateForm({ onCreated }: TagCreateFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      {error && <p className="text-xs text-red-300">{error}</p>}
+      {error && (
+        <p className="text-xs text-[var(--app-danger)]" role="alert">
+          {error}
+        </p>
+      )}
       <div className="flex gap-2">
         <input
           type="text"
@@ -51,12 +56,12 @@ export function TagCreateForm({ onCreated }: TagCreateFormProps) {
           onChange={(e) => setName(e.target.value)}
           placeholder="Название тега..."
           maxLength={100}
-          className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm placeholder:text-slate-500"
+          className={inputClass + " min-w-0 flex-1 py-1.5 text-sm"}
         />
         <button
           type="submit"
           disabled={loading || !name.trim()}
-          className="shrink-0 rounded-md bg-slate-700 px-3 py-1.5 text-sm hover:bg-slate-600 disabled:opacity-50"
+          className={btnSecondary + " shrink-0 py-1.5 disabled:opacity-50"}
         >
           {loading ? "..." : "Создать"}
         </button>

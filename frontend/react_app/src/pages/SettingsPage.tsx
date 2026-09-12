@@ -1,7 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { SettingsSkeleton } from "@/components/skeletons/SettingsSkeleton";
 import { TagsSettingsSection } from "@/components/TagsSettingsSection";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import { clearTokens } from "@/lib/auth";
@@ -10,7 +12,8 @@ import {
   getApiBaseOverride,
   setApiBaseOverride,
 } from "@/lib/settings";
-import { btnPrimary, btnSecondary, inputClass } from "@/lib/uiClasses";
+import type { ThemeMode } from "@/lib/theme";
+import { btnPrimary, btnSecondary, cardClass, inputClass } from "@/lib/uiClasses";
 
 interface Profile {
   id: number;
@@ -22,6 +25,7 @@ interface Profile {
 export function SettingsPage() {
   const navigate = useNavigate();
   const { pushToast } = useToast();
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -114,17 +118,24 @@ export function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-12 text-sm text-slate-400">
-        Загрузка настроек...
+      <div className="mx-auto max-w-lg px-4 py-8">
+        <h1 className="mb-6 text-2xl font-semibold text-app">Настройки</h1>
+        <SettingsSkeleton />
       </div>
     );
   }
 
+  const themeOptions: { value: ThemeMode; label: string }[] = [
+    { value: "system", label: "Как в системе" },
+    { value: "light", label: "Светлая" },
+    { value: "dark", label: "Тёмная" },
+  ];
+
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Настройки</h1>
-        <Link to="/" className="text-sm text-blue-400 hover:underline">
+        <h1 className="text-2xl font-semibold text-app">Настройки</h1>
+        <Link to="/" className="text-sm text-app-accent hover:underline">
           ← Входящие
         </Link>
       </div>
@@ -135,19 +146,45 @@ export function SettingsPage() {
         </div>
       )}
 
-      <section className="mb-8 rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+      <section className={"mb-8 p-5 " + cardClass}>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-app-muted">
+          Оформление
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {themeOptions.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                setThemeMode(opt.value);
+                pushToast(`Тема: ${opt.label.toLowerCase()}`, "info");
+              }}
+              className={
+                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors " +
+                (themeMode === opt.value
+                  ? "border-[var(--app-accent)] bg-[var(--app-accent)]/15 text-app-accent"
+                  : "border-app text-app-muted hover:text-app")
+              }
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className={"mb-8 p-5 " + cardClass}>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-app-muted">
           Профиль
         </h2>
         {profile && (
-          <p className="mb-4 text-sm text-slate-300">
+          <p className="mb-4 text-sm text-app-muted">
             Логин:{" "}
-            <span className="font-medium text-slate-100">{profile.username}</span>
+            <span className="font-medium text-app">{profile.username}</span>
           </p>
         )}
         <form onSubmit={handleProfileSubmit} className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Email</label>
+            <label className="mb-1 block text-xs text-app-muted">Email</label>
             <input
               type="email"
               value={email}
@@ -157,7 +194,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Телефон</label>
+            <label className="mb-1 block text-xs text-app-muted">Телефон</label>
             <input
               type="tel"
               value={phone}
@@ -167,7 +204,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">
+            <label className="mb-1 block text-xs text-app-muted">
               Новый пароль (необязательно)
             </label>
             <input
@@ -187,11 +224,11 @@ export function SettingsPage() {
 
       <TagsSettingsSection />
 
-      <section className="mb-8 rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+      <section className={"mb-8 p-5 " + cardClass}>
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
           Подключение к API
         </h2>
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-app-subtle">
           По умолчанию: {defaultApiBaseHint()}. Укажите свой URL для FastAPI/Flask
           или прямого доступа к Django.
         </p>
@@ -214,8 +251,8 @@ export function SettingsPage() {
         </form>
       </section>
 
-      <section className="rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-slate-400">
+      <section className={"p-5 " + cardClass}>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-app-muted">
           Сессия
         </h2>
         <button

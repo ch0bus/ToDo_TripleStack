@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { btnSecondary } from "@/lib/uiClasses";
 import { useFocusTrap } from "@/lib/useFocusTrap";
 
 interface ConfirmDialogProps {
@@ -40,7 +41,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="overlay-app fixed inset-0 z-50 flex items-center justify-center p-4"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !loading) onCancel();
@@ -48,16 +49,16 @@ export function ConfirmDialog({
     >
       <div
         ref={panelRef}
-        className="w-full max-w-sm rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-app bg-app-modal p-5 shadow-app"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-desc"
       >
-        <h2 id="confirm-dialog-title" className="text-lg font-semibold text-slate-50">
+        <h2 id="confirm-dialog-title" className="text-lg font-semibold text-app">
           {title}
         </h2>
-        <p id="confirm-dialog-desc" className="mt-2 text-sm text-slate-400">
+        <p id="confirm-dialog-desc" className="mt-2 text-sm text-app-muted">
           {message}
         </p>
 
@@ -66,7 +67,7 @@ export function ConfirmDialog({
             type="button"
             disabled={loading}
             onClick={onCancel}
-            className="rounded-md border border-slate-600 px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 disabled:opacity-50"
+            className={btnSecondary + " disabled:opacity-50"}
           >
             {cancelLabel}
           </button>

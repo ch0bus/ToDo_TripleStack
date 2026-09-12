@@ -41,6 +41,13 @@ REST API для задач с JWT-аутентификацией. Контрак
 - `200` — `{ "access", "refresh" }` (JWT SimpleJWT)
 - `401` — неверные учётные данные
 
+### POST `/api/auth/token/refresh/`
+
+Тело: `{ "refresh": "<refresh_token>" }`.
+
+- `200` — `{ "access" }` (и опционально новый `refresh`, если включена ротация)
+- `401` — refresh недействителен
+
 ### GET `/api/auth/me/`
 
 - `200` — `{ "id", "username", "email", "phone_number" }`
@@ -136,6 +143,10 @@ Query (все опционально):
 ### GET / PUT / PATCH / DELETE `/api/todos/{id}/`
 
 Стандартный CRUD; `user_id` только read-only.
+
+**Повторение (Django):** при PATCH, если статус меняется на `done` и `recurrence` ≠ `never`,
+создаётся новая задача-копия (`todo`, тот же title/описание/приоритет/теги) со сдвинутым
+`due_date` (день / неделя / месяц).
 
 ---
 

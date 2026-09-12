@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
+import { AuthLayout } from "@/layouts/AuthLayout";
 import { apiBaseUrl } from "@/lib/auth";
+import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
 export function RegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -58,85 +60,86 @@ export function RegisterPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-900 to-slate-800 p-6 text-slate-50">
-      <div className="w-full max-w-md">
-        <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-8 shadow-lg backdrop-blur-md">
-          <h1 className="mb-2 text-2xl font-semibold">Создать аккаунт</h1>
-          <p className="mb-6 text-sm text-slate-400">
-            Зарегистрируйтесь и начните вести список задач.
-          </p>
+    <AuthLayout
+      title="Создать аккаунт"
+      subtitle="Зарегистрируйтесь и начните вести список задач."
+      footer={
+        <>
+          Уже есть аккаунт?{" "}
+          <Link to="/login" className="text-app-accent hover:underline">
+            Войти
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="username" className="mb-1 block text-sm text-app-muted">
+            Логин
+          </label>
+          <input
+            id="username"
+            name="username"
+            className={inputClass}
+            required
+            autoComplete="username"
+          />
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="username" className="mb-1 block text-sm">
-                Логин
-              </label>
-              <input
-                id="username"
-                name="username"
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                required
-                autoComplete="username"
-              />
-            </div>
+        <div>
+          <label htmlFor="email" className="mb-1 block text-sm text-app-muted">
+            Email
+          </label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            className={inputClass}
+            required
+            autoComplete="email"
+          />
+        </div>
 
-            <div>
-              <label htmlFor="email" className="mb-1 block text-sm">
-                Email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                required
-                autoComplete="email"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="mb-1 block text-sm">
-                Пароль
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  className="w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 pr-12 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  required
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 text-sm text-slate-300 hover:text-slate-100"
-                >
-                  {showPassword ? "Скрыть" : "Показать"}
-                </button>
-              </div>
-            </div>
-
-            {error && <div className="text-sm text-red-400">{error}</div>}
-            {success && <div className="text-sm text-green-400">{success}</div>}
-
+        <div>
+          <label htmlFor="password" className="mb-1 block text-sm text-app-muted">
+            Пароль
+          </label>
+          <div className="relative">
+            <input
+              id="password"
+              name="password"
+              type={showPassword ? "text" : "password"}
+              className={inputClass + " pr-20"}
+              required
+              autoComplete="new-password"
+            />
             <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-500 disabled:opacity-60"
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="absolute top-1/2 right-2 -translate-y-1/2 text-xs text-app-muted hover:text-app"
             >
-              {loading ? "Создание..." : "Зарегистрироваться"}
+              {showPassword ? "Скрыть" : "Показать"}
             </button>
-          </form>
-
-          <div className="mt-4 text-center text-sm text-slate-400">
-            Уже есть аккаунт?{" "}
-            <Link to="/login" className="text-blue-400 hover:underline">
-              Войти
-            </Link>
           </div>
         </div>
-      </div>
-    </main>
+
+        {error && (
+          <p className="text-sm text-[var(--app-danger)]" role="alert">
+            {error}
+          </p>
+        )}
+        {success && (
+          <p className="text-sm text-green-600 dark:text-green-400">{success}</p>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading}
+          className={btnPrimary + " w-full"}
+        >
+          {loading ? "Создание..." : "Зарегистрироваться"}
+        </button>
+      </form>
+    </AuthLayout>
   );
 }

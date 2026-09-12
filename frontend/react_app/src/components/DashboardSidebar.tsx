@@ -1,12 +1,20 @@
 import { Link, useSearchParams } from "react-router-dom";
 
 import type { TagOption } from "@/lib/tags";
+import { btnPrimary, cardClass } from "@/lib/uiClasses";
 
 interface DashboardSidebarProps {
   tags: TagOption[];
   onNewTask: () => void;
   onNavigate?: () => void;
   className?: string;
+}
+
+function navButtonClass(active: boolean): string {
+  return (
+    "w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors " +
+    (active ? "nav-item-active" : "nav-item")
+  );
 }
 
 function TagList({
@@ -19,7 +27,7 @@ function TagList({
   onSelect: (id: string) => void;
 }) {
   if (!items.length) {
-    return <p className="px-2 py-1 text-xs text-slate-500">Пока нет</p>;
+    return <p className="px-2 py-1 text-xs text-app-subtle">Пока нет</p>;
   }
   return (
     <ul className="space-y-1 text-sm">
@@ -28,11 +36,7 @@ function TagList({
           <button
             type="button"
             onClick={() => onSelect(String(tag.id))}
-            className={
-              activeTag === String(tag.id)
-                ? "w-full rounded-md bg-slate-800 px-2 py-1.5 text-left text-blue-300"
-                : "w-full rounded-md px-2 py-1.5 text-left text-slate-300 hover:bg-slate-800"
-            }
+            className={navButtonClass(activeTag === String(tag.id))}
           >
             {tag.tag_name}
           </button>
@@ -94,12 +98,11 @@ export function DashboardSidebar({
   return (
     <aside
       className={
-        "space-y-6 rounded-lg border border-slate-800 bg-slate-900/60 p-4 lg:sticky lg:top-24 lg:self-start " +
-        className
+        "space-y-6 p-4 lg:sticky lg:top-24 lg:self-start " + cardClass + " " + className
       }
     >
       <div>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
           Теги
         </h2>
         <ul className="mb-3 space-y-1 text-sm">
@@ -107,54 +110,46 @@ export function DashboardSidebar({
             <button
               type="button"
               onClick={clearTagsAndPreset}
-              className={
-                allTasksActive
-                  ? "w-full rounded-md bg-slate-800 px-2 py-1.5 text-left text-blue-300"
-                  : "w-full rounded-md px-2 py-1.5 text-left text-slate-300 hover:bg-slate-800"
-              }
+              className={navButtonClass(allTasksActive)}
             >
-              ✓ Все задачи
+              Все задачи
             </button>
           </li>
         </ul>
 
-        <p className="mb-1 px-2 text-[10px] uppercase text-slate-500">Системные</p>
+        <p className="mb-1 px-2 text-[10px] uppercase text-app-subtle">Системные</p>
         <TagList
           items={systemTags}
           activeTag={activeTag}
           onSelect={selectTag}
         />
 
-        <p className="mb-1 mt-3 px-2 text-[10px] uppercase text-slate-500">Мои</p>
+        <p className="mb-1 mt-3 px-2 text-[10px] uppercase text-app-subtle">Мои</p>
         <TagList items={userTags} activeTag={activeTag} onSelect={selectTag} />
 
-        <p className="mt-2 px-2 text-[10px] text-slate-500">
+        <p className="mt-2 px-2 text-[10px] text-app-subtle">
           Создать тег — в{" "}
-          <Link to="/settings" className="text-blue-400 hover:underline">
+          <Link to="/settings" className="text-app-accent hover:underline">
             Настройках
           </Link>
         </p>
       </div>
 
       <div>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
           Быстрые фильтры
         </h2>
         <ul className="space-y-1 text-sm">
           {[
-            { id: "all", label: "📋 Все", value: "all" },
-            { id: "today", label: "📅 Сегодня", value: "today" },
-            { id: "overdue", label: "⚠️ Просрочено", value: "overdue" },
+            { id: "all", label: "Все", value: "all" },
+            { id: "today", label: "Сегодня", value: "today" },
+            { id: "overdue", label: "Просрочено", value: "overdue" },
           ].map((item) => (
             <li key={item.id}>
               <button
                 type="button"
                 onClick={() => selectPreset(item.value)}
-                className={
-                  preset === item.value
-                    ? "w-full rounded-md bg-slate-800 px-2 py-1.5 text-left text-blue-300"
-                    : "w-full rounded-md px-2 py-1.5 text-left text-slate-300 hover:bg-slate-800"
-                }
+                className={navButtonClass(preset === item.value)}
               >
                 {item.label}
               </button>
@@ -163,11 +158,7 @@ export function DashboardSidebar({
         </ul>
       </div>
 
-      <button
-        type="button"
-        onClick={handleNewTask}
-        className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-500"
-      >
+      <button type="button" onClick={handleNewTask} className={btnPrimary + " w-full"}>
         + Новая задача
       </button>
     </aside>

@@ -1,20 +1,27 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
-import { MetaChip } from "@/components/MetaChip";
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
 import {
-  PrioritySelect,
-  StatusSelect,
-} from "@/components/StatusPrioritySelects";
+  PriorityPips,
+  StatusCycleButton,
+  StatusCycleIcon,
+  nextStatus,
+} from "@/components/TodoMarks";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import { getPriorityLabel } from "@/lib/labels";
+import {
+  TODO_PRIORITIES,
+  getPriorityLabel,
+  getStatusLabel,
+} from "@/lib/labels";
 import { type RecurrenceValue } from "@/lib/recurrence";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary, inputClass } from "@/lib/uiClasses";
+import { btnPrimary } from "@/lib/uiClasses";
 import {
-  formatDueLabel,
-  getPriorityDotClass,
+  formatDueCountdown,
+  getCalendarDayDiff,
+  getPriorityBorderClass,
+  getPriorityStripeClass,
   isOverdue,
   toDatetimeLocalValue,
 } from "@/lib/utils";
@@ -38,12 +45,35 @@ interface TodoEditFormProps {
   children?: ReactNode;
 }
 
-function SectionTitle({ children }: { children: string }) {
+const propertyControlClass =
+  "w-full cursor-pointer rounded-md border-0 bg-transparent px-1.5 py-1.5 text-sm text-app hover:bg-app-surface-muted focus:bg-app-surface-muted focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none";
+
+function SideProperty({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  children: ReactNode;
+}) {
   return (
-    <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-      {children}
-    </h3>
+    <div className="space-y-1.5">
+      <label
+        htmlFor={htmlFor}
+        className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle"
+      >
+        {label}
+      </label>
+      <div className="min-w-0">{children}</div>
+    </div>
   );
+}
+
+function sameIdSet(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
 }
 
 export function TodoEditForm({
@@ -77,7 +107,21 @@ export function TodoEditForm({
     setTagIds(todo.tags?.map((t) => t.id) ?? []);
   }, [todo.id]);
 
-  const overdue = isOverdue(dueDate ? new Date(dueDate).toISOString() : null, status);
+  const dueIso = dueDate ? new Date(dueDate).toISOString() : null;
+  const overdue = isOverdue(dueIso, status);
+  const dueSoon =
+    !!dueIso && !overdue && status !== "done" && getCalendarDayDiff(dueIso) === 0;
+  const dueLabel = dueIso ? formatDueCountdown(dueIso, status) : "без срока";
+  const isDone = status === "done";
+
+  const dirty =
+    title !== todo.title ||
+    description !== (todo.description ?? "") ||
+    priority !== todo.priority ||
+    status !== todo.status ||
+    dueDate !== toDatetimeLocalValue(todo.due_date) ||
+    recurrence !== ((todo.recurrence as RecurrenceValue) || "never") ||
+    !sameIdSet(tagIds, todo.tags?.map((t) => t.id) ?? []);
 
   function toggleTag(id: number) {
     setTagIds((prev) =>
@@ -88,7 +132,7 @@ export function TodoEditForm({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
-    if (!trimmed) return;
+    if (!trimmed || !dirty) return;
 
     try {
       setLoading(true);
@@ -112,6 +156,13 @@ export function TodoEditForm({
       if (!res.ok) throw new Error("Failed to update todo");
 
       const updated = (await res.json()) as TodoEditData;
+      setTitle(updated.title);
+      setDescription(updated.description ?? "");
+      setPriority(updated.priority);
+      setStatus(updated.status);
+      setDueDate(toDatetimeLocalValue(updated.due_date));
+      setRecurrence((updated.recurrence as RecurrenceValue) || "never");
+      setTagIds(updated.tags?.map((t) => t.id) ?? []);
       onSaved(updated);
       pushToast("Изменения сохранены", "success");
     } catch (err) {
@@ -127,141 +178,192 @@ export function TodoEditForm({
   const userTags = tags.filter((t) => !t.is_system);
   const allTags = [...systemTags, ...userTags];
 
-  const heroInputClass =
-    "w-full border-0 bg-transparent px-0 py-0 text-xl font-semibold leading-snug text-slate-50 placeholder:text-slate-600 focus:ring-0 focus:outline-none sm:text-2xl";
-
-  const descClass =
-    "w-full resize-y rounded-lg border border-slate-700/80 bg-slate-900/50 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500/80 focus:outline-none";
-
   return (
-    <form onSubmit={handleSubmit} className="flex min-w-0 flex-col">
-      <header className="border-b border-slate-700/40 px-4 py-4 sm:px-5 sm:py-5">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/80 px-2.5 py-0.5 text-xs font-medium text-slate-300">
-            <span
-              className={
-                "h-2 w-2 rounded-full " + getPriorityDotClass(priority)
-              }
-              aria-hidden
-            />
-            {getPriorityLabel(priority)}
-          </span>
-          {overdue && <MetaChip tone="danger">Просрочено</MetaChip>}
-          {todo.due_date && !overdue && dueDate && (
-            <MetaChip>Срок: {formatDueLabel(new Date(dueDate).toISOString())}</MetaChip>
-          )}
-          {todo.subtasks_summary && todo.subtasks_summary.total > 0 && (
-            <MetaChip>
-              {todo.subtasks_summary.done}/{todo.subtasks_summary.total} подзадач
-            </MetaChip>
-          )}
-        </div>
+    <form
+      onSubmit={handleSubmit}
+      className={
+        "flex min-w-0 overflow-hidden rounded-xl border bg-app-surface shadow-app " +
+        getPriorityBorderClass(priority)
+      }
+    >
+      <div
+        className={
+          "shrink-0 self-stretch " +
+          (priority === "critical" || priority === "high" ? "w-1.5 " : "w-1 ") +
+          getPriorityStripeClass(priority)
+        }
+        title={`Приоритет: ${getPriorityLabel(priority)}`}
+        aria-hidden
+      />
 
-        <label htmlFor="todo-title" className="sr-only">
-          Заголовок
-        </label>
-        <input
-          id="todo-title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className={heroInputClass}
-          placeholder="Название задачи"
-          required
-        />
-
-        <div className="mt-4 flex flex-nowrap items-center gap-2 overflow-x-auto sm:gap-3">
-          <StatusSelect value={status} onChange={setStatus} inline />
-          <PrioritySelect value={priority} onChange={setPriority} inline />
-        </div>
-      </header>
-
-      <div className="space-y-6 px-4 py-5 sm:px-5">
-        {error && (
-          <div className="rounded-md border border-red-700 bg-red-900/40 px-3 py-2 text-xs text-red-200">
-            {error}
-          </div>
-        )}
-
-        <section className="space-y-2">
-          <SectionTitle>Описание</SectionTitle>
-          <textarea
-            id="todo-desc"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={5}
-            placeholder="Добавьте детали, ссылки, чеклист…"
-            className={descClass}
-          />
-        </section>
-
-        <section className="space-y-3">
-          <SectionTitle>Срок и повторение</SectionTitle>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <label
-                htmlFor="todo-due"
-                className="text-xs text-slate-400"
-              >
-                Срок выполнения
+      <div className="grid min-w-0 flex-1 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="min-w-0">
+          <header className="px-4 py-4 sm:px-5 sm:py-5">
+            <div className="flex items-start gap-3">
+              <StatusCycleButton
+                status={status}
+                disabled={loading}
+                onClick={() => setStatus(nextStatus(status))}
+                className="mt-1"
+                iconClassName="h-6 w-6"
+              />
+              <label htmlFor="todo-title" className="sr-only">
+                Заголовок
               </label>
+              <input
+                id="todo-title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={
+                  "min-w-0 flex-1 border-0 bg-transparent px-0 py-0 text-xl font-semibold leading-snug placeholder:text-app-subtle focus:ring-0 focus:outline-none sm:text-2xl " +
+                  (isDone ? "text-app-subtle line-through" : "text-app")
+                }
+                placeholder="Название задачи"
+                required
+              />
+            </div>
+          </header>
+
+          <div className="px-4 pb-5 sm:px-5">
+            {error && (
+              <div className="chip-danger mb-4 rounded-md border px-3 py-2 text-xs">
+                {error}
+              </div>
+            )}
+            <section>
+              <h3 className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
+                Описание
+              </h3>
+              <textarea
+                id="todo-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={8}
+                placeholder="Добавьте детали, ссылки, чеклист…"
+                className="w-full resize-y rounded-md border border-transparent bg-transparent px-0 py-1 text-sm leading-relaxed text-app placeholder:text-app-subtle focus:border-app focus:bg-app-input focus:px-3 focus:py-2 focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none"
+              />
+            </section>
+          </div>
+
+          {children}
+        </div>
+
+        <aside className="flex flex-col border-t border-app bg-app-surface-muted/40 lg:border-l lg:border-t-0">
+          <div className="flex flex-1 flex-col gap-5 px-4 py-4 sm:px-5 sm:py-5">
+            <SideProperty label="Статус">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setStatus(nextStatus(status))}
+                className="group/status flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm text-app hover:bg-app-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] disabled:opacity-40"
+              >
+                <StatusCycleIcon status={status} />
+                {getStatusLabel(status)}
+              </button>
+            </SideProperty>
+
+            <SideProperty label="Приоритет">
+              <div className="flex flex-col gap-0.5">
+                {TODO_PRIORITIES.map((value) => {
+                  const selected = value === priority;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setPriority(value)}
+                      aria-pressed={selected}
+                      className={
+                        "inline-flex items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs transition-colors " +
+                        (selected
+                          ? "bg-app-surface text-app shadow-sm"
+                          : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
+                      }
+                    >
+                      <PriorityPips priority={value} className="" />
+                      {getPriorityLabel(value)}
+                    </button>
+                  );
+                })}
+              </div>
+            </SideProperty>
+
+            <SideProperty label="Срок" htmlFor="todo-due">
+              <p
+                title={dueIso ? new Date(dueIso).toLocaleString() : undefined}
+                className={
+                  "px-1.5 text-sm " +
+                  (overdue
+                    ? "font-medium text-[var(--app-danger)]"
+                    : dueSoon
+                      ? "font-medium text-app"
+                      : "text-app-muted")
+                }
+              >
+                {dueLabel}
+              </p>
               <input
                 id="todo-due"
                 type="datetime-local"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className={inputClass}
+                className={propertyControlClass}
               />
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs text-slate-400">Повторение</label>
-              <RecurrenceSelect value={recurrence} onChange={setRecurrence} />
-              <p className="text-[10px] leading-snug text-slate-500">
-                Правило сохраняется; автосоздание следующих экземпляров пока
-                не реализовано.
-              </p>
-            </div>
+            </SideProperty>
+
+            <SideProperty label="Повтор" htmlFor="todo-recurrence">
+              <RecurrenceSelect
+                id="todo-recurrence"
+                value={recurrence}
+                onChange={setRecurrence}
+                className={propertyControlClass}
+              />
+              {recurrence !== "never" && (
+                <p className="px-1.5 text-[10px] leading-snug text-app-subtle">
+                  При статусе «Готово» создаётся новая копия со сдвинутым сроком.
+                </p>
+              )}
+            </SideProperty>
+
+            {allTags.length > 0 && (
+              <SideProperty label="Теги">
+                <div className="flex flex-wrap gap-1.5">
+                  {allTags.map((tag) => {
+                    const active = tagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleTag(tag.id)}
+                        className={
+                          "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors " +
+                          (active
+                            ? "chip-accent border"
+                            : "chip-default border hover:opacity-90")
+                        }
+                      >
+                        #{tag.tag_name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </SideProperty>
+            )}
           </div>
-        </section>
 
-        {allTags.length > 0 && (
-          <section className="space-y-2">
-            <SectionTitle>Теги</SectionTitle>
-            <div className="flex flex-wrap gap-2">
-              {allTags.map((tag) => {
-                const active = tagIds.includes(tag.id);
-                return (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    className={
-                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors " +
-                      (active
-                        ? "border-blue-600/60 bg-blue-950/50 text-blue-200"
-                        : "border-slate-700 bg-slate-900/40 text-slate-400 hover:border-slate-600 hover:text-slate-200")
-                    }
-                  >
-                    #{tag.tag_name}
-                  </button>
-                );
-              })}
+          {dirty && (
+            <div className="sticky bottom-0 mt-auto border-t border-app bg-app-header px-4 py-3 backdrop-blur lg:static lg:bg-transparent">
+              <button
+                type="submit"
+                disabled={loading || !title.trim()}
+                className={btnPrimary + " w-full"}
+              >
+                {loading ? "Сохранение..." : "Сохранить"}
+              </button>
             </div>
-          </section>
-        )}
+          )}
+        </aside>
       </div>
-
-      {children}
-
-      <footer className="sticky bottom-0 border-t border-slate-700/50 bg-slate-900/95 px-4 py-3 backdrop-blur sm:static sm:bg-transparent sm:px-5 sm:py-4">
-        <button
-          type="submit"
-          disabled={loading}
-          className={btnPrimary + " w-full sm:w-auto"}
-        >
-          {loading ? "Сохранение..." : "Сохранить изменения"}
-        </button>
-      </footer>
     </form>
   );
 }

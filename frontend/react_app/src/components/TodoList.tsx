@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { TodoItem } from "@/components/TodoItem";
+import { cardClass } from "@/lib/uiClasses";
 
 export interface TodoRow {
   id: number;
@@ -32,13 +33,13 @@ export function TodoList({
   onDeleted,
 }: TodoListProps) {
   if (loading) {
-    return <p className="text-sm text-slate-400">Загрузка задач...</p>;
+    return <p className="text-sm text-app-muted">Загрузка задач...</p>;
   }
 
   if (!todos.length) {
     return (
-      <div className="rounded-lg bg-slate-800/60 p-12 text-center">
-        <p className="text-lg text-slate-400">
+      <div className={"p-12 text-center " + cardClass}>
+        <p className="text-lg text-app-muted">
           {emptyMessage ?? "Задач пока нет."}
         </p>
         {emptyAction && <div className="mt-4">{emptyAction}</div>}
@@ -47,7 +48,7 @@ export function TodoList({
   }
 
   return (
-    <ul className="space-y-2.5">
+    <ul className="space-y-3">
       {todos.map((todo) => (
         <TodoItem
           key={todo.id}

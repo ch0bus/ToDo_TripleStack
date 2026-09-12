@@ -9,30 +9,61 @@ import {
 
 type ToastVariant = "success" | "error" | "info";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 interface ToastItem {
   id: number;
   message: string;
   variant: ToastVariant;
+  action?: ToastAction;
+  durationMs: number;
+}
+
+interface PushToastOptions {
+  variant?: ToastVariant;
+  action?: ToastAction;
+  durationMs?: number;
 }
 
 interface ToastContextValue {
-  pushToast: (message: string, variant?: ToastVariant) => void;
+  pushToast: (message: string, options?: PushToastOptions | ToastVariant) => void;
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
 let toastId = 0;
 
+function normalizeOptions(
+  options?: PushToastOptions | ToastVariant,
+): PushToastOptions {
+  if (options === "success" || options === "error" || options === "info") {
+    return { variant: options };
+  }
+  return options ?? {};
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
-  const pushToast = useCallback((message: string, variant: ToastVariant = "info") => {
-    const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message, variant }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
-  }, []);
+  const pushToast = useCallback(
+    (message: string, options?: PushToastOptions | ToastVariant) => {
+      const { variant = "info", action, durationMs = action ? 8000 : 4000 } =
+        normalizeOptions(options);
+      const id = ++toastId;
+      setToasts((prev) => [...prev, { id, message, variant, action, durationMs }]);
+      window.setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, durationMs);
+    },
+    [],
+  );
+
+  function dismiss(id: number) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
 
   const value = useMemo(() => ({ pushToast }), [pushToast]);
 
@@ -52,10 +83,22 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 ? "border-green-800 bg-green-950/95 text-green-100"
                 : t.variant === "error"
                   ? "border-red-800 bg-red-950/95 text-red-100"
-                  : "border-slate-700 bg-slate-900/95 text-slate-100")
+                  : "border-app bg-app-surface text-app")
             }
           >
-            {t.message}
+            <p>{t.message}</p>
+            {t.action && (
+              <button
+                type="button"
+                className="mt-2 text-xs font-semibold underline underline-offset-2"
+                onClick={() => {
+                  t.action?.onClick();
+                  dismiss(t.id);
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>

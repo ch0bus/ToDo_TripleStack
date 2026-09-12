@@ -5,17 +5,27 @@ import { SubtaskList, type SubtasksSummary } from "@/components/SubtaskList";
 import { TodoEditForm, type TodoEditData } from "@/components/TodoEditForm";
 import { apiFetch } from "@/lib/api";
 import type { TagOption } from "@/lib/tags";
-import { getPriorityStripeClass, isOverdue } from "@/lib/utils";
 
 function DetailSkeleton() {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-700/50 bg-slate-800/30">
+    <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
       <div className="flex animate-pulse">
-        <div className="w-1 shrink-0 bg-slate-700" />
-        <div className="flex-1 space-y-4 p-5">
-          <div className="h-4 w-24 rounded bg-slate-700" />
-          <div className="h-8 w-3/4 rounded bg-slate-700" />
-          <div className="h-20 rounded-lg bg-slate-800" />
+        <div className="w-1 shrink-0 bg-app-border" />
+        <div className="grid min-w-0 flex-1 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <div className="space-y-4 p-5">
+            <div className="flex items-center gap-3">
+              <div className="h-6 w-6 rounded-full bg-app-border" />
+              <div className="h-7 flex-1 rounded bg-app-border" />
+            </div>
+            <div className="h-24 rounded-lg bg-app-surface-muted" />
+            <div className="h-16 rounded bg-app-surface-muted" />
+          </div>
+          <div className="space-y-4 border-t border-app p-5 lg:border-l lg:border-t-0">
+            <div className="h-4 w-16 rounded bg-app-border" />
+            <div className="h-8 rounded bg-app-border" />
+            <div className="h-4 w-20 rounded bg-app-border" />
+            <div className="h-20 rounded bg-app-border" />
+          </div>
         </div>
       </div>
     </div>
@@ -78,19 +88,12 @@ export function TodoDetailPage() {
     [],
   );
 
-  const stripe =
-    todo &&
-    getPriorityStripeClass(
-      todo.priority,
-      isOverdue(todo.due_date, todo.status),
-    );
-
   return (
-    <div className="mx-auto max-w-2xl px-3 pb-8 pt-4 sm:px-4 sm:pt-6">
+    <div className="mx-auto max-w-5xl px-3 pb-8 pt-4 sm:px-4 sm:pt-6">
       <nav className="mb-4 flex items-center gap-3">
         <Link
           to="/"
-          className="inline-flex items-center gap-1 text-sm text-slate-400 transition-colors hover:text-blue-400"
+          className="inline-flex items-center gap-1 text-sm text-app-muted transition-colors hover:text-app-accent"
         >
           <span aria-hidden>←</span>
           Входящие
@@ -98,7 +101,7 @@ export function TodoDetailPage() {
       </nav>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-700 bg-red-900/40 px-3 py-2 text-sm text-red-200">
+        <div className="chip-danger mb-4 rounded-lg border px-3 py-2 text-sm">
           {error}
         </div>
       )}
@@ -106,30 +109,13 @@ export function TodoDetailPage() {
       {loading || !todo ? (
         !error && <DetailSkeleton />
       ) : (
-        <article
-          className={
-            "overflow-hidden rounded-xl border shadow-sm " +
-            (isOverdue(todo.due_date, todo.status)
-              ? "border-red-900/40 bg-slate-800/50"
-              : "border-slate-700/50 bg-slate-800/40")
-          }
-        >
-          <div className="flex">
-            <div
-              className={"w-1 shrink-0 self-stretch " + stripe}
-              aria-hidden
-            />
-            <div className="min-w-0 flex-1">
-              <TodoEditForm todo={todo} tags={tags} onSaved={setTodo}>
-                <SubtaskList
-                  embedded
-                  todoId={todo.id}
-                  onSummaryChange={handleSubtaskSummaryChange}
-                />
-              </TodoEditForm>
-            </div>
-          </div>
-        </article>
+        <TodoEditForm todo={todo} tags={tags} onSaved={setTodo}>
+          <SubtaskList
+            embedded
+            todoId={todo.id}
+            onSummaryChange={handleSubtaskSummaryChange}
+          />
+        </TodoEditForm>
       )}
     </div>
   );

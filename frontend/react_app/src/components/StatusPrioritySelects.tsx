@@ -15,7 +15,7 @@ interface StatusSelectProps {
 }
 
 const inlineSelectClass =
-  "max-w-[8.5rem] cursor-pointer appearance-none rounded-md border-0 bg-slate-700/70 py-0.5 pl-1.5 pr-6 text-[11px] text-slate-200 hover:bg-slate-700 focus:ring-2 focus:ring-blue-500/80 focus:outline-none disabled:opacity-50 sm:max-w-none sm:py-1 sm:pl-2 sm:pr-7 sm:text-xs";
+  "max-w-[8.5rem] cursor-pointer appearance-none rounded-md border border-app bg-app-surface-muted py-0.5 pl-1.5 pr-6 text-[11px] text-app hover:opacity-90 focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none disabled:opacity-50 sm:max-w-none sm:py-1 sm:pl-2 sm:pr-7 sm:text-xs";
 
 export function StatusSelect({
   value,

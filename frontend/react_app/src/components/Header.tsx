@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { clearTokens, getAccessToken } from "@/lib/auth";
 
@@ -26,14 +27,14 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-slate-800 bg-slate-900/95 backdrop-blur">
+    <header className="sticky top-0 z-30 w-full border-b border-app bg-app-header backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           {showFiltersMenu && (
             <button
               type="button"
               onClick={() => filtersToggle?.()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 lg:hidden"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-app bg-app-surface-muted text-app hover:opacity-90 lg:hidden"
               aria-label="Фильтры и теги"
             >
               <span className="sr-only">Фильтры и теги</span>
@@ -51,37 +52,32 @@ export function Header() {
               </svg>
             </button>
           )}
-          <Link to="/" className="truncate text-xl font-semibold">
+          <Link to="/" className="truncate text-xl font-semibold text-app">
             ToDo App
           </Link>
         </div>
 
-        <nav className="flex shrink-0 items-center gap-4 text-sm text-slate-300">
+        <nav className="flex shrink-0 items-center gap-2 text-sm text-app-muted sm:gap-3">
+          <ThemeToggleButton />
           {hasToken ? (
             <>
-              <Link
-                to="/settings"
-                className="hover:text-slate-100 hover:underline"
-              >
+              <Link to="/settings" className="hover:text-app hover:underline">
                 Настройки
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="hover:text-slate-100 hover:underline"
+                className="hover:text-app hover:underline"
               >
                 Выйти
               </button>
             </>
           ) : (
             <>
-              <Link to="/login" className="hover:text-slate-100 hover:underline">
+              <Link to="/login" className="hover:text-app hover:underline">
                 Вход
               </Link>
-              <Link
-                to="/register"
-                className="hover:text-slate-100 hover:underline"
-              >
+              <Link to="/register" className="hover:text-app hover:underline">
                 Регистрация
               </Link>
             </>

@@ -7,12 +7,13 @@ import { FilterBar } from "@/components/FilterBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { StatsCards } from "@/components/StatsCards";
 import { TodoFormModal } from "@/components/TodoFormModal";
+import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { hasActiveFilters, type QuickPreset } from "@/lib/todoFilters";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary } from "@/lib/uiClasses";
+import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
 interface TodoStats {
   total: number;
@@ -192,12 +193,12 @@ export function HomePage() {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <h1 className="mb-3 text-2xl font-semibold">Входящие</h1>
-        <p className="mb-6 text-sm text-slate-400">
+        <p className="mb-6 text-sm text-app-muted">
           Войдите, чтобы видеть и создавать задачи.
         </p>
         <Link
           to="/login"
-          className="inline-block rounded-md bg-blue-600 px-4 py-2 text-sm font-medium hover:bg-blue-500"
+          className={btnPrimary + " inline-block"}
         >
           Войти
         </Link>
@@ -213,33 +214,24 @@ export function HomePage() {
         </div>
       )}
 
-      <div className="sticky top-0 z-20 -mx-4 mb-6 space-y-4 border-b border-slate-800/80 bg-slate-900/95 px-4 py-4 backdrop-blur md:static md:mx-0 md:border-b-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold">Входящие</h1>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className={btnPrimary + " hidden md:inline-flex"}
-          >
-            + Новая задача
-          </button>
-        </div>
-        <StatsCards
-          total={stats.total}
-          done={stats.done}
-          inProgress={stats.in_progress}
-          overdue={stats.overdue}
-        />
-      </div>
-
-      <div className="mb-4 lg:hidden">
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium hover:bg-blue-500"
-        >
-          + Новая задача
-        </button>
+      <div className="sticky top-0 z-20 -mx-4 mb-6 border-b border-app bg-app-header px-4 py-3 backdrop-blur md:static md:mx-0 md:border-b-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+        {loading ? (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="animate-pulse space-y-2 px-1" aria-hidden>
+                <div className="h-3 w-16 rounded bg-app-border" />
+                <div className="h-7 w-10 rounded bg-app-border" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <StatsCards
+            total={stats.total}
+            done={stats.done}
+            inProgress={stats.in_progress}
+            overdue={stats.overdue}
+          />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,_240px)_minmax(0,_1fr)]">
@@ -251,25 +243,36 @@ export function HomePage() {
         </div>
 
         <div className="space-y-4">
+          {loading ? (
+            <InboxSkeleton />
+          ) : (
+            <>
           <input
             type="text"
             placeholder="Поиск задач..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm placeholder:text-slate-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            className={inputClass}
           />
 
-          <FilterBar />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <FilterBar />
+            <button
+              type="button"
+              onClick={() => setShowForm(true)}
+              className={btnPrimary + " shrink-0"}
+            >
+              + Новая задача
+            </button>
+          </div>
 
-          {!loading && (
-            <p className="text-sm text-slate-400">
-              Показано {todos.length} из {stats.total} задач
-            </p>
-          )}
+          <p className="text-sm text-app-muted">
+            Показано {todos.length} из {stats.total} задач
+          </p>
 
           <TodoList
             todos={todos}
-            loading={loading}
+            loading={false}
             emptyMessage={
               filtersActive
                 ? "По выбранным фильтрам задач нет"
@@ -289,6 +292,8 @@ export function HomePage() {
             onUpdated={handleTodoUpdated}
             onDeleted={handleTodoDeleted}
           />
+            </>
+          )}
         </div>
       </div>
 

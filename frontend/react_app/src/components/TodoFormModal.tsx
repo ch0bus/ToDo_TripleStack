@@ -17,7 +17,7 @@ export function TodoFormModal({
   onClose,
   onCreated,
 }: TodoFormModalProps) {
-  const panelRef = useFocusTrap(open);
+  const panelRef = useFocusTrap(open, "#new-todo-title-input");
 
   useEffect(() => {
     if (!open) return;
@@ -32,7 +32,7 @@ export function TodoFormModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      className="overlay-app fixed inset-0 z-50 flex items-center justify-center p-4"
       role="presentation"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
@@ -40,19 +40,19 @@ export function TodoFormModal({
     >
       <div
         ref={panelRef}
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-slate-700 bg-slate-900 p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-app bg-app-modal p-4 shadow-app sm:p-5"
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-todo-title"
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 id="new-todo-title" className="text-lg font-semibold">
+          <h2 id="new-todo-title" className="text-lg font-semibold text-app">
             Новая задача
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+            className="rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
             aria-label="Закрыть"
           >
             ✕

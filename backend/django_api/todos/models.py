@@ -81,7 +81,7 @@ class Todo(models.Model):
     priority = models.CharField(
         max_length=16,
         choices=Priority.choices,
-        default=Priority.MEDIUM,
+        default=Priority.LOW,
     )
     title = models.CharField(max_length=255, db_index=True)  # Индекс для поиска
     description = models.TextField(blank=True)

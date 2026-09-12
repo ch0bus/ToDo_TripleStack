@@ -5,15 +5,21 @@ interface RecurrenceSelectProps {
   value: RecurrenceValue;
   onChange: (value: RecurrenceValue) => void;
   id?: string;
+  className?: string;
 }
 
-export function RecurrenceSelect({ value, onChange, id }: RecurrenceSelectProps) {
+export function RecurrenceSelect({
+  value,
+  onChange,
+  id,
+  className,
+}: RecurrenceSelectProps) {
   return (
     <select
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value as RecurrenceValue)}
-      className={selectClassFull}
+      className={className ?? selectClassFull}
     >
       {RECURRENCE_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>

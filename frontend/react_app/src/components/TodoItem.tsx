@@ -1,18 +1,21 @@
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { MetaChip } from "@/components/MetaChip";
 import {
-  PrioritySelect,
-  StatusSelect,
-} from "@/components/StatusPrioritySelects";
+  PriorityPips,
+  StatusCycleButton,
+  nextStatus,
+} from "@/components/TodoMarks";
+import { useToast } from "@/contexts/ToastContext";
 import type { TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
-import { getPriorityLabel } from "@/lib/labels";
+import { TODO_PRIORITIES, getPriorityLabel } from "@/lib/labels";
 import { getRecurrenceLabel } from "@/lib/recurrence";
 import {
-  formatDueLabel,
+  formatDueCountdown,
+  getCalendarDayDiff,
+  getPriorityBorderClass,
   getPriorityDotClass,
   getPriorityStripeClass,
   isOverdue,
@@ -24,35 +27,75 @@ interface TodoItemProps {
   onDeleted: (id: number) => void;
 }
 
-function TrashIcon() {
+function MoreIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      fill="currentColor"
       className="h-4 w-4"
       aria-hidden
     >
-      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" />
-      <path d="M10 11v6M14 11v6" />
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
     </svg>
   );
 }
 
 export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
+  const { pushToast } = useToast();
+  const menuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
   const overdue = isOverdue(todo.due_date, todo.status);
-  const stripe = getPriorityStripeClass(todo.priority, overdue);
+  const stripe = getPriorityStripeClass(todo.priority);
   const isDone = todo.status === "done";
+  const dueLabel = todo.due_date
+    ? formatDueCountdown(todo.due_date, todo.status)
+    : null;
+  const dueSoon =
+    !!todo.due_date &&
+    !isDone &&
+    !overdue &&
+    getCalendarDayDiff(todo.due_date) === 0;
 
   const subTotal = todo.subtasks_summary?.total ?? 0;
   const subDone = todo.subtasks_summary?.done ?? 0;
-  const subPct = subTotal > 0 ? Math.round((subDone / subTotal) * 100) : 0;
+
+  const metaParts: string[] = [];
+  for (const tag of todo.tags ?? []) {
+    metaParts.push(`#${tag.tag_name}`);
+  }
+  if (subTotal > 0) {
+    metaParts.push(`${subDone}/${subTotal} подзадач`);
+  }
+  if (todo.recurrence && todo.recurrence !== "never") {
+    metaParts.push(getRecurrenceLabel(todo.recurrence).toLowerCase());
+  }
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function onPointerDown(e: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   async function patchFields(body: Record<string, string>) {
     try {
@@ -65,171 +108,220 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
       onUpdated((await res.json()) as TodoRow);
     } catch (e) {
       console.error(e);
+      pushToast("Не удалось обновить задачу", "error");
     } finally {
       setBusy(false);
     }
   }
 
-  function patchStatus(status: string) {
-    if (status === todo.status) return;
-    void patchFields({ status });
+  function cycleStatus() {
+    void patchFields({ status: nextStatus(todo.status) });
   }
 
-  function patchPriority(priority: string) {
+  function setPriority(priority: string) {
+    setMenuOpen(false);
     if (priority === todo.priority) return;
     void patchFields({ priority });
   }
 
   async function handleDeleteConfirm() {
+    const snapshot = {
+      title: todo.title,
+      description: todo.description ?? "",
+      status: todo.status,
+      priority: todo.priority,
+      due_date: todo.due_date ?? null,
+      recurrence: todo.recurrence ?? "never",
+      tag_ids: todo.tags?.map((t) => t.id) ?? [],
+    };
+
     try {
       setBusy(true);
       const res = await apiFetch(`/todos/${todo.id}/`, { method: "DELETE" });
       if (!res.ok) throw new Error("delete failed");
       setConfirmOpen(false);
       onDeleted(todo.id);
+      pushToast("Задача удалена", {
+        variant: "info",
+        action: {
+          label: "Отменить",
+          onClick: () => {
+            void (async () => {
+              try {
+                const createRes = await apiFetch("/todos/", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    title: snapshot.title,
+                    description: snapshot.description,
+                    status: snapshot.status,
+                    priority: snapshot.priority,
+                    due_date: snapshot.due_date,
+                    recurrence: snapshot.recurrence,
+                    tag_ids: snapshot.tag_ids,
+                  }),
+                });
+                if (!createRes.ok) throw new Error("restore failed");
+                const restored = (await createRes.json()) as TodoRow;
+                onUpdated(restored);
+                pushToast(
+                  "Задача восстановлена (новая копия, без подзадач)",
+                  "success",
+                );
+              } catch (e) {
+                console.error(e);
+                pushToast("Не удалось восстановить задачу", "error");
+              }
+            })();
+          },
+        },
+      });
     } catch (e) {
       console.error(e);
+      pushToast("Не удалось удалить задачу", "error");
     } finally {
       setBusy(false);
     }
   }
 
-  const hasMeta =
-    !!todo.due_date ||
-    (todo.tags && todo.tags.length > 0) ||
-    (todo.recurrence && todo.recurrence !== "never") ||
-    subTotal > 0;
-
   return (
     <>
       <li
         className={
-          "group relative flex overflow-hidden rounded-xl border shadow-sm transition-colors " +
-          (overdue
-            ? "border-red-900/40 bg-slate-800/50 hover:bg-slate-800/70"
-            : "border-slate-700/50 bg-slate-800/40 hover:border-slate-600/80 hover:bg-slate-800/65") +
-          (busy ? " opacity-80" : "")
+          "group relative flex rounded-lg border bg-app-surface transition-colors hover:bg-app-surface-muted " +
+          getPriorityBorderClass(todo.priority) +
+          " " +
+          (busy ? "opacity-80 " : "") +
+          (menuOpen ? "z-20" : "")
         }
       >
         <div
-          className={"w-1 shrink-0 self-stretch " + stripe}
+          className={
+            "shrink-0 self-stretch rounded-l-lg " +
+            (todo.priority === "critical" || todo.priority === "high"
+              ? "w-1.5 "
+              : "w-1 ") +
+            stripe
+          }
+          title={`Приоритет: ${getPriorityLabel(todo.priority)}`}
           aria-hidden
         />
 
-        <div className="min-w-0 flex-1 p-3 sm:p-4">
-          <div className="flex gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="mb-1.5 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-900/70 px-2 py-0.5 text-[11px] font-medium text-slate-300">
-                  <span
-                    className={
-                      "h-2 w-2 shrink-0 rounded-full " +
-                      getPriorityDotClass(todo.priority)
-                    }
-                    aria-hidden
-                  />
-                  {getPriorityLabel(todo.priority)}
-                </span>
-                {overdue && (
-                  <MetaChip tone="danger">Просрочено</MetaChip>
-                )}
-              </div>
+        <div className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2">
+          <StatusCycleButton
+            status={todo.status}
+            disabled={busy}
+            onClick={cycleStatus}
+            className="mt-0.5"
+          />
 
+          <PriorityPips priority={todo.priority} />
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
               <Link
                 to={`/todos/${todo.id}`}
+                title={todo.title}
                 className={
-                  "block text-[15px] font-semibold leading-snug hover:text-blue-300 sm:text-base " +
-                  (isDone
-                    ? "text-slate-500 line-through decoration-slate-600"
-                    : "text-slate-50")
+                  "min-w-0 flex-1 truncate text-[15px] font-medium leading-snug hover:text-app-accent " +
+                  (isDone ? "text-app-subtle line-through" : "text-app")
                 }
               >
                 {todo.title}
               </Link>
-
-              {todo.description && (
-                <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-slate-400">
-                  {todo.description}
-                </p>
+              {dueLabel && todo.due_date && (
+                <span
+                  title={new Date(todo.due_date).toLocaleString()}
+                  className={
+                    "max-w-[9.5rem] shrink-0 text-right text-xs leading-snug " +
+                    (overdue
+                      ? "font-medium text-[var(--app-danger)]"
+                      : dueSoon
+                        ? "font-medium text-app"
+                        : "text-app-subtle")
+                  }
+                >
+                  {dueLabel}
+                </span>
               )}
             </div>
 
+            {metaParts.length > 0 && (
+              <p className="mt-0.5 truncate text-[12px] leading-relaxed text-app-subtle">
+                {metaParts.join(" · ")}
+              </p>
+            )}
+          </div>
+
+          <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               disabled={busy}
-              onClick={() => setConfirmOpen(true)}
-              className="shrink-0 rounded-lg p-2 text-slate-500 opacity-60 transition-opacity hover:bg-red-950/50 hover:text-red-400 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-500/50 sm:opacity-0 sm:group-hover:opacity-100 disabled:opacity-40"
-              aria-label="Удалить задачу"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="rounded-md p-1.5 text-app-subtle opacity-70 hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 disabled:opacity-40"
+              aria-label="Действия с задачей"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
             >
-              <TrashIcon />
+              <MoreIcon />
             </button>
-          </div>
 
-          {hasMeta && (
-            <div className="mt-2 flex flex-wrap gap-1 sm:mt-3 sm:gap-1.5">
-              {todo.due_date && (
-                <MetaChip tone={overdue ? "danger" : "default"}>
-                  Срок: {formatDueLabel(todo.due_date)}
-                </MetaChip>
-              )}
-              {todo.tags?.map((t) => (
-                <MetaChip key={t.id}>#{t.tag_name}</MetaChip>
-              ))}
-              {todo.recurrence && todo.recurrence !== "never" && (
-                <MetaChip tone="accent">
-                  <span className="text-slate-500" aria-hidden>
-                    ↻
-                  </span>
-                  {getRecurrenceLabel(todo.recurrence)}
-                </MetaChip>
-              )}
-              {subTotal > 0 && (
-                <MetaChip>
-                  <span
-                    className="inline-flex h-1 w-7 overflow-hidden rounded-full bg-slate-700"
-                    aria-hidden
-                  >
-                    <span
-                      className="h-full rounded-full bg-blue-500 transition-all"
-                      style={{ width: `${subPct}%` }}
-                    />
-                  </span>
-                  {subDone}/{subTotal} подзадач
-                </MetaChip>
-              )}
-            </div>
-          )}
-
-          <div className="mt-2 flex flex-nowrap items-center gap-2 overflow-x-auto border-t border-slate-700/40 pt-2 sm:mt-3 sm:flex-wrap sm:gap-x-3 sm:gap-y-2 sm:overflow-visible sm:pt-3">
-            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-              <span className="hidden text-[10px] font-medium uppercase tracking-wide text-slate-500 sm:inline">
-                Статус
-              </span>
-              <StatusSelect
-                value={todo.status}
-                disabled={busy}
-                inline
-                onChange={patchStatus}
-              />
-            </div>
-            <div className="hidden h-3 w-px shrink-0 bg-slate-700 sm:block" aria-hidden />
-            <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
-              <span className="hidden text-[10px] font-medium uppercase tracking-wide text-slate-500 sm:inline">
-                Приоритет
-              </span>
-              <PrioritySelect
-                value={todo.priority}
-                disabled={busy}
-                inline
-                onChange={patchPriority}
-              />
-            </div>
-            <Link
-              to={`/todos/${todo.id}`}
-              className="ml-auto hidden shrink-0 text-xs text-slate-500 hover:text-blue-400 hover:underline sm:inline"
-            >
-              Подробнее →
-            </Link>
+            {menuOpen && (
+              <div
+                id={menuId}
+                role="menu"
+                aria-label="Действия с задачей"
+                className="absolute right-0 top-full z-30 mt-1 w-48 overflow-hidden rounded-lg border border-app bg-app-modal py-1 shadow-app"
+              >
+                <p className="px-3 pb-1 pt-1.5 text-[10px] font-medium uppercase tracking-wide text-app-subtle">
+                  Приоритет
+                </p>
+                {TODO_PRIORITIES.map((priority) => {
+                  const selected = priority === todo.priority;
+                  return (
+                    <button
+                      key={priority}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={selected}
+                      disabled={busy}
+                      onClick={() => setPriority(priority)}
+                      className={
+                        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-app-surface-muted " +
+                        (selected ? "text-app" : "text-app-muted")
+                      }
+                    >
+                      <span
+                        className={
+                          "h-2 w-2 shrink-0 rounded-full " +
+                          getPriorityDotClass(priority)
+                        }
+                        aria-hidden
+                      />
+                      <span className="flex-1">{getPriorityLabel(priority)}</span>
+                      {selected && (
+                        <span className="text-app-accent" aria-hidden>
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+                <div className="my-1 border-t border-app" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={busy}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setConfirmOpen(true);
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg)]"
+                >
+                  Удалить
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </li>

@@ -1,6 +1,198 @@
 @import "tailwindcss";
 
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --app-bg: #eef2f6;
+  --app-bg-elevated: #ffffff;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f8fafc;
+  --app-border: #e2e8f0;
+  --app-border-strong: #cbd5e1;
+  --app-text: #0f172a;
+  --app-text-muted: #475569;
+  --app-text-subtle: #94a3b8;
+  --app-accent: #2563eb;
+  --app-accent-hover: #1d4ed8;
+  --app-accent-soft: #dbeafe;
+  --app-header-bg: rgba(255, 255, 255, 0.92);
+  --app-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
+  --app-input-bg: #ffffff;
+  --app-danger: #dc2626;
+  --app-nav-active-bg: #dbeafe;
+  --app-nav-active-text: #1d4ed8;
+  --app-chip-bg: #f1f5f9;
+  --app-chip-border: #e2e8f0;
+  --app-chip-text: #334155;
+  --app-modal-bg: #ffffff;
+  --app-overlay: rgb(15 23 42 / 0.45);
+  --app-danger-bg: #fef2f2;
+  --app-danger-border: #fecaca;
+  --app-danger-text: #b91c1c;
+  --app-accent-chip-bg: #eff6ff;
+  --app-accent-chip-border: #bfdbfe;
+  --app-accent-chip-text: #1d4ed8;
+  --priority-frame-critical: rgb(220 38 38 / 0.32);
+  --priority-frame-critical-hover: rgb(220 38 38 / 0.48);
+  --priority-frame-high: rgb(234 88 12 / 0.32);
+  --priority-frame-high-hover: rgb(234 88 12 / 0.48);
+  --priority-frame-medium: rgb(217 119 6 / 0.34);
+  --priority-frame-medium-hover: rgb(217 119 6 / 0.5);
+  --priority-frame-low: rgb(148 163 184 / 0.45);
+  --priority-frame-low-hover: rgb(100 116 139 / 0.55);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: #0f172a;
+  --app-bg-elevated: #1e293b;
+  --app-surface: #1e293b;
+  --app-surface-muted: #172033;
+  --app-border: #334155;
+  --app-border-strong: #475569;
+  --app-text: #f8fafc;
+  --app-text-muted: #94a3b8;
+  --app-text-subtle: #64748b;
+  --app-accent: #3b82f6;
+  --app-accent-hover: #60a5fa;
+  --app-accent-soft: #1e3a5f;
+  --app-header-bg: rgba(15, 23, 42, 0.95);
+  --app-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  --app-input-bg: #0f172a;
+  --app-danger: #f87171;
+  --app-nav-active-bg: #1e3a5f;
+  --app-nav-active-text: #93c5fd;
+  --app-chip-bg: #0f172a;
+  --app-chip-border: #334155;
+  --app-chip-text: #cbd5e1;
+  --app-modal-bg: #1e293b;
+  --app-overlay: rgb(0 0 0 / 0.6);
+  --app-danger-bg: rgb(69 10 10 / 0.45);
+  --app-danger-border: rgb(127 29 29 / 0.55);
+  --app-danger-text: #fecaca;
+  --app-accent-chip-bg: rgb(30 58 95 / 0.45);
+  --app-accent-chip-border: rgb(30 64 175 / 0.45);
+  --app-accent-chip-text: #bfdbfe;
+  --priority-frame-critical: rgb(248 113 113 / 0.38);
+  --priority-frame-critical-hover: rgb(248 113 113 / 0.55);
+  --priority-frame-high: rgb(251 146 60 / 0.38);
+  --priority-frame-high-hover: rgb(251 146 60 / 0.55);
+  --priority-frame-medium: rgb(251 191 36 / 0.36);
+  --priority-frame-medium-hover: rgb(251 191 36 / 0.52);
+  --priority-frame-low: rgb(148 163 184 / 0.4);
+  --priority-frame-low-hover: rgb(148 163 184 / 0.58);
+}
+
 body {
   margin: 0;
   min-height: 100vh;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  font-family:
+    "Inter",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.bg-app {
+  background-color: var(--app-bg);
+}
+.bg-app-elevated {
+  background-color: var(--app-bg-elevated);
+}
+.bg-app-surface {
+  background-color: var(--app-surface);
+}
+.bg-app-surface-muted {
+  background-color: var(--app-surface-muted);
+}
+.bg-app-header {
+  background-color: var(--app-header-bg);
+}
+.bg-app-input {
+  background-color: var(--app-input-bg);
+}
+.bg-app-modal {
+  background-color: var(--app-modal-bg);
+}
+.border-app {
+  border-color: var(--app-border);
+}
+.border-app-strong {
+  border-color: var(--app-border-strong);
+}
+.text-app {
+  color: var(--app-text);
+}
+.text-app-muted {
+  color: var(--app-text-muted);
+}
+.text-app-subtle {
+  color: var(--app-text-subtle);
+}
+.text-app-accent {
+  color: var(--app-accent);
+}
+.shadow-app {
+  box-shadow: var(--app-shadow);
+}
+.nav-item {
+  color: var(--app-text-muted);
+}
+.nav-item:hover {
+  background-color: var(--app-surface-muted);
+}
+.nav-item-active {
+  background-color: var(--app-nav-active-bg);
+  color: var(--app-nav-active-text);
+}
+.overlay-app {
+  background-color: var(--app-overlay);
+}
+.chip-default {
+  border-color: var(--app-chip-border);
+  background-color: var(--app-chip-bg);
+  color: var(--app-chip-text);
+}
+.chip-danger {
+  border-color: var(--app-danger-border);
+  background-color: var(--app-danger-bg);
+  color: var(--app-danger-text);
+}
+.chip-accent {
+  border-color: var(--app-accent-chip-border);
+  background-color: var(--app-accent-chip-bg);
+  color: var(--app-accent-chip-text);
+}
+.pill-priority {
+  background-color: var(--app-chip-bg);
+  color: var(--app-chip-text);
+}
+.priority-frame-critical {
+  border-color: var(--priority-frame-critical);
+}
+.priority-frame-critical:hover {
+  border-color: var(--priority-frame-critical-hover);
+}
+.priority-frame-high {
+  border-color: var(--priority-frame-high);
+}
+.priority-frame-high:hover {
+  border-color: var(--priority-frame-high-hover);
+}
+.priority-frame-medium {
+  border-color: var(--priority-frame-medium);
+}
+.priority-frame-medium:hover {
+  border-color: var(--priority-frame-medium-hover);
+}
+.priority-frame-low {
+  border-color: var(--priority-frame-low);
+}
+.priority-frame-low:hover {
+  border-color: var(--priority-frame-low-hover);
 }

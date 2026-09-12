@@ -5,6 +5,7 @@ import { TagCreateForm } from "@/components/TagCreateForm";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import { TAG_KIND_OPTIONS, type TagOption } from "@/lib/tags";
+import { cardClass } from "@/lib/uiClasses";
 
 function kindLabel(kind: string): string {
   return TAG_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? kind;
@@ -61,32 +62,32 @@ export function TagsSettingsSection() {
   }
 
   return (
-    <section className="mb-8 rounded-lg border border-slate-800 bg-slate-900/60 p-5">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+    <section className={"mb-8 p-5 " + cardClass}>
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
         Теги
       </h2>
-      <p className="mb-4 text-xs text-slate-500">
+      <p className="mb-4 text-xs text-app-subtle">
         Системные теги общие для всех. Свои теги можно создавать и удалять здесь;
         они появятся в фильтрах на главной.
       </p>
 
       {loading ? (
-        <p className="text-sm text-slate-400">Загрузка тегов...</p>
+        <p className="text-sm text-app-muted">Загрузка тегов...</p>
       ) : (
         <>
           <div className="mb-4">
-            <h3 className="mb-2 text-xs font-medium text-slate-400">Системные</h3>
+            <h3 className="mb-2 text-xs font-medium text-app-muted">Системные</h3>
             {systemTags.length === 0 ? (
-              <p className="text-xs text-slate-500">Нет данных</p>
+              <p className="text-xs text-app-subtle">Нет данных</p>
             ) : (
-              <ul className="space-y-1 text-sm text-slate-300">
+              <ul className="space-y-1 text-sm text-app">
                 {systemTags.map((tag) => (
                   <li
                     key={tag.id}
-                    className="flex justify-between rounded-md bg-slate-800/60 px-3 py-1.5"
+                    className="flex justify-between rounded-md bg-app-surface-muted px-3 py-1.5"
                   >
                     <span>{tag.tag_name}</span>
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-app-subtle">
                       {kindLabel(tag.kind)}
                     </span>
                   </li>
@@ -96,21 +97,21 @@ export function TagsSettingsSection() {
           </div>
 
           <div className="mb-4">
-            <h3 className="mb-2 text-xs font-medium text-slate-400">Мои теги</h3>
+            <h3 className="mb-2 text-xs font-medium text-app-muted">Мои теги</h3>
             {userTags.length === 0 ? (
-              <p className="text-xs text-slate-500">Пока нет личных тегов</p>
+              <p className="text-xs text-app-subtle">Пока нет личных тегов</p>
             ) : (
               <ul className="space-y-1 text-sm">
                 {userTags.map((tag) => (
                   <li
                     key={tag.id}
-                    className="flex items-center justify-between rounded-md bg-slate-800/60 px-3 py-1.5"
+                    className="flex items-center justify-between rounded-md bg-app-surface-muted px-3 py-1.5"
                   >
-                    <span className="text-slate-200">{tag.tag_name}</span>
+                    <span className="text-app">{tag.tag_name}</span>
                     <button
                       type="button"
                       onClick={() => setDeleteTarget(tag)}
-                      className="text-xs text-red-400 hover:underline"
+                      className="text-xs text-[var(--app-danger)] hover:underline"
                     >
                       Удалить
                     </button>
@@ -120,8 +121,8 @@ export function TagsSettingsSection() {
             )}
           </div>
 
-          <div className="border-t border-slate-800 pt-4">
-            <h3 className="mb-3 text-xs font-medium text-slate-400">
+          <div className="border-t border-app pt-4">
+            <h3 className="mb-3 text-xs font-medium text-app-muted">
               Новый тег
             </h3>
             <TagCreateForm onCreated={handleCreated} />

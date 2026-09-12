@@ -20,7 +20,8 @@ from .serializers import (
     TagSerializer,
     SubtaskSerializer,
 )
-from todos.models import Todo, Tag, Subtask, Status
+from todos.models import Todo, Tag, Subtask, Status, Recurrence
+from todos.recurrence_utils import spawn_next_occurrence
 
 User = get_user_model()
 
@@ -247,7 +248,7 @@ class TodoViewSet(viewsets.ModelViewSet):
                     "title": "Купить продукты",
                     "description": "Молоко, хлеб, яйца",
                     "status": "todo",
-                    "priority": "medium",
+                    "priority": "low",
                     "tag_ids": [1, 2],
                     "due_date": "2026-09-04T18:00:00Z",
                     "recurrence": "never",
@@ -279,6 +280,17 @@ class TodoViewSet(viewsets.ModelViewSet):
     )
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        previous_status = instance.status
+        todo = serializer.save()
+        if (
+            previous_status != Status.DONE
+            and todo.status == Status.DONE
+            and todo.recurrence != Recurrence.NEVER
+        ):
+            spawn_next_occurrence(todo)
 
     @extend_schema(
         summary="Удалить задачу",

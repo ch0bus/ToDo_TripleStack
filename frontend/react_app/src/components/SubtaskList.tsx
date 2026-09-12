@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { apiFetch } from "@/lib/api";
@@ -84,8 +84,7 @@ export function SubtaskList({
     };
   }, [todoId]);
 
-  async function handleAdd(e: FormEvent) {
-    e.preventDefault();
+  async function handleAdd() {
     const trimmed = title.trim();
     if (!trimmed) return;
 
@@ -155,20 +154,20 @@ export function SubtaskList({
     summary.total > 0 ? Math.round((summary.done / summary.total) * 100) : 0;
 
   const sectionClass = embedded
-    ? "border-t border-slate-700/40 px-4 py-4 sm:px-5 sm:py-5"
-    : "mt-8 rounded-lg border border-slate-800 bg-slate-900/60 p-4";
+    ? "border-t border-app px-4 py-4 sm:px-5 sm:py-5"
+    : "mt-8 p-4 rounded-xl border border-app bg-app-surface shadow-app";
 
   return (
     <>
       <section className={sectionClass}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+          <h2 className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
             Подзадачи
           </h2>
           {!loading && summary.total > 0 && (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
+            <div className="flex items-center gap-2 text-xs text-app-muted">
               <span
-                className="inline-flex h-1.5 w-12 overflow-hidden rounded-full bg-slate-700"
+                className="inline-flex h-1.5 w-12 overflow-hidden rounded-full bg-app-border"
                 aria-hidden
               >
                 <span
@@ -183,23 +182,33 @@ export function SubtaskList({
 
         {error && <p className="mb-2 text-xs text-red-300">{error}</p>}
 
-        <form onSubmit={handleAdd} className="mb-3 flex gap-2">
+        <div className="mb-3 flex gap-2">
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+              if (e.key !== "Enter") return;
+              e.preventDefault();
+              e.stopPropagation();
+              void handleAdd();
+            }}
             placeholder="Новая подзадача..."
             className={inputClass + " min-w-0 flex-1 py-1.5 text-sm"}
           />
-          <button type="submit" className={btnSecondary + " shrink-0 py-1.5"}>
+          <button
+            type="button"
+            onClick={() => void handleAdd()}
+            className={btnSecondary + " shrink-0 py-1.5"}
+          >
             Добавить
           </button>
-        </form>
+        </div>
 
         {loading ? (
-          <p className="text-xs text-slate-400">Загрузка...</p>
+          <p className="text-xs text-app-muted">Загрузка...</p>
         ) : items.length === 0 ? (
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-app-subtle">
             Разбейте задачу на шаги — они появятся здесь.
           </p>
         ) : (
@@ -207,7 +216,7 @@ export function SubtaskList({
             {items.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center gap-2 rounded-lg border border-slate-700/50 bg-slate-900/40 px-2.5 py-2 text-sm"
+                className="flex items-center gap-2 rounded-lg border border-app bg-app-surface-muted px-2.5 py-2 text-sm"
               >
                 <input
                   type="checkbox"
@@ -223,8 +232,8 @@ export function SubtaskList({
                 <span
                   className={
                     s.completed
-                      ? "min-w-0 flex-1 text-slate-500 line-through"
-                      : "min-w-0 flex-1 text-slate-200"
+                      ? "min-w-0 flex-1 text-app-subtle line-through"
+                      : "min-w-0 flex-1 text-app"
                   }
                 >
                   {s.title}
