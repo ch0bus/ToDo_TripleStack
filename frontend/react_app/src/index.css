@@ -196,3 +196,6 @@ body {
 .priority-frame-low:hover {
   border-color: var(--priority-frame-low-hover);
 }
+.todo-tile-overdue {
+  box-shadow: inset 6px 0 0 var(--app-danger);
+}

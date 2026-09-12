@@ -2,7 +2,6 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
 import {
-  PriorityPips,
   StatusCycleButton,
   StatusCycleIcon,
   nextStatus,
@@ -189,15 +188,17 @@ export function TodoEditForm({
         getPriorityBorderClass(priority)
       }
     >
-      <div
-        className={
-          "shrink-0 self-stretch " +
-          (priority === "critical" || priority === "high" ? "w-1.5 " : "w-1 ") +
-          getPriorityStripeClass(priority)
-        }
-        title={`Приоритет: ${getPriorityLabel(priority)}`}
-        aria-hidden
-      />
+      {priority !== "critical" && (
+        <div
+          className={
+            "shrink-0 self-stretch " +
+            "w-1 " +
+            getPriorityStripeClass(priority)
+          }
+          title={`Приоритет: ${getPriorityLabel(priority)}`}
+          aria-hidden
+        />
+      )}
 
       <div className="grid min-w-0 flex-1 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0">
@@ -277,13 +278,12 @@ export function TodoEditForm({
                       onClick={() => setPriority(value)}
                       aria-pressed={selected}
                       className={
-                        "inline-flex items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-xs transition-colors " +
+                        "inline-flex items-center rounded-md px-1.5 py-1.5 text-left text-xs transition-colors " +
                         (selected
                           ? "bg-app-surface text-app shadow-sm"
                           : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
                       }
                     >
-                      <PriorityPips priority={value} className="" />
                       {getPriorityLabel(value)}
                     </button>
                   );
@@ -323,7 +323,7 @@ export function TodoEditForm({
               />
               {recurrence !== "never" && (
                 <p className="px-1.5 text-[10px] leading-snug text-app-subtle">
-                  При статусе «Готово» создаётся новая копия со сдвинутым сроком.
+                  Повтор ставится от даты создания до срока с выбранным шагом.
                 </p>
               )}
             </SideProperty>

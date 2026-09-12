@@ -2,11 +2,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
-import {
-  PriorityPips,
-  StatusCycleButton,
-  nextStatus,
-} from "@/components/TodoMarks";
+import { StatusCycleButton, nextStatus } from "@/components/TodoMarks";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import {
@@ -144,15 +140,17 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
         getPriorityBorderClass(priority)
       }
     >
-      <div
-        className={
-          "shrink-0 self-stretch " +
-          (priority === "critical" || priority === "high" ? "w-1.5 " : "w-1 ") +
-          getPriorityStripeClass(priority)
-        }
-        title={`Приоритет: ${getPriorityLabel(priority)}`}
-        aria-hidden
-      />
+      {priority !== "critical" && (
+        <div
+          className={
+            "shrink-0 self-stretch " +
+            "w-1 " +
+            getPriorityStripeClass(priority)
+          }
+          title={`Приоритет: ${getPriorityLabel(priority)}`}
+          aria-hidden
+        />
+      )}
 
       <div className="min-w-0 flex-1 px-3 py-3 sm:px-4 sm:py-4">
         {error && (
@@ -208,13 +206,12 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
                     onClick={() => setPriority(value)}
                     aria-pressed={selected}
                     className={
-                      "inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs transition-colors " +
+                      "inline-flex items-center rounded-md px-2 py-1.5 text-xs transition-colors " +
                       (selected
                         ? "bg-app-surface-muted text-app"
                         : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
                     }
                   >
-                    <PriorityPips priority={value} className="" />
                     {getPriorityLabel(value)}
                   </button>
                 );
@@ -254,6 +251,11 @@ export function TodoForm({ tags, onCreated, defaultDueDate = "" }: TodoFormProps
                 onChange={setRecurrence}
                 className={propertyControlClass}
               />
+              {recurrence !== "never" && (
+                <p className="text-[10px] leading-snug text-app-subtle">
+                  Нужен срок: повтор ставится от создания до срока.
+                </p>
+              )}
             </PropertyField>
           </div>
 

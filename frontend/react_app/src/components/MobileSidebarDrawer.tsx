@@ -21,7 +21,7 @@ export function MobileSidebarDrawer({
         aria-label="Закрыть меню"
         onClick={onClose}
       />
-      <div className="absolute top-0 left-0 h-full w-[min(100%,280px)] overflow-y-auto border-r border-app bg-app-surface p-4 shadow-app">
+      <div className="absolute top-0 right-0 h-full w-[min(100%,280px)] overflow-y-auto border-l border-app bg-app-surface p-4 shadow-app">
         <div className="mb-4 flex items-center justify-between">
           <span className="text-sm font-semibold text-app">Фильтры и теги</span>
           <button

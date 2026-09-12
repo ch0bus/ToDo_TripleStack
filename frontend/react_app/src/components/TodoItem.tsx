@@ -2,11 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import {
-  PriorityPips,
-  StatusCycleButton,
-  nextStatus,
-} from "@/components/TodoMarks";
+import { StatusCycleButton, nextStatus } from "@/components/TodoMarks";
 import { useToast } from "@/contexts/ToastContext";
 import type { TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
@@ -16,7 +12,6 @@ import {
   formatDueCountdown,
   getCalendarDayDiff,
   getPriorityBorderClass,
-  getPriorityDotClass,
   getPriorityStripeClass,
   isOverdue,
 } from "@/lib/utils";
@@ -25,6 +20,25 @@ interface TodoItemProps {
   todo: TodoRow;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
+}
+
+function OverdueClockIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4 shrink-0"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
+    </svg>
+  );
 }
 
 function MoreIcon() {
@@ -190,21 +204,18 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
           "group relative flex rounded-lg border bg-app-surface transition-colors hover:bg-app-surface-muted " +
           getPriorityBorderClass(todo.priority) +
           " " +
+          (overdue ? "todo-tile-overdue " : "") +
           (busy ? "opacity-80 " : "") +
           (menuOpen ? "z-20" : "")
         }
       >
-        <div
-          className={
-            "shrink-0 self-stretch rounded-l-lg " +
-            (todo.priority === "critical" || todo.priority === "high"
-              ? "w-1.5 "
-              : "w-1 ") +
-            stripe
-          }
-          title={`Приоритет: ${getPriorityLabel(todo.priority)}`}
-          aria-hidden
-        />
+        {todo.priority !== "critical" && (
+          <div
+            className={"w-1 shrink-0 self-stretch rounded-l-lg " + stripe}
+            title={`Приоритет: ${getPriorityLabel(todo.priority)}`}
+            aria-hidden
+          />
+        )}
 
         <div className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2">
           <StatusCycleButton
@@ -214,10 +225,8 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
             className="mt-0.5"
           />
 
-          <PriorityPips priority={todo.priority} />
-
           <div className="min-w-0 flex-1">
-            <div className="flex items-baseline gap-2">
+            <div className="flex items-center gap-2">
               <Link
                 to={`/todos/${todo.id}`}
                 title={todo.title}
@@ -232,7 +241,7 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
                 <span
                   title={new Date(todo.due_date).toLocaleString()}
                   className={
-                    "max-w-[9.5rem] shrink-0 text-right text-xs leading-snug " +
+                    "inline-flex max-w-[10.5rem] shrink-0 items-center justify-end gap-1 text-right text-xs leading-snug " +
                     (overdue
                       ? "font-medium text-[var(--app-danger)]"
                       : dueSoon
@@ -240,6 +249,7 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
                         : "text-app-subtle")
                   }
                 >
+                  {overdue && <OverdueClockIcon />}
                   {dueLabel}
                 </span>
               )}
@@ -291,13 +301,6 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
                         (selected ? "text-app" : "text-app-muted")
                       }
                     >
-                      <span
-                        className={
-                          "h-2 w-2 shrink-0 rounded-full " +
-                          getPriorityDotClass(priority)
-                        }
-                        aria-hidden
-                      />
                       <span className="flex-1">{getPriorityLabel(priority)}</span>
                       {selected && (
                         <span className="text-app-accent" aria-hidden>

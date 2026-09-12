@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 
+import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
 import { TodoFormModal } from "@/components/TodoFormModal";
+import { TodoItem } from "@/components/TodoItem";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { apiFetch } from "@/lib/api";
@@ -16,10 +18,10 @@ import {
   defaultDueAtDay,
   formatDayTitle,
   formatMonthTitle,
-  groupTodosByDueDay,
+  groupTodosForMonth,
   parseDateKey,
   parseMonthKey,
-  sortByDueTime,
+  sortCalendarEntries,
   startOfMonth,
   toDateKey,
   toMonthKey,
@@ -30,10 +32,10 @@ import type {
   ShiftKind,
   ShiftPattern,
 } from "@/lib/shifts";
-import { shiftDaysMap } from "@/lib/shifts";
+import { shiftDayFillStyle, shiftDaysMap } from "@/lib/shifts";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary } from "@/lib/uiClasses";
-import { isOverdue, toDatetimeLocalValue } from "@/lib/utils";
+import { isOverdue, pluralRu, toDatetimeLocalValue } from "@/lib/utils";
 
 const emptyPattern: ShiftPattern = { start_date: null, slots: [] };
 
@@ -84,20 +86,25 @@ export function CalendarPage() {
   }, [searchParams, month, today]);
 
   const cells = useMemo(() => buildMonthGrid(month, today), [month, today]);
-  const byDay = useMemo(() => groupTodosByDueDay(todos), [todos]);
+  const rangeFrom = cells[0]?.key;
+  const rangeTo = cells[cells.length - 1]?.key;
+  const byDay = useMemo(() => {
+    if (!rangeFrom || !rangeTo) return new Map();
+    return groupTodosForMonth(todos, rangeFrom, rangeTo);
+  }, [todos, rangeFrom, rangeTo]);
   const undated = useMemo(
     () => todos.filter((todo) => !todo.due_date),
     [todos],
   );
   const selectedKey = toDateKey(selectedDay);
-  const selectedTodos = useMemo(
-    () => sortByDueTime(byDay.get(selectedKey) ?? []),
+  const selectedEntries = useMemo(
+    () => sortCalendarEntries(byDay.get(selectedKey) ?? []),
     [byDay, selectedKey],
   );
+  const selectedRealCount = selectedEntries.filter((entry) => !entry.virtual).length;
+  const selectedRepeatCount = selectedEntries.length - selectedRealCount;
   const shiftsByDay = useMemo(() => shiftDaysMap(shiftDays), [shiftDays]);
   const selectedShift = shiftsByDay.get(selectedKey);
-  const rangeFrom = cells[0]?.key;
-  const rangeTo = cells[cells.length - 1]?.key;
 
   const loadShifts = useCallback(async () => {
     if (!rangeFrom || !rangeTo) return;
@@ -343,20 +350,33 @@ export function CalendarPage() {
                 </div>
                 <div className="grid grid-cols-7">
                   {cells.map((cell) => {
-                    const dayTodos = byDay.get(cell.key) ?? [];
-                    const count = dayTodos.length;
-                    const overdue = dayTodos.some((todo) =>
-                      isOverdue(todo.due_date, todo.status),
+                    const dayEntries = byDay.get(cell.key) ?? [];
+                    const realCount = dayEntries.filter((entry) => !entry.virtual).length;
+                    const repeatCount = dayEntries.length - realCount;
+                    const overdue = dayEntries.some(
+                      (entry) =>
+                        !entry.virtual &&
+                        isOverdue(entry.todo.due_date, entry.todo.status),
                     );
                     const selected = cell.key === selectedKey;
                     const shift = shiftsByDay.get(cell.key);
                     const shiftColor = shift?.kind?.color;
+                    const marks = Math.min(realCount, 3);
                     return (
                       <button
                         key={cell.key}
                         type="button"
                         onClick={() => void handleDayClick(cell.date)}
-                        title={shift?.kind?.name}
+                        title={
+                          [
+                            shift?.kind?.name,
+                            repeatCount
+                              ? `${repeatCount} ${pluralRu(repeatCount, "повтор", "повтора", "повторов")}`
+                              : "",
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || undefined
+                        }
                         className={
                           "min-h-16 border-b border-r border-app px-1.5 py-1.5 text-left last:border-r-0 sm:min-h-20 " +
                           (selected
@@ -364,11 +384,7 @@ export function CalendarPage() {
                             : "hover:bg-app-surface-muted") +
                           (cell.inMonth ? "" : " opacity-40")
                         }
-                        style={
-                          shiftColor
-                            ? { boxShadow: `inset 0 0 0 2px ${shiftColor}` }
-                            : undefined
-                        }
+                        style={shiftDayFillStyle(shiftColor)}
                       >
                         <span
                           className={
@@ -382,22 +398,43 @@ export function CalendarPage() {
                         >
                           {cell.date.getDate()}
                         </span>
-                        {count > 0 && (
+                        {(realCount > 0 || repeatCount > 0) && (
                           <span className="mt-1 flex flex-wrap items-center gap-0.5">
-                            {Array.from({ length: Math.min(count, 3) }).map(
-                              (_, i) => (
-                                <span
-                                  key={i}
-                                  className={
-                                    "h-1.5 w-1.5 rounded-full " +
-                                    (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
-                                  }
-                                />
-                              ),
-                            )}
-                            {count > 3 && (
+                            {Array.from({ length: marks }).map((_, i) => (
+                              <span
+                                key={i}
+                                className={
+                                  "h-1.5 w-1.5 rounded-full " +
+                                  (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
+                                }
+                              />
+                            ))}
+                            {realCount > 3 && (
                               <span className="text-[10px] text-app-subtle">
-                                +{count - 3}
+                                +{realCount - 3}
+                              </span>
+                            )}
+                            {repeatCount > 0 && (
+                              <span
+                                className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center text-app-subtle"
+                                aria-label="Есть повторы задач"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2.4"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="h-3 w-3"
+                                  aria-hidden
+                                >
+                                  <path d="M17 1v4h-4" />
+                                  <path d="M7 23v-4h4" />
+                                  <path d="M20.5 9A8 8 0 0 0 7.2 5.2L7 5" />
+                                  <path d="M3.5 15A8 8 0 0 0 16.8 18.8L17 19" />
+                                </svg>
                               </span>
                             )}
                           </span>
@@ -424,17 +461,38 @@ export function CalendarPage() {
                     )}
                   </h2>
                   <p className="text-sm text-app-subtle">
-                    {selectedTodos.length
-                      ? `${selectedTodos.length} задач`
+                    {selectedEntries.length
+                      ? [
+                          selectedRealCount
+                            ? `${selectedRealCount} задач`
+                            : "",
+                          selectedRepeatCount
+                            ? `${selectedRepeatCount} ${pluralRu(selectedRepeatCount, "повтор", "повтора", "повторов")}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
                       : "Нет задач со сроком в этот день"}
                   </p>
                 </div>
-                {selectedTodos.length > 0 ? (
-                  <TodoList
-                    todos={selectedTodos}
-                    onUpdated={handleTodoUpdated}
-                    onDeleted={handleTodoDeleted}
-                  />
+                {selectedEntries.length > 0 ? (
+                  <ul className="space-y-3">
+                    {selectedEntries.map((entry) =>
+                      entry.virtual ? (
+                        <CalendarOccurrenceRow
+                          key={`${entry.todo.id}-${entry.dateKey}`}
+                          todo={entry.todo}
+                        />
+                      ) : (
+                        <TodoItem
+                          key={entry.todo.id}
+                          todo={entry.todo}
+                          onUpdated={handleTodoUpdated}
+                          onDeleted={handleTodoDeleted}
+                        />
+                      ),
+                    )}
+                  </ul>
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
                     На этот день ничего не запланировано.

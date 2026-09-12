@@ -36,7 +36,7 @@ Django: `account.User` (`AbstractUser`).
 | status | enum | todo, in_progress, done (default todo) |
 | priority | enum | critical, high, medium, low |
 | due_date | datetime | NULL |
-| recurrence | enum | daily, weekly, monthly, never |
+| recurrence | enum | daily, weekly, monthly, never; шаг в окне created_at…due_date |
 | created_at | datetime | auto |
 | updated_at | datetime | auto |
 | completed_at | datetime | NULL; ставится при входе в done, сбрасывается при выходе |

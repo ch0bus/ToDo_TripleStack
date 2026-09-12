@@ -30,12 +30,10 @@ from todos.models import (
     Tag,
     Subtask,
     Status,
-    Recurrence,
     ShiftKind,
     ShiftPattern,
     ShiftDayOverride,
 )
-from todos.recurrence_utils import spawn_next_occurrence
 from todos.shift_utils import expand_shift_days
 
 User = get_user_model()
@@ -296,17 +294,6 @@ class TodoViewSet(viewsets.ModelViewSet):
     )
     def partial_update(self, request, *args, **kwargs):
         return super().partial_update(request, *args, **kwargs)
-
-    def perform_update(self, serializer):
-        instance = self.get_object()
-        previous_status = instance.status
-        todo = serializer.save()
-        if (
-            previous_status != Status.DONE
-            and todo.status == Status.DONE
-            and todo.recurrence != Recurrence.NEVER
-        ):
-            spawn_next_occurrence(todo)
 
     @extend_schema(
         summary="Удалить задачу",

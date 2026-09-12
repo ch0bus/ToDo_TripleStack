@@ -1,10 +1,4 @@
-import {
-  TODO_STATUSES,
-  getPriorityLabel,
-  getStatusLabel,
-  type TodoStatus,
-} from "@/lib/labels";
-import { getPriorityFillClass, getPriorityLevel } from "@/lib/utils";
+import { TODO_STATUSES, getStatusLabel, type TodoStatus } from "@/lib/labels";
 
 export function nextStatus(status: string): TodoStatus {
   const i = TODO_STATUSES.indexOf(status as TodoStatus);
@@ -92,40 +86,5 @@ export function StatusCycleButton({
     >
       <StatusCycleIcon status={status} className={iconClassName} />
     </button>
-  );
-}
-
-const PIP_HEIGHTS = ["h-1.5", "h-2.5", "h-3.5", "h-4"] as const;
-
-export function PriorityPips({
-  priority,
-  className = "mt-1",
-}: {
-  priority: string;
-  className?: string;
-}) {
-  const filled = getPriorityLevel(priority);
-  const fillClass = getPriorityFillClass(priority);
-  const label = getPriorityLabel(priority);
-
-  return (
-    <span
-      className={"flex h-4 items-end gap-px " + className}
-      title={`Приоритет: ${label}`}
-      aria-label={`Приоритет: ${label}`}
-    >
-      {PIP_HEIGHTS.map((height, index) => (
-        <span
-          key={height}
-          className={
-            "w-[3px] rounded-[1px] " +
-            height +
-            " " +
-            (index < filled ? fillClass : "bg-app-border")
-          }
-          aria-hidden
-        />
-      ))}
-    </span>
   );
 }

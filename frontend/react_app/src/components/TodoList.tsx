@@ -13,6 +13,7 @@ export interface TodoRow {
   tags?: { id: number; tag_name: string }[];
   subtasks_summary?: { done: number; total: number };
   recurrence?: string;
+  created_at?: string;
 }
 
 interface TodoListProps {

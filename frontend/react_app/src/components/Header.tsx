@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
+import { UserMenu } from "@/components/UserMenu";
 import { useAppShell } from "@/contexts/AppShellContext";
-import { clearTokens, getAccessToken } from "@/lib/auth";
+import { getAccessToken } from "@/lib/auth";
 
 export function Header() {
-  const navigate = useNavigate();
   const location = useLocation();
   const { filtersToggle } = useAppShell();
   const [hasToken, setHasToken] = useState(false);
@@ -20,16 +20,26 @@ export function Header() {
     (location.pathname === "/" || location.pathname === "/calendar") &&
     typeof filtersToggle === "function";
 
-  function handleLogout() {
-    clearTokens();
-    setHasToken(false);
-    navigate("/login");
-  }
-
   return (
     <header className="sticky top-0 z-30 w-full border-b border-app bg-app-header backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
+        <Link to="/" className="min-w-0 truncate text-xl font-semibold text-app">
+          ToDo App
+        </Link>
+
+        <nav className="flex shrink-0 items-center gap-2 text-sm text-app-muted sm:gap-3">
+          {!hasToken && (
+            <>
+              <Link to="/login" className="hover:text-app hover:underline">
+                Вход
+              </Link>
+              <Link to="/register" className="hover:text-app hover:underline">
+                Регистрация
+              </Link>
+            </>
+          )}
+          <ThemeToggleButton />
+          {hasToken && <UserMenu />}
           {showFiltersMenu && (
             <button
               type="button"
@@ -51,36 +61,6 @@ export function Header() {
                 <path d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-          )}
-          <Link to="/" className="truncate text-xl font-semibold text-app">
-            ToDo App
-          </Link>
-        </div>
-
-        <nav className="flex shrink-0 items-center gap-2 text-sm text-app-muted sm:gap-3">
-          <ThemeToggleButton />
-          {hasToken ? (
-            <>
-              <Link to="/settings" className="hover:text-app hover:underline">
-                Настройки
-              </Link>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="hover:text-app hover:underline"
-              >
-                Выйти
-              </button>
-            </>
-          ) : (
-            <>
-              <Link to="/login" className="hover:text-app hover:underline">
-                Вход
-              </Link>
-              <Link to="/register" className="hover:text-app hover:underline">
-                Регистрация
-              </Link>
-            </>
           )}
         </nav>
       </div>

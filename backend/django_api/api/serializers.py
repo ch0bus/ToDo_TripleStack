@@ -185,7 +185,7 @@ class TodoSerializer(serializers.ModelSerializer):
                 "help_text": "Срок выполнения задачи (дата/время)",
             },
             "recurrence": {
-                "help_text": "Повторяемость задачи (daily, weekly, monthly, never)",
+                "help_text": "Шаг повтора в окне от создания до срока (daily, weekly, monthly, never)",
             },
             "created_at": {"help_text": "Дата и время создания"},
             "updated_at": {"help_text": "Дата и время последнего обновления"},
