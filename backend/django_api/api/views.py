@@ -15,7 +15,6 @@ from drf_spectacular.types import OpenApiTypes
 
 from .serializers import (
     RegisterSerializer,
-    UserSerializer,
     ProfileSerializer,
     ProfileUpdateSerializer,
     TodoSerializer,

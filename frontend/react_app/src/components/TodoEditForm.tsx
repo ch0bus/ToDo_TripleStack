@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
+import type { TodoRow } from "@/components/TodoList";
 import {
   StatusCycleButton,
   StatusCycleIcon,
@@ -15,7 +16,7 @@ import {
 } from "@/lib/labels";
 import { type RecurrenceValue } from "@/lib/recurrence";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary } from "@/lib/uiClasses";
+import { btnPrimary, propertyControlClass } from "@/lib/uiClasses";
 import {
   formatDateStamp,
   formatDueCountdown,
@@ -26,19 +27,7 @@ import {
   toDatetimeLocalValue,
 } from "@/lib/utils";
 
-export interface TodoEditData {
-  id: number;
-  title: string;
-  description?: string;
-  status: string;
-  priority: string;
-  due_date: string | null;
-  recurrence: string;
-  tags?: { id: number; tag_name: string }[];
-  subtasks_summary?: { done: number; total: number };
-  created_at?: string;
-  completed_at?: string | null;
-}
+export type TodoEditData = TodoRow;
 
 interface TodoEditFormProps {
   todo: TodoEditData;
@@ -46,9 +35,6 @@ interface TodoEditFormProps {
   onSaved: (todo: TodoEditData) => void;
   children?: ReactNode;
 }
-
-const propertyControlClass =
-  "w-full cursor-pointer rounded-md border-0 bg-transparent px-1.5 py-1.5 text-sm text-app hover:bg-app-surface-muted focus:bg-app-surface-muted focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none";
 
 function SideProperty({
   label,

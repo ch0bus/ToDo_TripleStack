@@ -22,17 +22,20 @@ import {
   parseDateKey,
   parseMonthKey,
   sortCalendarEntries,
+  uniqueTodosInMonth,
+  type CalendarEntry,
   startOfMonth,
   toDateKey,
   toMonthKey,
 } from "@/lib/calendar";
-import type {
-  PaintTool,
-  ShiftDay,
-  ShiftKind,
-  ShiftPattern,
+import {
+  shiftDayFillStyle,
+  shiftDaysMap,
+  type PaintTool,
+  type ShiftDay,
+  type ShiftKind,
+  type ShiftPattern,
 } from "@/lib/shifts";
-import { shiftDayFillStyle, shiftDaysMap } from "@/lib/shifts";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary } from "@/lib/uiClasses";
 import { isOverdue, pluralRu, toDatetimeLocalValue } from "@/lib/utils";
@@ -89,12 +92,16 @@ export function CalendarPage() {
   const rangeFrom = cells[0]?.key;
   const rangeTo = cells[cells.length - 1]?.key;
   const byDay = useMemo(() => {
-    if (!rangeFrom || !rangeTo) return new Map();
+    if (!rangeFrom || !rangeTo) return new Map<string, CalendarEntry[]>();
     return groupTodosForMonth(todos, rangeFrom, rangeTo);
   }, [todos, rangeFrom, rangeTo]);
   const undated = useMemo(
     () => todos.filter((todo) => !todo.due_date),
     [todos],
+  );
+  const monthTodos = useMemo(
+    () => uniqueTodosInMonth(cells, byDay),
+    [cells, byDay],
   );
   const selectedKey = toDateKey(selectedDay);
   const selectedEntries = useMemo(
@@ -513,6 +520,30 @@ export function CalendarPage() {
                 ) : (
                   <p className="text-sm text-app-subtle">
                     Все задачи с указанным сроком.
+                  </p>
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    Задачи месяца
+                  </h2>
+                  <p className="text-sm text-app-subtle">
+                    {monthTodos.length
+                      ? `${monthTodos.length} · ${formatMonthTitle(month)}`
+                      : formatMonthTitle(month)}
+                  </p>
+                </div>
+                {monthTodos.length > 0 ? (
+                  <TodoList
+                    todos={monthTodos}
+                    onUpdated={handleTodoUpdated}
+                    onDeleted={handleTodoDeleted}
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
+                    В этом месяце нет задач со сроком или повтором.
                   </p>
                 )}
               </section>

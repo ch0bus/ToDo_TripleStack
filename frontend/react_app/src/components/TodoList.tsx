@@ -14,6 +14,7 @@ export interface TodoRow {
   subtasks_summary?: { done: number; total: number };
   recurrence?: string;
   created_at?: string;
+  completed_at?: string | null;
 }
 
 interface TodoListProps {

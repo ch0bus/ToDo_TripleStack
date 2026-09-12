@@ -16,25 +16,10 @@ from todos.models import (
     Tag,
     Subtask,
     Status,
-    Priority,
-    Recurrence,
 )
 
 
 User = get_user_model()
-
-
-class UserSerializer(serializers.ModelSerializer):
-    """Сериализатор для отображения информации о пользователе."""
-
-    class Meta:
-        model = User
-        fields = ("id", "username")
-        read_only_fields = ("id",)
-        extra_kwargs = {
-            "id": {"help_text": "Уникальный идентификатор пользователя"},
-            "username": {"help_text": "Имя пользователя"},
-        }
 
 
 class ProfileSerializer(serializers.ModelSerializer):

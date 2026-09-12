@@ -11,7 +11,7 @@ import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
-import { hasActiveFilters, isDueToday, isOverdue } from "@/lib/todoFilters";
+import { groupInboxTodos, hasActiveFilters } from "@/lib/todoFilters";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
@@ -187,22 +187,7 @@ export function HomePage() {
     search,
   });
 
-  const grouped = useMemo(() => {
-    const today: TodoRow[] = [];
-    const overdue: TodoRow[] = [];
-    const rest: TodoRow[] = [];
-    const done: TodoRow[] = [];
-    for (const todo of todos) {
-      if (todo.status === "done") {
-        done.push(todo);
-        continue;
-      }
-      if (isDueToday(todo)) today.push(todo);
-      else if (isOverdue(todo)) overdue.push(todo);
-      else rest.push(todo);
-    }
-    return { today, overdue, rest, done };
-  }, [todos]);
+  const grouped = useMemo(() => groupInboxTodos(todos), [todos]);
 
   async function handleTodoCreated(todo: unknown) {
     const row = todo as TodoRow;

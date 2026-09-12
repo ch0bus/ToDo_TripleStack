@@ -12,7 +12,7 @@ import {
 } from "@/lib/labels";
 import { type RecurrenceValue } from "@/lib/recurrence";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary } from "@/lib/uiClasses";
+import { btnPrimary, propertyControlClass } from "@/lib/uiClasses";
 import {
   formatDueCountdown,
   getCalendarDayDiff,
@@ -26,9 +26,6 @@ interface TodoFormProps {
   onCreated?: (todo: unknown) => void;
   defaultDueDate?: string;
 }
-
-const propertyControlClass =
-  "w-full cursor-pointer rounded-md border-0 bg-transparent px-1.5 py-1.5 text-sm text-app hover:bg-app-surface-muted focus:bg-app-surface-muted focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none";
 
 function PropertyField({
   label,

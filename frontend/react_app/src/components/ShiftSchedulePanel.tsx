@@ -1,11 +1,11 @@
 import { useState } from "react";
 
-import type {
-  PaintTool,
-  ShiftKind,
-  ShiftPattern,
+import {
+  isHexColor,
+  type PaintTool,
+  type ShiftKind,
+  type ShiftPattern,
 } from "@/lib/shifts";
-import { isHexColor } from "@/lib/shifts";
 import { btnPrimary, btnSecondary, inputClass } from "@/lib/uiClasses";
 
 interface ShiftSchedulePanelProps {
