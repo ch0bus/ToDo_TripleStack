@@ -58,7 +58,6 @@ export function DashboardSidebar({
   const onInbox = location.pathname === "/";
 
   const activeTag = searchParams.get("tag") ?? "";
-  const preset = searchParams.get("preset") ?? "all";
 
   const systemTags = tags.filter((t) => t.is_system);
   const userTags = tags.filter((t) => !t.is_system);
@@ -82,19 +81,7 @@ export function DashboardSidebar({
     });
   }
 
-  function selectPreset(value: string) {
-    if (!onInbox) {
-      navigate(value === "all" ? "/" : `/?preset=${encodeURIComponent(value)}`);
-      onNavigate?.();
-      return;
-    }
-    setParams((p) => {
-      if (value === "all") p.delete("preset");
-      else p.set("preset", value);
-    });
-  }
-
-  function clearTagsAndPreset() {
+  function clearTag() {
     if (!onInbox) {
       navigate("/");
       onNavigate?.();
@@ -102,7 +89,6 @@ export function DashboardSidebar({
     }
     setParams((p) => {
       p.delete("tag");
-      p.delete("preset");
     });
   }
 
@@ -111,7 +97,7 @@ export function DashboardSidebar({
     onNavigate?.();
   }
 
-  const allTasksActive = !activeTag && preset === "all";
+  const allTasksActive = !activeTag;
 
   return (
     <aside
@@ -127,7 +113,7 @@ export function DashboardSidebar({
           <li>
             <button
               type="button"
-              onClick={clearTagsAndPreset}
+              onClick={clearTag}
               className={navButtonClass(allTasksActive)}
             >
               Все задачи
@@ -151,29 +137,6 @@ export function DashboardSidebar({
             Настройках
           </Link>
         </p>
-      </div>
-
-      <div>
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-muted">
-          Быстрые фильтры
-        </h2>
-        <ul className="space-y-1 text-sm">
-          {[
-            { id: "all", label: "Все", value: "all" },
-            { id: "today", label: "Сегодня", value: "today" },
-            { id: "overdue", label: "Просрочено", value: "overdue" },
-          ].map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                onClick={() => selectPreset(item.value)}
-                className={navButtonClass(preset === item.value)}
-              >
-                {item.label}
-              </button>
-            </li>
-          ))}
-        </ul>
       </div>
 
       <button type="button" onClick={handleNewTask} className={btnPrimary + " w-full"}>

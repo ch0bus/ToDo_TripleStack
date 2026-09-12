@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { DashboardSidebar } from "@/components/DashboardSidebar";
@@ -11,7 +11,7 @@ import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
-import { hasActiveFilters, type QuickPreset } from "@/lib/todoFilters";
+import { hasActiveFilters, isDueToday, isOverdue } from "@/lib/todoFilters";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
@@ -34,17 +34,48 @@ function buildTodosQuery(params: {
   priority?: string;
   tag?: string;
   search?: string;
-  preset: QuickPreset;
 }): string {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.priority) query.set("priority", params.priority);
   if (params.tag) query.set("tag", params.tag);
   if (params.search) query.set("search", params.search);
-  if (params.preset === "today") query.set("due_today", "true");
-  if (params.preset === "overdue") query.set("overdue", "true");
   const qs = query.toString();
   return qs ? `/todos/?${qs}` : "/todos/";
+}
+
+function InboxSection({
+  id,
+  title,
+  todos,
+  empty,
+  onUpdated,
+  onDeleted,
+}: {
+  id: string;
+  title: string;
+  todos: TodoRow[];
+  empty: string;
+  onUpdated: (todo: TodoRow) => void;
+  onDeleted: (id: number) => void;
+}) {
+  return (
+    <section id={id} className="space-y-3 scroll-mt-24">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
+        {title}
+        <span className="ml-2 font-normal text-app-subtle">{todos.length}</span>
+      </h2>
+      {todos.length > 0 ? (
+        <TodoList
+          todos={todos}
+          onUpdated={onUpdated}
+          onDeleted={onDeleted}
+        />
+      ) : (
+        <p className="text-sm text-app-subtle">{empty}</p>
+      )}
+    </section>
+  );
 }
 
 export function HomePage() {
@@ -67,7 +98,6 @@ export function HomePage() {
   const priority = searchParams.get("priority") ?? undefined;
   const tag = searchParams.get("tag") ?? undefined;
   const search = searchParams.get("search") ?? undefined;
-  const preset = (searchParams.get("preset") ?? "all") as QuickPreset;
 
   const refreshDashboard = useCallback(async () => {
     const todosPath = buildTodosQuery({
@@ -75,7 +105,6 @@ export function HomePage() {
       priority,
       tag,
       search,
-      preset,
     });
     const [statsRes, todosRes] = await Promise.all([
       apiFetch("/todos/stats/"),
@@ -89,7 +118,7 @@ export function HomePage() {
     } else {
       throw new Error("Failed to load todos");
     }
-  }, [status, priority, tag, search, preset]);
+  }, [status, priority, tag, search]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -156,8 +185,24 @@ export function HomePage() {
     priority,
     tag,
     search,
-    preset,
   });
+
+  const grouped = useMemo(() => {
+    const today: TodoRow[] = [];
+    const overdue: TodoRow[] = [];
+    const rest: TodoRow[] = [];
+    const done: TodoRow[] = [];
+    for (const todo of todos) {
+      if (todo.status === "done") {
+        done.push(todo);
+        continue;
+      }
+      if (isDueToday(todo)) today.push(todo);
+      else if (isOverdue(todo)) overdue.push(todo);
+      else rest.push(todo);
+    }
+    return { today, overdue, rest, done };
+  }, [todos]);
 
   async function handleTodoCreated(todo: unknown) {
     const row = todo as TodoRow;
@@ -270,28 +315,64 @@ export function HomePage() {
             Показано {todos.length} из {stats.total} задач
           </p>
 
-          <TodoList
-            todos={todos}
-            loading={false}
-            emptyMessage={
-              filtersActive
-                ? "По выбранным фильтрам задач нет"
-                : "Задач пока нет — создайте первую"
-            }
-            emptyAction={
-              !filtersActive ? (
-                <button
-                  type="button"
-                  onClick={() => setShowForm(true)}
-                  className={btnPrimary}
-                >
-                  Создать задачу
-                </button>
-              ) : undefined
-            }
-            onUpdated={handleTodoUpdated}
-            onDeleted={handleTodoDeleted}
-          />
+          {todos.length === 0 ? (
+            <TodoList
+              todos={todos}
+              emptyMessage={
+                filtersActive
+                  ? "По выбранным фильтрам задач нет"
+                  : "Задач пока нет — создайте первую"
+              }
+              emptyAction={
+                !filtersActive ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(true)}
+                    className={btnPrimary}
+                  >
+                    Создать задачу
+                  </button>
+                ) : undefined
+              }
+              onUpdated={handleTodoUpdated}
+              onDeleted={handleTodoDeleted}
+            />
+          ) : (
+            <div className="space-y-8">
+              <InboxSection
+                id="inbox-today"
+                title="Сегодня"
+                todos={grouped.today}
+                empty="На сегодня ничего не запланировано"
+                onUpdated={handleTodoUpdated}
+                onDeleted={handleTodoDeleted}
+              />
+              <InboxSection
+                id="inbox-overdue"
+                title="Просрочено"
+                todos={grouped.overdue}
+                empty="Просроченных задач нет"
+                onUpdated={handleTodoUpdated}
+                onDeleted={handleTodoDeleted}
+              />
+              <InboxSection
+                id="inbox-all"
+                title="Все задачи"
+                todos={grouped.rest}
+                empty="Других активных задач нет"
+                onUpdated={handleTodoUpdated}
+                onDeleted={handleTodoDeleted}
+              />
+              <InboxSection
+                id="inbox-done"
+                title="Готово"
+                todos={grouped.done}
+                empty="Пока нет выполненных задач"
+                onUpdated={handleTodoUpdated}
+                onDeleted={handleTodoDeleted}
+              />
+            </div>
+          )}
             </>
           )}
         </div>

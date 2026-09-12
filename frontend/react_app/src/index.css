@@ -15,6 +15,7 @@
   --app-accent: #2563eb;
   --app-accent-hover: #1d4ed8;
   --app-accent-soft: #dbeafe;
+  --app-on-accent: #ffffff;
   --app-header-bg: rgba(255, 255, 255, 0.92);
   --app-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
   --app-input-bg: #ffffff;
@@ -56,6 +57,7 @@
   --app-accent: #3b82f6;
   --app-accent-hover: #60a5fa;
   --app-accent-soft: #1e3a5f;
+  --app-on-accent: #ffffff;
   --app-header-bg: rgba(15, 23, 42, 0.95);
   --app-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
   --app-input-bg: #0f172a;
@@ -198,4 +200,11 @@ body {
 }
 .todo-tile-overdue {
   box-shadow: inset 6px 0 0 var(--app-danger);
+}
+.btn-primary {
+  background-color: var(--app-accent);
+  color: var(--app-on-accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--app-accent-hover);
 }
