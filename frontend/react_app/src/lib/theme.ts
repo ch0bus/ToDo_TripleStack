@@ -29,13 +29,6 @@ export function applyThemeMode(mode: ThemeMode): "light" | "dark" {
   return resolved;
 }
 
-export const THEME_MODE_ORDER: ThemeMode[] = ["system", "light", "dark"];
-
-export function nextThemeMode(current: ThemeMode): ThemeMode {
-  const i = THEME_MODE_ORDER.indexOf(current);
-  return THEME_MODE_ORDER[(i + 1) % THEME_MODE_ORDER.length];
-}
-
 export function themeModeLabel(mode: ThemeMode): string {
   switch (mode) {
     case "system":

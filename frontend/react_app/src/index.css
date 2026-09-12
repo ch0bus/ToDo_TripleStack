@@ -1,38 +1,43 @@
 @import "tailwindcss";
 
 :root,
-[data-theme="light"] {
+html[data-theme="light"] {
   color-scheme: light;
-  --app-bg: #eef2f6;
-  --app-bg-elevated: #ffffff;
-  --app-surface: #ffffff;
-  --app-surface-muted: #f8fafc;
-  --app-border: #e2e8f0;
-  --app-border-strong: #cbd5e1;
-  --app-text: #0f172a;
-  --app-text-muted: #475569;
-  --app-text-subtle: #94a3b8;
-  --app-accent: #2563eb;
-  --app-accent-hover: #1d4ed8;
-  --app-accent-soft: #dbeafe;
+  --app-bg: #f4f0ff;
+  --app-bg-gradient:
+    radial-gradient(ellipse 90% 60% at 12% -8%, rgb(134 59 255 / 0.16), transparent 56%),
+    radial-gradient(ellipse 70% 50% at 96% 4%, rgb(71 191 255 / 0.14), transparent 52%),
+    radial-gradient(ellipse 80% 45% at 50% 110%, rgb(126 20 255 / 0.1), transparent 55%),
+    linear-gradient(165deg, #f7f3ff 0%, #efe8ff 48%, #e8f4ff 100%);
+  --app-bg-elevated: rgb(255 255 255 / 0.92);
+  --app-surface: rgb(255 255 255 / 0.86);
+  --app-surface-muted: rgb(237 230 255 / 0.72);
+  --app-border: rgb(134 59 255 / 0.16);
+  --app-border-strong: rgb(134 59 255 / 0.28);
+  --app-text: #2a1454;
+  --app-text-muted: #6b528c;
+  --app-text-subtle: #9b87b8;
+  --app-accent: #863bff;
+  --app-accent-hover: #7e14ff;
+  --app-accent-soft: #ede6ff;
   --app-on-accent: #ffffff;
-  --app-header-bg: rgba(255, 255, 255, 0.92);
-  --app-shadow: 0 1px 3px rgb(15 23 42 / 0.08);
-  --app-input-bg: #ffffff;
+  --app-header-bg: rgb(255 255 255 / 0.8);
+  --app-shadow: 0 8px 24px rgb(42 20 84 / 0.08);
+  --app-input-bg: rgb(255 255 255 / 0.88);
   --app-danger: #dc2626;
-  --app-nav-active-bg: #dbeafe;
-  --app-nav-active-text: #1d4ed8;
-  --app-chip-bg: #f1f5f9;
-  --app-chip-border: #e2e8f0;
-  --app-chip-text: #334155;
+  --app-nav-active-bg: #ede6ff;
+  --app-nav-active-text: #7e14ff;
+  --app-chip-bg: #f3eeff;
+  --app-chip-border: rgb(134 59 255 / 0.16);
+  --app-chip-text: #4c1d95;
   --app-modal-bg: #ffffff;
-  --app-overlay: rgb(15 23 42 / 0.45);
+  --app-overlay: rgb(42 20 84 / 0.4);
   --app-danger-bg: #fef2f2;
   --app-danger-border: #fecaca;
   --app-danger-text: #b91c1c;
-  --app-accent-chip-bg: #eff6ff;
-  --app-accent-chip-border: #bfdbfe;
-  --app-accent-chip-text: #1d4ed8;
+  --app-accent-chip-bg: #ede6ff;
+  --app-accent-chip-border: rgb(134 59 255 / 0.28);
+  --app-accent-chip-text: #7e14ff;
   --priority-frame-critical: rgb(220 38 38 / 0.32);
   --priority-frame-critical-hover: rgb(220 38 38 / 0.48);
   --priority-frame-high: rgb(234 88 12 / 0.32);
@@ -44,37 +49,42 @@
   --calendar-note-frame: #c9a227;
 }
 
-[data-theme="dark"] {
+html[data-theme="dark"] {
   color-scheme: dark;
-  --app-bg: #0f172a;
-  --app-bg-elevated: #1e293b;
-  --app-surface: #1e293b;
-  --app-surface-muted: #172033;
-  --app-border: #334155;
-  --app-border-strong: #475569;
-  --app-text: #f8fafc;
-  --app-text-muted: #94a3b8;
+  --app-bg: #0b1224;
+  --app-bg-gradient:
+    radial-gradient(ellipse 90% 60% at 12% -8%, rgb(37 99 235 / 0.38), transparent 56%),
+    radial-gradient(ellipse 70% 50% at 96% 4%, rgb(30 64 175 / 0.34), transparent 52%),
+    radial-gradient(ellipse 80% 45% at 50% 110%, rgb(49 46 129 / 0.28), transparent 55%),
+    linear-gradient(165deg, #111827 0%, #0b1224 48%, #080d18 100%);
+  --app-bg-elevated: rgb(22 32 54 / 0.86);
+  --app-surface: rgb(18 28 48 / 0.78);
+  --app-surface-muted: rgb(14 22 40 / 0.7);
+  --app-border: rgb(129 140 248 / 0.22);
+  --app-border-strong: rgb(165 180 252 / 0.36);
+  --app-text: #f1f5f9;
+  --app-text-muted: #93c5fd;
   --app-text-subtle: #64748b;
   --app-accent: #3b82f6;
   --app-accent-hover: #60a5fa;
-  --app-accent-soft: #1e3a5f;
+  --app-accent-soft: rgb(30 64 175 / 0.4);
   --app-on-accent: #ffffff;
-  --app-header-bg: rgba(15, 23, 42, 0.95);
-  --app-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
-  --app-input-bg: #0f172a;
+  --app-header-bg: rgb(11 18 36 / 0.72);
+  --app-shadow: 0 10px 28px rgb(2 6 16 / 0.45);
+  --app-input-bg: rgb(8 14 28 / 0.7);
   --app-danger: #f87171;
-  --app-nav-active-bg: #1e3a5f;
-  --app-nav-active-text: #93c5fd;
-  --app-chip-bg: #0f172a;
-  --app-chip-border: #334155;
+  --app-nav-active-bg: rgb(37 99 235 / 0.38);
+  --app-nav-active-text: #dbeafe;
+  --app-chip-bg: rgb(15 23 42 / 0.55);
+  --app-chip-border: rgb(129 140 248 / 0.28);
   --app-chip-text: #cbd5e1;
-  --app-modal-bg: #1e293b;
-  --app-overlay: rgb(0 0 0 / 0.6);
+  --app-modal-bg: rgb(15 23 42 / 0.96);
+  --app-overlay: rgb(2 6 16 / 0.66);
   --app-danger-bg: rgb(69 10 10 / 0.45);
   --app-danger-border: rgb(127 29 29 / 0.55);
   --app-danger-text: #fecaca;
-  --app-accent-chip-bg: rgb(30 58 95 / 0.45);
-  --app-accent-chip-border: rgb(30 64 175 / 0.45);
+  --app-accent-chip-bg: rgb(30 58 95 / 0.4);
+  --app-accent-chip-border: rgb(59 130 246 / 0.4);
   --app-accent-chip-text: #bfdbfe;
   --priority-frame-critical: rgb(248 113 113 / 0.38);
   --priority-frame-critical-hover: rgb(248 113 113 / 0.55);
@@ -87,10 +97,22 @@
   --calendar-note-frame: #e8c547;
 }
 
+html,
+body {
+  min-height: 100%;
+}
+
+html {
+  background-color: var(--app-bg);
+  background-image: var(--app-bg-gradient);
+  background-attachment: fixed;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background-color: var(--app-bg);
+  background-color: transparent;
+  background-image: none;
   color: var(--app-text);
   font-family:
     "Inter",
@@ -103,7 +125,8 @@ body {
 }
 
 .bg-app {
-  background-color: var(--app-bg);
+  background-color: transparent;
+  background-image: none;
 }
 .bg-app-elevated {
   background-color: var(--app-bg-elevated);
@@ -122,6 +145,22 @@ body {
 }
 .bg-app-modal {
   background-color: var(--app-modal-bg);
+}
+
+html[data-theme="light"] .bg-app-elevated,
+html[data-theme="light"] .bg-app-surface,
+html[data-theme="light"] .bg-app-surface-muted,
+html[data-theme="light"] .bg-app-header,
+html[data-theme="light"] .bg-app-input,
+html[data-theme="light"] .bg-app-modal,
+html[data-theme="dark"] .bg-app-elevated,
+html[data-theme="dark"] .bg-app-surface,
+html[data-theme="dark"] .bg-app-surface-muted,
+html[data-theme="dark"] .bg-app-header,
+html[data-theme="dark"] .bg-app-input,
+html[data-theme="dark"] .bg-app-modal {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 .border-app {
   border-color: var(--app-border);
