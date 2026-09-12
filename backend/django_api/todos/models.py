@@ -244,3 +244,30 @@ class ShiftDayOverride(models.Model):
             models.Index(fields=["user", "date"]),
         ]
 
+
+class DayNote(models.Model):
+    """Заметка на календарный день."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="day_notes",
+    )
+    date = models.DateField()
+    text = models.TextField("Заметка", max_length=2000)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "date"],
+                name="unique_user_day_note",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["user", "date"]),
+        ]
+
+    def __str__(self):
+        return f"note {self.user_id} {self.date}"
+

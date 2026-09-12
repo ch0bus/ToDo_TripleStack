@@ -8,6 +8,7 @@ from rest_framework import serializers
 
 from todos.models import (
     HEX_COLOR_RE,
+    DayNote,
     ShiftDayOverride,
     ShiftKind,
     ShiftPattern,
@@ -360,3 +361,25 @@ class ShiftDaySerializer(serializers.Serializer):
         )
         override.refresh_from_db()
         return override
+
+
+class DayNoteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DayNote
+        fields = ("date", "text", "updated_at")
+        read_only_fields = ("updated_at",)
+
+    def validate_text(self, value):
+        text = (value or "").strip()
+        if not text:
+            raise serializers.ValidationError("Заметка не может быть пустой.")
+        return text
+
+    def save(self, **kwargs):
+        user = self.context["request"].user
+        note, _ = DayNote.objects.update_or_create(
+            user=user,
+            date=self.validated_data["date"],
+            defaults={"text": self.validated_data["text"]},
+        )
+        return note

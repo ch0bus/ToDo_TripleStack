@@ -12,6 +12,8 @@ from .views import (
     ShiftPatternView,
     ShiftDaysView,
     ShiftDayDetailView,
+    DayNotesView,
+    DayNoteDetailView,
 )
 
 router = DefaultRouter()
@@ -53,6 +55,12 @@ urlpatterns = [
         "shift-days/<str:day>/",
         ShiftDayDetailView.as_view(),
         name="shift-day-detail",
+    ),
+    path("day-notes/", DayNotesView.as_view(), name="day-notes"),
+    path(
+        "day-notes/<str:day>/",
+        DayNoteDetailView.as_view(),
+        name="day-note-detail",
     ),
     # api
     path("", include(router.urls)),

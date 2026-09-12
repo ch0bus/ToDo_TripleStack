@@ -182,17 +182,15 @@ export function TodoEditForm({
         getPriorityBorderClass(priority)
       }
     >
-      {priority !== "critical" && (
-        <div
-          className={
-            "shrink-0 self-stretch " +
-            "w-1 " +
-            getPriorityStripeClass(priority)
-          }
-          title={`Приоритет: ${getPriorityLabel(priority)}`}
-          aria-hidden
-        />
-      )}
+      <div
+        className={
+          "shrink-0 self-stretch " +
+          "w-1 " +
+          getPriorityStripeClass(priority)
+        }
+        title={`Приоритет: ${getPriorityLabel(priority)}`}
+        aria-hidden
+      />
 
       <div className="grid min-w-0 flex-1 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <div className="min-w-0">

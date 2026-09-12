@@ -41,6 +41,7 @@
   --priority-frame-medium-hover: rgb(217 119 6 / 0.5);
   --priority-frame-low: rgb(148 163 184 / 0.45);
   --priority-frame-low-hover: rgb(100 116 139 / 0.55);
+  --calendar-note-frame: #c9a227;
 }
 
 [data-theme="dark"] {
@@ -83,6 +84,7 @@
   --priority-frame-medium-hover: rgb(251 191 36 / 0.52);
   --priority-frame-low: rgb(148 163 184 / 0.4);
   --priority-frame-low-hover: rgb(148 163 184 / 0.58);
+  --calendar-note-frame: #e8c547;
 }
 
 body {
@@ -200,6 +202,9 @@ body {
 }
 .todo-tile-overdue {
   box-shadow: inset 6px 0 0 var(--app-danger);
+}
+.calendar-day-note {
+  box-shadow: inset 0 0 0 2px var(--calendar-note-frame);
 }
 .btn-primary {
   background-color: var(--app-accent);

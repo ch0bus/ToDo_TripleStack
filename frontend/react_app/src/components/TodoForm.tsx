@@ -149,17 +149,15 @@ export function TodoForm({
         getPriorityBorderClass(priority)
       }
     >
-      {priority !== "critical" && (
-        <div
-          className={
-            "shrink-0 self-stretch " +
-            "w-1 " +
-            getPriorityStripeClass(priority)
-          }
-          title={`Приоритет: ${getPriorityLabel(priority)}`}
-          aria-hidden
-        />
-      )}
+      <div
+        className={
+          "shrink-0 self-stretch " +
+          "w-1 " +
+          getPriorityStripeClass(priority)
+        }
+        title={`Приоритет: ${getPriorityLabel(priority)}`}
+        aria-hidden
+      />
 
       <div className="min-w-0 flex-1 px-3 py-3 sm:px-4 sm:py-4">
         {error && (

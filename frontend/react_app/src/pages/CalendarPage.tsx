@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
+import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
@@ -28,6 +29,7 @@ import {
   toDateKey,
   toMonthKey,
 } from "@/lib/calendar";
+import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
   shiftDayFillStyle,
   shiftDaysMap,
@@ -67,6 +69,7 @@ export function CalendarPage() {
   const [shiftKinds, setShiftKinds] = useState<ShiftKind[]>([]);
   const [shiftPattern, setShiftPattern] = useState<ShiftPattern>(emptyPattern);
   const [shiftDays, setShiftDays] = useState<ShiftDay[]>([]);
+  const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
   const [paint, setPaint] = useState<PaintTool>({ type: "select" });
 
   const hasToken = !!getAccessToken();
@@ -111,7 +114,9 @@ export function CalendarPage() {
   const selectedRealCount = selectedEntries.filter((entry) => !entry.virtual).length;
   const selectedRepeatCount = selectedEntries.length - selectedRealCount;
   const shiftsByDay = useMemo(() => shiftDaysMap(shiftDays), [shiftDays]);
+  const notesByDay = useMemo(() => dayNotesMap(dayNotes), [dayNotes]);
   const selectedShift = shiftsByDay.get(selectedKey);
+  const selectedNote = notesByDay.get(selectedKey);
 
   const loadShifts = useCallback(async () => {
     if (!rangeFrom || !rangeTo) return;
@@ -125,6 +130,12 @@ export function CalendarPage() {
       setShiftPattern((await patternRes.json()) as ShiftPattern);
     }
     if (daysRes.ok) setShiftDays((await daysRes.json()) as ShiftDay[]);
+  }, [rangeFrom, rangeTo]);
+
+  const loadNotes = useCallback(async () => {
+    if (!rangeFrom || !rangeTo) return;
+    const res = await apiFetch(`/day-notes/?from=${rangeFrom}&to=${rangeTo}`);
+    if (res.ok) setDayNotes((await res.json()) as DayNote[]);
   }, [rangeFrom, rangeTo]);
 
   const load = useCallback(async () => {
@@ -165,6 +176,18 @@ export function CalendarPage() {
   useEffect(() => {
     void loadShifts();
   }, [loadShifts]);
+
+  useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
+
+  function handleNoteChanged(note: DayNote | null) {
+    setDayNotes((prev) => {
+      const next = prev.filter((item) => item.date !== selectedKey);
+      if (note) next.push(note);
+      return next;
+    });
+  }
 
   function setMonth(next: Date) {
     setSearchParams((prev) => {
@@ -367,6 +390,7 @@ export function CalendarPage() {
                     );
                     const selected = cell.key === selectedKey;
                     const shift = shiftsByDay.get(cell.key);
+                    const note = notesByDay.get(cell.key);
                     const shiftColor = shift?.kind?.color;
                     const marks = Math.min(realCount, 3);
                     return (
@@ -377,6 +401,7 @@ export function CalendarPage() {
                         title={
                           [
                             shift?.kind?.name,
+                            note?.text,
                             repeatCount
                               ? `${repeatCount} ${pluralRu(repeatCount, "повтор", "повтора", "повторов")}`
                               : "",
@@ -389,7 +414,8 @@ export function CalendarPage() {
                           (selected
                             ? "bg-[var(--app-accent-soft)]"
                             : "hover:bg-app-surface-muted") +
-                          (cell.inMonth ? "" : " opacity-40")
+                          (cell.inMonth ? "" : " opacity-40") +
+                          (note ? " calendar-day-note" : "")
                         }
                         style={shiftDayFillStyle(shiftColor)}
                       >
@@ -482,6 +508,11 @@ export function CalendarPage() {
                       : "Нет задач со сроком в этот день"}
                   </p>
                 </div>
+                <DayNoteEditor
+                  dateKey={selectedKey}
+                  note={selectedNote}
+                  onChanged={handleNoteChanged}
+                />
                 {selectedEntries.length > 0 ? (
                   <ul className="space-y-3">
                     {selectedEntries.map((entry) =>

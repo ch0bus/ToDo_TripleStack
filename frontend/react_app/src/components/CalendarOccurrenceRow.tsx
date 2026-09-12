@@ -36,12 +36,10 @@ export function CalendarOccurrenceRow({ todo }: { todo: TodoRow }) {
         getPriorityBorderClass(todo.priority)
       }
     >
-      {todo.priority !== "critical" && (
-        <div
-          className={"w-1 shrink-0 self-stretch rounded-l-lg opacity-60 " + stripe}
-          aria-hidden
-        />
-      )}
+      <div
+        className={"w-1 shrink-0 self-stretch rounded-l-lg opacity-60 " + stripe}
+        aria-hidden
+      />
       <div className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 sm:px-3">
         <span className="text-app-subtle" title="Повтор задачи">
           <RepeatIcon />

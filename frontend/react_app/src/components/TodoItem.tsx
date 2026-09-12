@@ -221,13 +221,11 @@ export function TodoItem({ todo, onUpdated, onDeleted }: TodoItemProps) {
           (menuOpen ? "z-20" : "")
         }
       >
-        {todo.priority !== "critical" && (
-          <div
-            className={"w-1 shrink-0 self-stretch rounded-l-lg " + stripe}
-            title={`Приоритет: ${getPriorityLabel(todo.priority)}`}
-            aria-hidden
-          />
-        )}
+        <div
+          className={"w-1 shrink-0 self-stretch rounded-l-lg " + stripe}
+          title={`Приоритет: ${getPriorityLabel(todo.priority)}`}
+          aria-hidden
+        />
 
         <div className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2">
           <StatusCycleButton

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { FilterBar } from "@/components/FilterBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
@@ -11,6 +12,8 @@ import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
+import { toDateKey } from "@/lib/calendar";
+import type { DayNote } from "@/lib/dayNotes";
 import { groupInboxTodos, hasActiveFilters } from "@/lib/todoFilters";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
@@ -49,6 +52,7 @@ function InboxSection({
   title,
   todos,
   empty,
+  lead,
   onUpdated,
   onDeleted,
 }: {
@@ -56,6 +60,7 @@ function InboxSection({
   title: string;
   todos: TodoRow[];
   empty: string;
+  lead?: ReactNode;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
 }) {
@@ -65,6 +70,7 @@ function InboxSection({
         {title}
         <span className="ml-2 font-normal text-app-subtle">{todos.length}</span>
       </h2>
+      {lead}
       {todos.length > 0 ? (
         <TodoList
           todos={todos}
@@ -87,7 +93,9 @@ export function HomePage() {
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [todayNote, setTodayNote] = useState<DayNote | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const todayKey = useMemo(() => toDateKey(new Date()), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(
     () => searchParams.get("search") ?? "",
@@ -141,6 +149,21 @@ export function HomePage() {
     }
     loadTags();
   }, [hasToken, location.pathname]);
+
+  useEffect(() => {
+    if (!hasToken) return;
+    let cancelled = false;
+    async function loadTodayNote() {
+      const res = await apiFetch(`/day-notes/?from=${todayKey}&to=${todayKey}`);
+      if (!res.ok || cancelled) return;
+      const notes = (await res.json()) as DayNote[];
+      if (!cancelled) setTodayNote(notes[0] ?? null);
+    }
+    void loadTodayNote();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasToken, todayKey, location.pathname]);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -246,7 +269,7 @@ export function HomePage() {
 
       <div className="sticky top-0 z-20 -mx-4 mb-6 border-b border-app bg-app-header px-4 py-3 backdrop-blur md:static md:mx-0 md:border-b-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
         {loading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-4 gap-1 sm:gap-3">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="animate-pulse space-y-2 px-1" aria-hidden>
                 <div className="h-3 w-16 rounded bg-app-border" />
@@ -300,38 +323,36 @@ export function HomePage() {
             Показано {todos.length} из {stats.total} задач
           </p>
 
-          {todos.length === 0 ? (
-            <TodoList
-              todos={todos}
-              emptyMessage={
-                filtersActive
-                  ? "По выбранным фильтрам задач нет"
-                  : "Задач пока нет — создайте первую"
-              }
-              emptyAction={
-                !filtersActive ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className={btnPrimary}
-                  >
-                    Создать задачу
-                  </button>
-                ) : undefined
-              }
-              onUpdated={handleTodoUpdated}
-              onDeleted={handleTodoDeleted}
-            />
-          ) : (
-            <div className="space-y-8">
+          <div className="space-y-8">
               <InboxSection
                 id="inbox-today"
                 title="Сегодня"
                 todos={grouped.today}
                 empty="На сегодня ничего не запланировано"
+                lead={
+                  <DayNoteEditor
+                    dateKey={todayKey}
+                    note={todayNote ?? undefined}
+                    onChanged={setTodayNote}
+                  />
+                }
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
+              {todos.length === 0 && !filtersActive ? (
+                <button
+                  type="button"
+                  onClick={() => setShowForm(true)}
+                  className={btnPrimary}
+                >
+                  Создать задачу
+                </button>
+              ) : todos.length === 0 ? (
+                <p className="text-sm text-app-subtle">
+                  По выбранным фильтрам задач нет
+                </p>
+              ) : (
+                <>
               <InboxSection
                 id="inbox-overdue"
                 title="Просрочено"
@@ -356,8 +377,9 @@ export function HomePage() {
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
+                </>
+              )}
             </div>
-          )}
             </>
           )}
         </div>

@@ -99,6 +99,16 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | date | date | уникален в паре (user, date) |
 | kind_id | FK → shift_kinds, NULL | NULL = выходной поверх шаблона |
 
+## day_notes
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users | |
+| date | date | уникален в паре (user, date) |
+| text | text 2000 | заметка к дню |
+| updated_at | datetime | |
+
 ## Связи
 
 ```text
@@ -109,6 +119,7 @@ Todo 1 ── * Subtask
 User 1 ── * ShiftKind
 User 1 ── 1 ShiftPattern ── * ShiftPatternSlot
 User 1 ── * ShiftDayOverride
+User 1 ── * DayNote
 ```
 
 ## Правила доступа
@@ -117,4 +128,4 @@ User 1 ── * ShiftDayOverride
 - `user_id` в JSON todo — read-only, при создании берётся из токена.
 - Подзадачи только через todo владельца.
 - Системные теги (`user_id` NULL) видны всем; создать/удалить может ограничение реализации.
-- Календарь не шарится: каждый видит свои сроки, повторы и смены.
+- Календарь не шарится: каждый видит свои сроки, повторы, смены и заметки дней.

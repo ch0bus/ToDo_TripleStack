@@ -23,6 +23,7 @@ from .serializers import (
     ShiftKindSerializer,
     ShiftPatternSerializer,
     ShiftDaySerializer,
+    DayNoteSerializer,
 )
 from todos.models import (
     Todo,
@@ -32,6 +33,7 @@ from todos.models import (
     ShiftKind,
     ShiftPattern,
     ShiftDayOverride,
+    DayNote,
 )
 from todos.shift_utils import expand_shift_days
 
@@ -476,6 +478,49 @@ class ShiftDayDetailView(APIView):
         except ValueError:
             raise ValidationError({"detail": "Ожидается дата YYYY-MM-DD."})
         deleted, _ = ShiftDayOverride.objects.filter(
+            user=request.user,
+            date=parsed,
+        ).delete()
+        if not deleted:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class DayNotesView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        start = _parse_query_date(request.query_params.get("from"), "from")
+        end = _parse_query_date(request.query_params.get("to"), "to")
+        if not start or not end:
+            raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
+        if (end - start).days > 62:
+            raise ValidationError({"detail": "Диапазон не больше 62 дней."})
+        notes = DayNote.objects.filter(
+            user=request.user,
+            date__range=(start, end),
+        ).order_by("date")
+        return Response(DayNoteSerializer(notes, many=True).data)
+
+    def put(self, request):
+        serializer = DayNoteSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        note = serializer.save()
+        return Response(DayNoteSerializer(note).data)
+
+
+class DayNoteDetailView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, day: str):
+        try:
+            parsed = date.fromisoformat(day)
+        except ValueError:
+            raise ValidationError({"detail": "Ожидается дата YYYY-MM-DD."})
+        deleted, _ = DayNote.objects.filter(
             user=request.user,
             date=parsed,
         ).delete()
