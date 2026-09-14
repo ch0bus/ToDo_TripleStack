@@ -1,6 +1,7 @@
-# ToDo App — frontend
+# Haloday — frontend
 
 SPA на **Vite**, **React** и **React Router**. Backend — Django REST API с JWT.
+Бренд в шапке: словомарк Haloday с золотым нимбом на месте буквы o.
 
 ## Команды
 
@@ -27,6 +28,12 @@ VITE_API_URL=http://127.0.0.1:8000/api
 
 | Путь | Описание |
 |------|----------|
-| `/` | Inbox задач (фильтры в query string) |
-| `/todos/:id` | Детали задачи |
+| `/` | Входящие: задачи и заметка дня |
+| `/todos/new` | Новая задача |
+| `/todos/:id` | Карточка задачи |
+| `/events/new` | Новое событие |
+| `/events/:id` | Карточка события |
+| `/notes/:date` | Заметка дня (`YYYY-MM-DD`) |
+| `/calendar` | Календарь месяца и года; доска смен `?calendar=id` |
+| `/settings` | Профиль, теги, тема |
 | `/login`, `/register` | Аутентификация |

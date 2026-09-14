@@ -1,7 +1,7 @@
-# ToDo API Specification
+# Haloday API Specification
 
-REST API для задач с JWT-аутентификацией. Контракт общий для Django, FastAPI и Flask;
-текущая эталонная реализация — **Django** (`backend/django_api`).
+REST API личного планера (задачи, события, заметки дня, смены) с JWT-аутентификацией.
+Контракт общий для Django, FastAPI и Flask; текущая эталонная реализация — **Django** (`backend/django_api`).
 
 Базовый URL: `/api` (у Django пути со слэшем в конце). Интерактивная документация: `/api/docs/`.
 
@@ -369,6 +369,7 @@ CRUD подзадачи в рамках родительской задачи.
 
 - Dev: `http://localhost:5173`, proxy `/api` → Django `:8000`.
 - Переменная: `VITE_API_URL` (пусто = `/api` через proxy).
+- Бренд в UI: **Haloday** (словомарк с золотым нимбом на месте буквы o).
 
 Маршруты UI: `/`, `/todos/new`, `/todos/:id`, `/notes/:date`, `/events/new`, `/events/:id`, `/calendar`, `/settings`, `/login`, `/register`.
 
