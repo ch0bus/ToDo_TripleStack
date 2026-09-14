@@ -52,6 +52,10 @@ export function addMonths(date: Date, amount: number): Date {
   return new Date(date.getFullYear(), date.getMonth() + amount, 1);
 }
 
+export function addYears(date: Date, amount: number): Date {
+  return new Date(date.getFullYear() + amount, date.getMonth(), 1);
+}
+
 export function dueDateKey(iso: string): string | null {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
@@ -173,6 +177,15 @@ export function uniqueTodosInMonth(
 export function formatMonthTitle(date: Date): string {
   const raw = date.toLocaleDateString("ru-RU", { month: "long", year: "numeric" });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+export function formatMonthName(date: Date): string {
+  const raw = date.toLocaleDateString("ru-RU", { month: "long" });
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+export function formatYearTitle(date: Date): string {
+  return String(date.getFullYear());
 }
 
 export function formatDayTitle(date: Date): string {

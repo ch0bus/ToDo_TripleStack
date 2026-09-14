@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import {
   MONTH_LABELS_SHORT,
   formatMonthTitle,
+  formatYearTitle,
   startOfMonth,
 } from "@/lib/calendar";
 
@@ -24,10 +25,17 @@ function parseYear(raw: string): number | null {
 
 interface MonthYearPickerProps {
   value: Date;
+  mode?: "month" | "year";
   onChange: (month: Date) => void;
+  onToday: () => void;
 }
 
-export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
+export function MonthYearPicker({
+  value,
+  mode = "month",
+  onChange,
+  onToday,
+}: MonthYearPickerProps) {
   const panelId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -117,10 +125,26 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
     };
   }, [open]);
 
+  function applyYear(year: number) {
+    const next = clampYear(year);
+    showYear(next);
+    onChange(startOfMonth(new Date(next, value.getMonth(), 1)));
+  }
+
   function pickMonth(monthIndex: number) {
     const year = parseYear(yearDraft) ?? viewYear;
     showYear(year);
     onChange(startOfMonth(new Date(year, monthIndex, 1)));
+    setOpen(false);
+  }
+
+  function handleToday() {
+    onToday();
+    setOpen(false);
+  }
+
+  function handleCurrentYear() {
+    applyYear(today.getFullYear());
     setOpen(false);
   }
 
@@ -136,7 +160,9 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
           onClick={() => setOpen((current) => !current)}
           className="flex max-w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-lg font-semibold text-app hover:bg-app-surface-muted sm:text-xl"
         >
-          <span className="truncate">{formatMonthTitle(value)}</span>
+          <span className="truncate">
+            {mode === "year" ? formatYearTitle(value) : formatMonthTitle(value)}
+          </span>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
@@ -162,7 +188,7 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
             ref={panelRef}
             id={panelId}
             role="dialog"
-            aria-label="Выбор месяца и года"
+            aria-label={mode === "year" ? "Выбор года" : "Выбор месяца и года"}
             style={{ top: coords.top, left: coords.left, width: POPOVER_WIDTH }}
             className="fixed z-[80] rounded-xl border border-app bg-app-modal p-3 shadow-app"
           >
@@ -170,7 +196,9 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
               <button
                 type="button"
                 aria-label="Предыдущий год"
-                onClick={() => showYear(viewYear - 1)}
+                onClick={() =>
+                  mode === "year" ? applyYear(viewYear - 1) : showYear(viewYear - 1)
+                }
                 className="flex h-8 w-8 items-center justify-center rounded-md text-app-muted hover:bg-app-surface-muted hover:text-app"
               >
                 ‹
@@ -184,19 +212,34 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
                   maxLength={4}
                   value={yearDraft}
                   onChange={(e) => setYearDraft(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                  onBlur={commitYearDraft}
+                  onBlur={() => {
+                    commitYearDraft();
+                    if (mode === "year") {
+                      const parsed = parseYear(yearDraft);
+                      if (parsed != null) applyYear(parsed);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
                       commitYearDraft();
+                      if (mode === "year") {
+                        const parsed = parseYear(yearDraft);
+                        if (parsed != null) {
+                          applyYear(parsed);
+                          setOpen(false);
+                        }
+                      }
                     }
                     if (e.key === "ArrowUp") {
                       e.preventDefault();
-                      showYear(viewYear + 1);
+                      if (mode === "year") applyYear(viewYear + 1);
+                      else showYear(viewYear + 1);
                     }
                     if (e.key === "ArrowDown") {
                       e.preventDefault();
-                      showYear(viewYear - 1);
+                      if (mode === "year") applyYear(viewYear - 1);
+                      else showYear(viewYear - 1);
                     }
                   }}
                   className="w-full rounded-md border border-app bg-app-input px-2 py-1.5 text-center text-sm font-medium tabular-nums text-app focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]"
@@ -205,14 +248,17 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
               <button
                 type="button"
                 aria-label="Следующий год"
-                onClick={() => showYear(viewYear + 1)}
+                onClick={() =>
+                  mode === "year" ? applyYear(viewYear + 1) : showYear(viewYear + 1)
+                }
                 className="flex h-8 w-8 items-center justify-center rounded-md text-app-muted hover:bg-app-surface-muted hover:text-app"
               >
                 ›
               </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-1">
+            {mode === "month" && (
+              <div className="grid grid-cols-3 gap-1">
               {MONTH_LABELS_SHORT.map((label, monthIndex) => {
                 const isSelected =
                   monthIndex === selectedMonth && viewYear === selectedYear;
@@ -237,7 +283,16 @@ export function MonthYearPicker({ value, onChange }: MonthYearPickerProps) {
                   </button>
                 );
               })}
-            </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={mode === "year" ? handleCurrentYear : handleToday}
+              className="mt-2 w-full rounded-md border border-app px-2 py-1.5 text-sm text-app-muted hover:bg-app-surface-muted hover:text-app"
+            >
+              {mode === "year" ? "Текущий год" : "Сегодня"}
+            </button>
           </div>,
           document.body,
         )}

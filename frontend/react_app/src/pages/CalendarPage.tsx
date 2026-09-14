@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
+import { CalendarYearGrid } from "@/components/CalendarYearGrid";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
@@ -16,6 +17,7 @@ import { getAccessToken } from "@/lib/auth";
 import {
   WEEKDAY_LABELS,
   addMonths,
+  addYears,
   buildMonthGrid,
   defaultDueAtDay,
   formatDayTitle,
@@ -95,10 +97,15 @@ export function CalendarPage() {
   const cells = useMemo(() => buildMonthGrid(month, today), [month, today]);
   const rangeFrom = cells[0]?.key;
   const rangeTo = cells[cells.length - 1]?.key;
+  const calendarView = searchParams.get("view") === "year" ? "year" : "month";
+  const yearFrom = `${month.getFullYear()}-01-01`;
+  const yearTo = `${month.getFullYear()}-12-31`;
+  const queryFrom = calendarView === "year" ? yearFrom : rangeFrom;
+  const queryTo = calendarView === "year" ? yearTo : rangeTo;
   const byDay = useMemo(() => {
-    if (!rangeFrom || !rangeTo) return new Map<string, CalendarEntry[]>();
-    return groupTodosForMonth(todos, rangeFrom, rangeTo);
-  }, [todos, rangeFrom, rangeTo]);
+    if (!queryFrom || !queryTo) return new Map<string, CalendarEntry[]>();
+    return groupTodosForMonth(todos, queryFrom, queryTo);
+  }, [todos, queryFrom, queryTo]);
   const undated = useMemo(
     () => todos.filter((todo) => !todo.due_date && !todo.event_date),
     [todos],
@@ -120,24 +127,24 @@ export function CalendarPage() {
   const selectedNote = notesByDay.get(selectedKey);
 
   const loadShifts = useCallback(async () => {
-    if (!rangeFrom || !rangeTo) return;
+    if (!queryFrom || !queryTo) return;
     const [kindsRes, patternRes, daysRes] = await Promise.all([
       apiFetch("/shift-kinds/"),
       apiFetch("/shift-pattern/"),
-      apiFetch(`/shift-days/?from=${rangeFrom}&to=${rangeTo}`),
+      apiFetch(`/shift-days/?from=${queryFrom}&to=${queryTo}`),
     ]);
     if (kindsRes.ok) setShiftKinds((await kindsRes.json()) as ShiftKind[]);
     if (patternRes.ok) {
       setShiftPattern((await patternRes.json()) as ShiftPattern);
     }
     if (daysRes.ok) setShiftDays((await daysRes.json()) as ShiftDay[]);
-  }, [rangeFrom, rangeTo]);
+  }, [queryFrom, queryTo]);
 
   const loadNotes = useCallback(async () => {
-    if (!rangeFrom || !rangeTo) return;
-    const res = await apiFetch(`/day-notes/?from=${rangeFrom}&to=${rangeTo}`);
+    if (!queryFrom || !queryTo) return;
+    const res = await apiFetch(`/day-notes/?from=${queryFrom}&to=${queryTo}`);
     if (res.ok) setDayNotes((await res.json()) as DayNote[]);
-  }, [rangeFrom, rangeTo]);
+  }, [queryFrom, queryTo]);
 
   const load = useCallback(async () => {
     const [todosRes, tagsRes] = await Promise.all([
@@ -198,6 +205,35 @@ export function CalendarPage() {
       if (day && day.getMonth() !== next.getMonth()) {
         params.set("day", toDateKey(startOfMonth(next)));
       }
+      return params;
+    });
+  }
+
+  function setCalendarView(next: "month" | "year") {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      if (next === "year") params.set("view", "year");
+      else params.delete("view");
+      return params;
+    });
+  }
+
+  function handleToday() {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("month", toMonthKey(today));
+      params.set("day", toDateKey(today));
+      params.delete("view");
+      return params;
+    });
+  }
+
+  function handleYearDate(date: Date) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("month", toMonthKey(date));
+      params.set("day", toDateKey(date));
+      params.delete("view");
       return params;
     });
   }
@@ -322,27 +358,56 @@ export function CalendarPage() {
                 <div className="flex min-w-0 items-center gap-1 sm:gap-2">
                   <button
                     type="button"
-                    onClick={() => setMonth(addMonths(month, -1))}
+                    onClick={() =>
+                      setMonth(
+                        calendarView === "year"
+                          ? addYears(month, -1)
+                          : addMonths(month, -1),
+                      )
+                    }
                     className="shrink-0 rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
-                    aria-label="Предыдущий месяц"
+                    aria-label={
+                      calendarView === "year"
+                        ? "Предыдущий год"
+                        : "Предыдущий месяц"
+                    }
                   >
                     ←
                   </button>
-                  <MonthYearPicker value={month} onChange={setMonth} />
+                  <MonthYearPicker
+                    value={month}
+                    mode={calendarView}
+                    onChange={setMonth}
+                    onToday={handleToday}
+                  />
                   <button
                     type="button"
-                    onClick={() => setMonth(addMonths(month, 1))}
+                    onClick={() =>
+                      setMonth(
+                        calendarView === "year"
+                          ? addYears(month, 1)
+                          : addMonths(month, 1),
+                      )
+                    }
                     className="shrink-0 rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
-                    aria-label="Следующий месяц"
+                    aria-label={
+                      calendarView === "year"
+                        ? "Следующий год"
+                        : "Следующий месяц"
+                    }
                   >
                     →
                   </button>
                   <button
                     type="button"
-                    onClick={() => selectDay(today)}
+                    onClick={() =>
+                      setCalendarView(
+                        calendarView === "year" ? "month" : "year",
+                      )
+                    }
                     className="shrink-0 rounded-md border border-app px-2.5 py-1.5 text-xs text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3 sm:text-sm"
                   >
-                    Сегодня
+                    {calendarView === "year" ? "Месяц" : "Год"}
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
@@ -389,6 +454,16 @@ export function CalendarPage() {
                 />
               )}
 
+              {calendarView === "year" ? (
+                <CalendarYearGrid
+                  year={month.getFullYear()}
+                  today={today}
+                  byDay={byDay}
+                  shiftsByDay={shiftsByDay}
+                  notesByDay={notesByDay}
+                  onSelectDate={handleYearDate}
+                />
+              ) : (
               <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
                 <div className="grid grid-cols-7 border-b border-app bg-app-surface-muted/50">
                   {WEEKDAY_LABELS.map((label) => (
@@ -499,7 +574,9 @@ export function CalendarPage() {
                   })}
                 </div>
               </div>
+              )}
 
+              {calendarView === "month" && (
               <section className="space-y-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-lg font-semibold capitalize text-app">
@@ -559,6 +636,7 @@ export function CalendarPage() {
                   </p>
                 )}
               </section>
+              )}
 
               <section className="space-y-3">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
@@ -577,6 +655,7 @@ export function CalendarPage() {
                 )}
               </section>
 
+              {calendarView === "month" && (
               <section className="space-y-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
@@ -600,6 +679,7 @@ export function CalendarPage() {
                   </p>
                 )}
               </section>
+              )}
             </>
           )}
         </div>

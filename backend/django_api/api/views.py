@@ -435,8 +435,8 @@ class ShiftDaysView(APIView):
         end = _parse_query_date(request.query_params.get("to"), "to")
         if not start or not end:
             raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
-        if (end - start).days > 62:
-            raise ValidationError({"detail": "Диапазон не больше 62 дней."})
+        if (end - start).days > 366:
+            raise ValidationError({"detail": "Диапазон не больше 366 дней."})
         days = expand_shift_days(request.user, start, end)
         return Response(
             [
@@ -494,8 +494,8 @@ class DayNotesView(APIView):
         end = _parse_query_date(request.query_params.get("to"), "to")
         if not start or not end:
             raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
-        if (end - start).days > 62:
-            raise ValidationError({"detail": "Диапазон не больше 62 дней."})
+        if (end - start).days > 366:
+            raise ValidationError({"detail": "Диапазон не больше 366 дней."})
         notes = DayNote.objects.filter(
             user=request.user,
             date__range=(start, end),
