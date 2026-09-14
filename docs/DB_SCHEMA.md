@@ -62,14 +62,23 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | created_at | datetime | |
 | updated_at | datetime | |
 
-## shift_layers
+## shift_calendars
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | id | PK | |
 | user_id | FK → users | |
-| position | int | 0 или 1, уникален в паре (user, position) |
-| name | string 40 | «Я» / «Супруга» по умолчанию |
+| name | string 40 | уникален в паре (user, name), до 10 досок |
+| created_at | datetime | |
+
+## shift_layers
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| calendar_id | FK → shift_calendars | CASCADE |
+| position | int | 0 или 1, уникален в паре (calendar, position) |
+| name | string 40 | «Слой 1» / «Слой 2» по умолчанию |
 
 ## shift_kinds
 
@@ -129,7 +138,8 @@ User 1 ── * Todo
 User 1 ── * Tag (личные; системные без user)
 Todo * ── * Tag
 Todo 1 ── * Subtask
-User 1 ── * ShiftLayer
+User 1 ── * ShiftCalendar
+ShiftCalendar 1 ── 2 ShiftLayer
 ShiftLayer 1 ── * ShiftKind
 ShiftLayer 1 ── 1 ShiftPattern ── * ShiftPatternSlot
 ShiftLayer 1 ── * ShiftDayOverride

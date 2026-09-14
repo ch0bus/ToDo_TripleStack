@@ -20,6 +20,7 @@ from .serializers import (
     TodoSerializer,
     TagSerializer,
     SubtaskSerializer,
+    ShiftCalendarSerializer,
     ShiftKindSerializer,
     ShiftLayerSerializer,
     ShiftPatternSerializer,
@@ -31,13 +32,20 @@ from todos.models import (
     Tag,
     Subtask,
     Status,
+    ShiftCalendar,
     ShiftKind,
     ShiftLayer,
     ShiftPattern,
     ShiftDayOverride,
     DayNote,
 )
-from todos.shift_utils import ensure_shift_layers, expand_shift_days
+from todos.shift_utils import (
+    ensure_default_calendar,
+    ensure_shift_layers,
+    expand_shift_days,
+    layer_for_user,
+    list_shift_calendars,
+)
 
 User = get_user_model()
 
@@ -399,14 +407,46 @@ def _parse_query_date(value: str | None, field: str) -> date | None:
         raise ValidationError({field: "Ожидается дата YYYY-MM-DD."})
 
 
+def _calendar_from_request(request, required=False) -> ShiftCalendar:
+    raw = request.query_params.get("calendar")
+    if raw:
+        try:
+            calendar_id = int(raw)
+        except (TypeError, ValueError):
+            raise ValidationError({"calendar": "Ожидается id календаря."})
+        return get_object_or_404(ShiftCalendar, user=request.user, pk=calendar_id)
+    if required:
+        raise ValidationError({"calendar": "Укажите календарь."})
+    return ensure_default_calendar(request.user)
+
+
+class ShiftCalendarViewSet(viewsets.ModelViewSet):
+    serializer_class = ShiftCalendarSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        list_shift_calendars(self.request.user)
+        return ShiftCalendar.objects.filter(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        if ShiftCalendar.objects.filter(user=self.request.user).count() <= 1:
+            raise ValidationError({"detail": "Нельзя удалить последний календарь смен."})
+        instance.delete()
+
+
 class ShiftLayerViewSet(viewsets.ModelViewSet):
     serializer_class = ShiftLayerSerializer
     permission_classes = (permissions.IsAuthenticated,)
     http_method_names = ["get", "patch", "head", "options"]
 
     def get_queryset(self):
-        ensure_shift_layers(self.request.user)
-        return ShiftLayer.objects.filter(user=self.request.user)
+        owned = ShiftLayer.objects.filter(calendar__user=self.request.user)
+        if getattr(self, "action", None) in ("list", "create", None):
+            calendar = _calendar_from_request(self.request)
+            ensure_shift_layers(calendar)
+            return owned.filter(calendar=calendar)
+        return owned
 
 
 class ShiftKindViewSet(viewsets.ModelViewSet):
@@ -415,24 +455,31 @@ class ShiftKindViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        ensure_shift_layers(self.request.user)
-        qs = ShiftKind.objects.filter(layer__user=self.request.user).select_related(
-            "layer"
-        )
-        layer_id = self.request.query_params.get("layer")
-        if layer_id:
-            qs = qs.filter(layer_id=layer_id)
-        return qs
+        owned = ShiftKind.objects.filter(
+            layer__calendar__user=self.request.user
+        ).select_related("layer")
+        if getattr(self, "action", None) in ("list", "create", None):
+            calendar = _calendar_from_request(self.request)
+            ensure_shift_layers(calendar)
+            qs = owned.filter(layer__calendar=calendar)
+            layer_id = self.request.query_params.get("layer")
+            if layer_id:
+                qs = qs.filter(layer_id=layer_id)
+            return qs
+        return owned
 
 
 class ShiftPatternView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        layers = ensure_shift_layers(request.user)
+        calendar = _calendar_from_request(request)
+        layers = ensure_shift_layers(calendar)
         layer_id = request.query_params.get("layer")
         if layer_id:
-            layer = get_object_or_404(ShiftLayer, user=request.user, pk=layer_id)
+            layer = get_object_or_404(
+                ShiftLayer, calendar=calendar, pk=layer_id
+            )
             pattern = (
                 ShiftPattern.objects.filter(layer=layer)
                 .prefetch_related("slots__kind")
@@ -458,7 +505,6 @@ class ShiftPatternView(APIView):
         return Response(payload)
 
     def put(self, request):
-        ensure_shift_layers(request.user)
         serializer = ShiftPatternSerializer(
             data=request.data,
             context={"request": request},
@@ -482,7 +528,8 @@ class ShiftDaysView(APIView):
             raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
         if (end - start).days > 366:
             raise ValidationError({"detail": "Диапазон не больше 366 дней."})
-        days = expand_shift_days(request.user, start, end)
+        calendar = _calendar_from_request(request)
+        days = expand_shift_days(calendar, start, end)
         return Response(
             [
                 {
@@ -527,7 +574,9 @@ class ShiftDayDetailView(APIView):
         layer_id = request.query_params.get("layer")
         if not layer_id:
             raise ValidationError({"layer": "Укажите слой."})
-        layer = get_object_or_404(ShiftLayer, user=request.user, pk=layer_id)
+        layer = layer_for_user(request.user, layer_id)
+        if not layer:
+            raise ValidationError({"layer": "Неизвестный слой."})
         deleted, _ = ShiftDayOverride.objects.filter(
             layer=layer,
             date=parsed,

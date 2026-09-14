@@ -151,17 +151,43 @@ class Subtask(models.Model):
 
 HEX_COLOR_RE = r"^#[0-9A-Fa-f]{6}$"
 
-SHIFT_LAYER_NAMES = ("Я", "Супруга")
+SHIFT_LAYER_NAMES = ("Слой 1", "Слой 2")
 SHIFT_LAYER_COUNT = 2
+SHIFT_CALENDAR_MAX = 10
+DEFAULT_SHIFT_CALENDAR_NAME = "Основной"
 
 
-class ShiftLayer(models.Model):
-    """Именованный график. У пользователя ровно два слоя (позиции 0 и 1)."""
+class ShiftCalendar(models.Model):
+    """Доска смен. Задачи и заметки общие, визуал и учёт смен — свои."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="shift_layers",
+        related_name="shift_calendars",
+    )
+    name = models.CharField("Название", max_length=40)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "name"],
+                name="unique_user_shift_calendar_name",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.user_id})"
+
+
+class ShiftLayer(models.Model):
+    """Именованный график. У календаря ровно два слоя (позиции 0 и 1)."""
+
+    calendar = models.ForeignKey(
+        ShiftCalendar,
+        on_delete=models.CASCADE,
+        related_name="layers",
     )
     position = models.PositiveSmallIntegerField()
     name = models.CharField("Название", max_length=40)
@@ -170,8 +196,8 @@ class ShiftLayer(models.Model):
         ordering = ["position"]
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "position"],
-                name="unique_user_shift_layer_position",
+                fields=["calendar", "position"],
+                name="unique_calendar_shift_layer_position",
             ),
         ]
 

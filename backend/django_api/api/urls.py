@@ -8,6 +8,7 @@ from .views import (
     TodoViewSet,
     TagViewSet,
     SubtaskViewSet,
+    ShiftCalendarViewSet,
     ShiftKindViewSet,
     ShiftLayerViewSet,
     ShiftPatternView,
@@ -20,6 +21,7 @@ from .views import (
 router = DefaultRouter()
 router.register(r"todos", TodoViewSet, basename="todo")
 router.register(r"tags", TagViewSet, basename="tag")
+router.register(r"shift-calendars", ShiftCalendarViewSet, basename="shift-calendar")
 router.register(r"shift-layers", ShiftLayerViewSet, basename="shift-layer")
 router.register(r"shift-kinds", ShiftKindViewSet, basename="shift-kind")
 

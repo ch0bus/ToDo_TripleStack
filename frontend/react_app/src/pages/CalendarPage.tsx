@@ -8,6 +8,7 @@ import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
+import { ShiftCalendarPicker } from "@/components/ShiftCalendarPicker";
 import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
 import { TodoFormModal } from "@/components/TodoFormModal";
 import { TodoItem } from "@/components/TodoItem";
@@ -40,9 +41,11 @@ import {
   formatShiftPayLine,
   formatShiftTotalsLine,
   markColors,
+  nextShiftCalendarName,
   shiftMarksByDate,
   summarizeShiftDays,
   type PaintTool,
+  type ShiftCalendar,
   type ShiftDay,
   type ShiftKind,
   type ShiftKindWrite,
@@ -74,6 +77,7 @@ export function CalendarPage() {
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [shiftCalendars, setShiftCalendars] = useState<ShiftCalendar[]>([]);
   const [shiftLayers, setShiftLayers] = useState<ShiftLayer[]>([]);
   const [shiftKinds, setShiftKinds] = useState<ShiftKind[]>([]);
   const [shiftPatterns, setShiftPatterns] = useState<ShiftPattern[]>([]);
@@ -91,6 +95,10 @@ export function CalendarPage() {
   }, [searchParams, today]);
 
   const calendarView = searchParams.get("view") === "year" ? "year" : "month";
+  const calendarIdFromUrl = Number(searchParams.get("calendar") ?? "");
+  const selectedShiftCalendar =
+    shiftCalendars.find((row) => row.id === calendarIdFromUrl) ??
+    shiftCalendars[0];
 
   const selectedDay = useMemo(() => {
     const fromUrl = parseDateKey(searchParams.get("day") ?? "");
@@ -170,13 +178,19 @@ export function CalendarPage() {
     [shiftLayers, shiftDays, yearFrom, yearTo],
   );
 
+  const loadCalendars = useCallback(async () => {
+    const res = await apiFetch("/shift-calendars/");
+    if (res.ok) setShiftCalendars((await res.json()) as ShiftCalendar[]);
+  }, []);
+
   const loadShifts = useCallback(async () => {
-    if (!queryFrom || !queryTo) return;
+    if (!queryFrom || !queryTo || !selectedShiftCalendar) return;
+    const calendarQ = `calendar=${selectedShiftCalendar.id}`;
     const [layersRes, kindsRes, patternRes, daysRes] = await Promise.all([
-      apiFetch("/shift-layers/"),
-      apiFetch("/shift-kinds/"),
-      apiFetch("/shift-pattern/"),
-      apiFetch(`/shift-days/?from=${queryFrom}&to=${queryTo}`),
+      apiFetch(`/shift-layers/?${calendarQ}`),
+      apiFetch(`/shift-kinds/?${calendarQ}`),
+      apiFetch(`/shift-pattern/?${calendarQ}`),
+      apiFetch(`/shift-days/?from=${queryFrom}&to=${queryTo}&${calendarQ}`),
     ]);
     if (layersRes.ok) {
       const layers = (await layersRes.json()) as ShiftLayer[];
@@ -194,7 +208,7 @@ export function CalendarPage() {
       );
     }
     if (daysRes.ok) setShiftDays((await daysRes.json()) as ShiftDay[]);
-  }, [queryFrom, queryTo]);
+  }, [queryFrom, queryTo, selectedShiftCalendar]);
 
   const loadNotes = useCallback(async () => {
     if (!queryFrom || !queryTo) return;
@@ -238,12 +252,29 @@ export function CalendarPage() {
   }, [load]);
 
   useEffect(() => {
+    void loadCalendars();
+  }, [loadCalendars]);
+
+  useEffect(() => {
     void loadShifts();
   }, [loadShifts]);
 
   useEffect(() => {
     void loadNotes();
   }, [loadNotes]);
+
+  useEffect(() => {
+    if (!shiftCalendars.length) return;
+    if (shiftCalendars.some((row) => row.id === calendarIdFromUrl)) return;
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        params.set("calendar", String(shiftCalendars[0].id));
+        return params;
+      },
+      { replace: true },
+    );
+  }, [shiftCalendars, calendarIdFromUrl, setSearchParams]);
 
   function handleNoteChanged(note: DayNote | null) {
     setDayNotes((prev) => {
@@ -402,6 +433,53 @@ export function CalendarPage() {
     setPaint({ type: "select" });
   }
 
+  function handleShiftCalendarChange(id: number) {
+    setPaint({ type: "select" });
+    setActiveLayerId(null);
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("calendar", String(id));
+      return params;
+    });
+  }
+
+  async function handleCreateShiftCalendar() {
+    const name = nextShiftCalendarName(shiftCalendars);
+    const res = await apiFetch("/shift-calendars/", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) return;
+    const created = (await res.json()) as ShiftCalendar;
+    setShiftCalendars((prev) => [...prev, created]);
+    setShowShifts(true);
+    handleShiftCalendarChange(created.id);
+  }
+
+  async function handleRenameCalendar(name: string) {
+    if (!selectedShiftCalendar) return;
+    const res = await apiFetch(`/shift-calendars/${selectedShiftCalendar.id}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error("rename calendar failed");
+    await loadCalendars();
+  }
+
+  async function handleDeleteCalendar() {
+    if (!selectedShiftCalendar || shiftCalendars.length <= 1) return;
+    if (!window.confirm("Удалить этот календарь смен?")) return;
+    const res = await apiFetch(`/shift-calendars/${selectedShiftCalendar.id}/`, {
+      method: "DELETE",
+    });
+    if (!res.ok) return;
+    const remaining = shiftCalendars.filter(
+      (row) => row.id !== selectedShiftCalendar.id,
+    );
+    setShiftCalendars(remaining);
+    if (remaining[0]) handleShiftCalendarChange(remaining[0].id);
+  }
+
   async function handleTodoUpdated(updated: TodoRow) {
     setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     try {
@@ -453,8 +531,49 @@ export function CalendarPage() {
             <CalendarSkeleton />
           ) : (
             <>
-              <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:justify-between">
-                <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <ShiftCalendarPicker
+                  className="min-w-0 w-full md:w-auto md:flex-none"
+                  calendars={shiftCalendars}
+                  value={selectedShiftCalendar?.id ?? null}
+                  onChange={handleShiftCalendarChange}
+                  onCreate={() => void handleCreateShiftCalendar()}
+                />
+                <div className="grid w-full grid-cols-2 gap-2 md:w-auto">
+                  <button
+                    type="button"
+                    aria-expanded={showShifts}
+                    aria-controls="shift-schedule"
+                    onClick={() => {
+                      if (showShifts) {
+                        setPaint({ type: "select" });
+                        setShowShifts(false);
+                      } else {
+                        setShowShifts(true);
+                      }
+                    }}
+                    className={
+                      "h-10 rounded-md px-3 text-sm font-medium " +
+                      (showShifts
+                        ? "border border-app-strong bg-app-surface-muted text-app"
+                        : "border border-app text-app-muted hover:bg-app-surface-muted hover:text-app")
+                    }
+                  >
+                    График смен
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(true)}
+                    className="btn-primary h-10 rounded-md px-3 text-sm font-medium shadow-sm"
+                  >
+                    + Новая задача
+                  </button>
+                </div>
+              </div>
+              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div />
+                <div className="flex items-center justify-center gap-1 sm:gap-2">
                   <button
                     type="button"
                     onClick={() =>
@@ -497,6 +616,8 @@ export function CalendarPage() {
                   >
                     →
                   </button>
+                </div>
+                <div className="flex justify-end">
                   <button
                     type="button"
                     onClick={() =>
@@ -504,46 +625,19 @@ export function CalendarPage() {
                         calendarView === "year" ? "month" : "year",
                       )
                     }
-                    className="shrink-0 rounded-md border border-app px-2.5 py-1.5 text-xs text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3 sm:text-sm"
+                    className="text-sm text-app-accent hover:underline"
                   >
                     {calendarView === "year" ? "Месяц" : "Год"}
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    aria-expanded={showShifts}
-                    aria-controls="shift-schedule"
-                    onClick={() => {
-                      if (showShifts) {
-                        setPaint({ type: "select" });
-                        setShowShifts(false);
-                      } else {
-                        setShowShifts(true);
-                      }
-                    }}
-                    className={
-                      "h-10 min-w-0 flex-1 rounded-md px-3 text-sm font-medium md:h-auto md:flex-none md:px-4 md:py-2 " +
-                      (showShifts
-                        ? "border border-app-strong bg-app-surface-muted text-app"
-                        : "border border-app text-app-muted hover:bg-app-surface-muted hover:text-app")
-                    }
-                  >
-                    График смен
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className="btn-primary h-10 min-w-0 flex-1 rounded-md px-3 text-sm font-medium shadow-sm md:h-auto md:flex-none md:px-4 md:py-2"
-                  >
-                    + Новая задача
-                  </button>
-                </div>
+              </div>
               </div>
 
-              {showShifts && activeLayer && (
+              {showShifts && activeLayer && selectedShiftCalendar && (
                 <ShiftSchedulePanel
-                  key={activeLayer.id}
+                  key={`${selectedShiftCalendar.id}-${activeLayer.id}`}
+                  calendar={selectedShiftCalendar}
+                  canDeleteCalendar={shiftCalendars.length > 1}
                   layers={shiftLayers}
                   activeLayer={activeLayer}
                   kinds={activeKinds}
@@ -551,6 +645,8 @@ export function CalendarPage() {
                   paint={paint}
                   onActiveLayerChange={handleActiveLayerChange}
                   onRenameLayer={handleRenameLayer}
+                  onRenameCalendar={handleRenameCalendar}
+                  onDeleteCalendar={handleDeleteCalendar}
                   onPaintChange={setPaint}
                   onCreateKind={handleCreateKind}
                   onUpdateKind={handleUpdateKind}

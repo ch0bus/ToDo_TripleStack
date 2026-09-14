@@ -9,7 +9,9 @@ from rest_framework import serializers
 
 from todos.models import (
     HEX_COLOR_RE,
+    SHIFT_CALENDAR_MAX,
     DayNote,
+    ShiftCalendar,
     ShiftDayOverride,
     ShiftKind,
     ShiftLayer,
@@ -20,7 +22,7 @@ from todos.models import (
     Subtask,
     Status,
 )
-from todos.shift_utils import ensure_shift_layers
+from todos.shift_utils import ensure_shift_layers, layer_for_user
 
 
 User = get_user_model()
@@ -233,6 +235,44 @@ class SubtaskSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
+class ShiftCalendarSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShiftCalendar
+        fields = ("id", "name", "created_at")
+        read_only_fields = ("id", "created_at")
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Укажите название календаря.")
+        return name
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        name = attrs.get("name")
+        if name is None and self.instance:
+            return attrs
+        qs = ShiftCalendar.objects.filter(user=request.user, name=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                {"name": "Календарь с таким названием уже есть."}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        if ShiftCalendar.objects.filter(user=user).count() >= SHIFT_CALENDAR_MAX:
+            raise serializers.ValidationError(
+                f"Можно создать не больше {SHIFT_CALENDAR_MAX} календарей смен."
+            )
+        validated_data["user"] = user
+        calendar = super().create(validated_data)
+        ensure_shift_layers(calendar)
+        return calendar
+
+
 class ShiftLayerSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShiftLayer
@@ -293,8 +333,7 @@ class ShiftKindSerializer(serializers.ModelSerializer):
 
     def _layer_for(self, layer_id):
         user = self.context["request"].user
-        ensure_shift_layers(user)
-        layer = ShiftLayer.objects.filter(user=user, pk=layer_id).first()
+        layer = layer_for_user(user, layer_id)
         if not layer:
             raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
         return layer
@@ -369,11 +408,10 @@ class ShiftPatternSerializer(serializers.Serializer):
 
     def _layer(self):
         user = self.context["request"].user
-        ensure_shift_layers(user)
         layer_id = self.validated_data.get("layer_id") or self.context.get("layer_id")
         if not layer_id:
             raise serializers.ValidationError({"layer_id": "Укажите слой."})
-        layer = ShiftLayer.objects.filter(user=user, pk=layer_id).first()
+        layer = layer_for_user(user, layer_id)
         if not layer:
             raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
         return layer
@@ -443,8 +481,7 @@ class ShiftDaySerializer(serializers.Serializer):
 
     def validate(self, attrs):
         user = self.context["request"].user
-        ensure_shift_layers(user)
-        layer = ShiftLayer.objects.filter(user=user, pk=attrs["layer_id"]).first()
+        layer = layer_for_user(user, attrs["layer_id"])
         if not layer:
             raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
         attrs["layer"] = layer

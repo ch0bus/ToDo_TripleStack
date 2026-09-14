@@ -1,34 +1,66 @@
 from datetime import date, timedelta
 
 from todos.models import (
+    DEFAULT_SHIFT_CALENDAR_NAME,
     SHIFT_LAYER_COUNT,
     SHIFT_LAYER_NAMES,
+    ShiftCalendar,
     ShiftDayOverride,
     ShiftLayer,
     ShiftPattern,
 )
 
 
-def ensure_shift_layers(user) -> list[ShiftLayer]:
-    """Два слоя на пользователя: позиция 0 и 1."""
+def ensure_shift_layers(calendar: ShiftCalendar) -> list[ShiftLayer]:
+    """Два слоя на календарь: позиция 0 и 1."""
     existing = {
         layer.position: layer
-        for layer in ShiftLayer.objects.filter(user=user)
+        for layer in ShiftLayer.objects.filter(calendar=calendar)
     }
     created = False
     for position, name in enumerate(SHIFT_LAYER_NAMES[:SHIFT_LAYER_COUNT]):
         if position not in existing:
             existing[position] = ShiftLayer.objects.create(
-                user=user,
+                calendar=calendar,
                 position=position,
                 name=name,
             )
             created = True
     if created:
         return list(
-            ShiftLayer.objects.filter(user=user).order_by("position")[:SHIFT_LAYER_COUNT]
+            ShiftLayer.objects.filter(calendar=calendar).order_by("position")[
+                :SHIFT_LAYER_COUNT
+            ]
         )
-    return [existing[position] for position in range(SHIFT_LAYER_COUNT) if position in existing]
+    return [
+        existing[position]
+        for position in range(SHIFT_LAYER_COUNT)
+        if position in existing
+    ]
+
+
+def ensure_default_calendar(user) -> ShiftCalendar:
+    calendar = (
+        ShiftCalendar.objects.filter(user=user).order_by("created_at", "id").first()
+    )
+    if calendar:
+        ensure_shift_layers(calendar)
+        return calendar
+    calendar = ShiftCalendar.objects.create(
+        user=user,
+        name=DEFAULT_SHIFT_CALENDAR_NAME,
+    )
+    ensure_shift_layers(calendar)
+    return calendar
+
+
+def list_shift_calendars(user) -> list[ShiftCalendar]:
+    ensure_default_calendar(user)
+    return list(ShiftCalendar.objects.filter(user=user).order_by("created_at", "id"))
+
+
+def layer_for_user(user, layer_id) -> ShiftLayer | None:
+    return ShiftLayer.objects.filter(calendar__user=user, pk=layer_id).first()
 
 
 def _expand_layer_days(layer: ShiftLayer, start: date, end: date) -> list[dict]:
@@ -80,11 +112,11 @@ def _expand_layer_days(layer: ShiftLayer, start: date, end: date) -> list[dict]:
     return result
 
 
-def expand_shift_days(user, start: date, end: date) -> list[dict]:
-    """Развернуть шаблоны слоёв и наложить ручные правки на диапазон дат."""
+def expand_shift_days(calendar: ShiftCalendar, start: date, end: date) -> list[dict]:
+    """Развернуть шаблоны слоёв календаря и наложить ручные правки."""
     if start > end:
         return []
-    layers = ensure_shift_layers(user)
+    layers = ensure_shift_layers(calendar)
     result: list[dict] = []
     for layer in layers:
         result.extend(_expand_layer_days(layer, start, end))

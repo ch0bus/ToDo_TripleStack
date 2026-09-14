@@ -1,5 +1,11 @@
 import type { CSSProperties } from "react";
 
+export interface ShiftCalendar {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
 export interface ShiftLayer {
   id: number;
   position: number;
@@ -56,6 +62,17 @@ export type PaintTool =
 export interface ShiftTotals {
   hours: number;
   pay: number;
+}
+
+export const SHIFT_CALENDAR_MAX = 10;
+
+export function nextShiftCalendarName(existing: ShiftCalendar[]): string {
+  const names = new Set(existing.map((row) => row.name));
+  for (let index = 2; index <= SHIFT_CALENDAR_MAX + 5; index += 1) {
+    const name = `Календарь ${index}`;
+    if (!names.has(name)) return name;
+  }
+  return "Календарь";
 }
 
 export function emptyPattern(layerId: number | null = null): ShiftPattern {

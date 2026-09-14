@@ -4,6 +4,7 @@ import {
   formatKindMeta,
   isHexColor,
   type PaintTool,
+  type ShiftCalendar,
   type ShiftKind,
   type ShiftKindWrite,
   type ShiftLayer,
@@ -12,6 +13,8 @@ import {
 import { btnPrimary, btnSecondary, inputClass } from "@/lib/uiClasses";
 
 interface ShiftSchedulePanelProps {
+  calendar: ShiftCalendar;
+  canDeleteCalendar: boolean;
   layers: ShiftLayer[];
   activeLayer: ShiftLayer;
   kinds: ShiftKind[];
@@ -19,6 +22,8 @@ interface ShiftSchedulePanelProps {
   paint: PaintTool;
   onActiveLayerChange: (id: number) => void;
   onRenameLayer: (id: number, name: string) => Promise<void>;
+  onRenameCalendar: (name: string) => Promise<void>;
+  onDeleteCalendar: () => Promise<void>;
   onPaintChange: (tool: PaintTool) => void;
   onCreateKind: (payload: ShiftKindWrite) => Promise<void>;
   onUpdateKind: (id: number, payload: Omit<ShiftKindWrite, "layer_id">) => Promise<void>;
@@ -41,6 +46,8 @@ function toolActive(paint: PaintTool, tool: PaintTool): boolean {
 const compactInput = inputClass + " w-24 shrink-0";
 
 export function ShiftSchedulePanel({
+  calendar,
+  canDeleteCalendar,
   layers,
   activeLayer,
   kinds,
@@ -48,6 +55,8 @@ export function ShiftSchedulePanel({
   paint,
   onActiveLayerChange,
   onRenameLayer,
+  onRenameCalendar,
+  onDeleteCalendar,
   onPaintChange,
   onCreateKind,
   onUpdateKind,
@@ -60,6 +69,7 @@ export function ShiftSchedulePanel({
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [hourlyRate, setHourlyRate] = useState("0");
   const [layerName, setLayerName] = useState(activeLayer.name);
+  const [calendarName, setCalendarName] = useState(calendar.name);
   const [startDate, setStartDate] = useState(pattern.start_date ?? "");
   const [endDate, setEndDate] = useState(pattern.end_date ?? "");
   const [slots, setSlots] = useState<Array<number | null>>(
@@ -182,6 +192,39 @@ export function ShiftSchedulePanel({
       className="rounded-xl border border-app bg-app-surface px-3 py-3 sm:px-4"
     >
       <h2 className="text-sm font-semibold text-app">График смен</h2>
+
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <label className="min-w-0 flex-1 text-xs text-app-muted sm:max-w-xs">
+          Календарь
+          <input
+            type="text"
+            value={calendarName}
+            maxLength={40}
+            onChange={(e) => setCalendarName(e.target.value)}
+            onBlur={() => {
+              const trimmed = calendarName.trim();
+              if (!trimmed || trimmed === calendar.name) {
+                setCalendarName(calendar.name);
+                return;
+              }
+              void onRenameCalendar(trimmed).catch(() => {
+                setCalendarName(calendar.name);
+              });
+            }}
+            className={inputClass + " mt-1"}
+          />
+        </label>
+        {canDeleteCalendar && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void onDeleteCalendar()}
+            className="text-xs text-[var(--app-danger)] hover:underline disabled:opacity-40"
+          >
+            Удалить календарь
+          </button>
+        )}
+      </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         {layers.map((layer) => (
