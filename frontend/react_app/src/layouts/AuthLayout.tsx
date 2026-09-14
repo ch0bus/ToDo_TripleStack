@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 
+import { BrandMark } from "@/components/BrandMark";
 import { ThemeToggleButton } from "@/components/ThemeToggleButton";
 
 interface AuthLayoutProps {
@@ -18,9 +19,10 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
         <Link
           to="/"
-          className="mb-8 text-center text-lg font-semibold tracking-tight text-app-accent"
+          className="mb-8 flex justify-center hover:opacity-90"
+          aria-label="Haloday"
         >
-          ToDo App
+          <BrandMark size="lg" />
         </Link>
 
         <div className="rounded-xl border border-app bg-app-surface p-6 shadow-app sm:p-8">

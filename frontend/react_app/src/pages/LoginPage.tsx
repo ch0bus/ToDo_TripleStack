@@ -46,7 +46,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       title="Вход"
-      subtitle="Войдите, чтобы открыть входящие и задачи."
+      subtitle="Войдите, чтобы открыть день: входящие, календарь и смены."
       footer={
         <>
           Нет аккаунта?{" "}

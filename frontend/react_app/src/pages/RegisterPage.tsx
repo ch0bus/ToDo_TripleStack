@@ -62,7 +62,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       title="Создать аккаунт"
-      subtitle="Зарегистрируйтесь и начните вести список задач."
+      subtitle="Зарегистрируйтесь и ведите день в одном месте."
       footer={
         <>
           Уже есть аккаунт?{" "}
