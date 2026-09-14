@@ -11,6 +11,7 @@ from todos.models import (
     HEX_COLOR_RE,
     SHIFT_CALENDAR_MAX,
     DayNote,
+    Event,
     ShiftCalendar,
     ShiftDayOverride,
     ShiftKind,
@@ -505,6 +506,70 @@ class ShiftDaySerializer(serializers.Serializer):
         )
         override.refresh_from_db()
         return override
+
+
+class EventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Event
+        fields = (
+            "id",
+            "title",
+            "description",
+            "start_at",
+            "end_at",
+            "all_day",
+            "recurrence",
+            "color",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")
+        extra_kwargs = {
+            "title": {"help_text": "Название события"},
+            "description": {"help_text": "Описание — по желанию", "required": False},
+            "start_at": {"help_text": "Начало"},
+            "end_at": {
+                "help_text": "Конец; пусто — только момент начала",
+                "required": False,
+                "allow_null": True,
+            },
+            "all_day": {"help_text": "Весь день, без времени", "required": False},
+            "recurrence": {
+                "help_text": "Повтор от даты начала вперёд",
+                "required": False,
+            },
+            "color": {
+                "help_text": "Цвет закладки на календаре, #RRGGBB",
+                "required": False,
+            },
+        }
+
+    def validate_title(self, value):
+        title = (value or "").strip()
+        if not title:
+            raise serializers.ValidationError("Укажите название события.")
+        return title
+
+    def validate_color(self, value):
+        color = (value or "").strip()
+        if not re.match(HEX_COLOR_RE, color):
+            raise serializers.ValidationError("Цвет в формате #RRGGBB.")
+        return color.lower()
+
+    def validate(self, attrs):
+        start_at = attrs.get("start_at", getattr(self.instance, "start_at", None))
+        end_at = attrs.get("end_at", getattr(self.instance, "end_at", None))
+        if "end_at" in attrs and attrs["end_at"] is None:
+            end_at = None
+        if start_at and end_at and end_at < start_at:
+            raise serializers.ValidationError(
+                {"end_at": "Конец не может быть раньше начала."}
+            )
+        return attrs
+
+    def create(self, validated_data):
+        validated_data["user"] = self.context["request"].user
+        return super().create(validated_data)
 
 
 class DayNoteSerializer(serializers.ModelSerializer):

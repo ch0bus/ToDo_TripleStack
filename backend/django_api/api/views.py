@@ -26,6 +26,7 @@ from .serializers import (
     ShiftPatternSerializer,
     ShiftDaySerializer,
     DayNoteSerializer,
+    EventSerializer,
 )
 from todos.models import (
     Todo,
@@ -38,6 +39,7 @@ from todos.models import (
     ShiftPattern,
     ShiftDayOverride,
     DayNote,
+    Event,
 )
 from todos.shift_utils import (
     ensure_default_calendar,
@@ -584,6 +586,15 @@ class ShiftDayDetailView(APIView):
         if not deleted:
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class EventViewSet(viewsets.ModelViewSet):
+    serializer_class = EventSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return Event.objects.filter(user=self.request.user)
 
 
 class DayNotesView(APIView):

@@ -4,7 +4,7 @@
 семантика полей и связей — общая.
 
 > Сущность **Project** нет: группировка через **теги** и фильтры API.  
-> Отдельной таблицы календаря нет: это UI над `todos` и сменами пользователя.
+> Отдельной таблицы календаря нет: это UI над `todos`, `events` и сменами пользователя.
 
 Все пользовательские сущности привязаны к `users`. Выборки в API — только свои строки.
 
@@ -49,6 +49,24 @@ Django: `account.User` (`AbstractUser`).
 M2M: **todos ↔ tags** через промежуточную таблицу.
 
 Индексы (Django): `(user, status)`, `(user, -created_at)`, отдельные на title, status, due_date.
+
+## events
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users | владелец, индекс |
+| title | string 255 | NOT NULL |
+| description | text | optional |
+| start_at | datetime | начало, индекс |
+| end_at | datetime | NULL; не раньше start_at |
+| all_day | bool | default false |
+| recurrence | enum | daily, weekly, monthly, never. Повтор от start_at вперёд |
+| color | string 7 | `#RRGGBB`, закладка на календаре, по умолчанию `#e11d48` |
+| created_at | datetime | auto |
+| updated_at | datetime | auto |
+
+Индекс: `(user, start_at)`.
 
 ## subtasks
 
@@ -143,13 +161,14 @@ ShiftCalendar 1 ── 2 ShiftLayer
 ShiftLayer 1 ── * ShiftKind
 ShiftLayer 1 ── 1 ShiftPattern ── * ShiftPatternSlot
 ShiftLayer 1 ── * ShiftDayOverride
+User 1 ── * Event
 User 1 ── * DayNote
 ```
 
 ## Правила доступа
 
-- Todos, личные теги, смены и правки дней — только `user_id` из JWT.
+- Todos, события, личные теги, смены и правки дней — только `user_id` из JWT.
 - `user_id` в JSON todo — read-only, при создании берётся из токена.
 - Подзадачи только через todo владельца.
 - Системные теги (`user_id` NULL) видны всем; создать/удалить может ограничение реализации.
-- Календарь не шарится: каждый видит свои сроки, повторы, смены и заметки дней.
+- Календарь не шарится: каждый видит свои сроки, события, повторы, смены и заметки дней.

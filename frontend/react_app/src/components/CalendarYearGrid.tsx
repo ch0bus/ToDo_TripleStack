@@ -7,6 +7,7 @@ import {
   type CalendarEntry,
 } from "@/lib/calendar";
 import { type DayNote } from "@/lib/dayNotes";
+import { eventFlagColors, type EventEntry } from "@/lib/events";
 import {
   markColors,
   yearShiftSplitStyle,
@@ -19,6 +20,7 @@ interface CalendarYearGridProps {
   today: Date;
   selectedKey: string;
   byDay: Map<string, CalendarEntry[]>;
+  eventsByDay: Map<string, EventEntry[]>;
   marksByDay: Map<string, DayShiftMarks>;
   notesByDay: Map<string, DayNote>;
   onSelectMonth: (date: Date) => void;
@@ -30,6 +32,7 @@ export function CalendarYearGrid({
   today,
   selectedKey,
   byDay,
+  eventsByDay,
   marksByDay,
   notesByDay,
   onSelectMonth,
@@ -77,42 +80,54 @@ export function CalendarYearGrid({
                     !entry.virtual &&
                     isOverdue(entry.todo.due_date, entry.todo.status),
                 );
+                const eventColor = eventFlagColors(
+                  eventsByDay.get(cell.key) ?? [],
+                  1,
+                )[0];
                 const note = notesByDay.get(cell.key);
                 const selected = cell.key === selectedKey;
                 return (
-                  <button
-                    key={cell.key}
-                    type="button"
-                    onClick={() => onSelectDay(cell.date)}
-                    className={
-                      "relative flex h-6 items-center justify-center overflow-hidden rounded-full text-[10px] " +
-                      (cell.isToday
-                        ? "bg-[var(--app-accent)] font-semibold text-white"
-                        : selected
-                          ? "bg-[var(--app-accent-soft)] font-semibold text-app-accent"
-                          : cell.inMonth
-                            ? "text-app hover:bg-app-surface-muted"
-                            : "text-app-subtle/50") +
-                      (note ? " calendar-day-note" : "")
-                    }
-                    style={
-                      cell.isToday
-                        ? undefined
-                        : yearShiftSplitStyle(
-                            markColors(marksByDay.get(cell.key)),
-                          )
-                    }
-                  >
-                    {cell.date.getDate()}
-                    {hasTask && !cell.isToday && (
+                  <div key={cell.key} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => onSelectDay(cell.date)}
+                      className={
+                        "relative flex h-6 w-full items-center justify-center overflow-hidden rounded-full text-[10px] " +
+                        (cell.isToday
+                          ? "bg-[var(--app-accent)] font-semibold text-white"
+                          : selected
+                            ? "bg-[var(--app-accent-soft)] font-semibold text-app-accent"
+                            : cell.inMonth
+                              ? "text-app hover:bg-app-surface-muted"
+                              : "text-app-subtle/50") +
+                        (note ? " calendar-day-note" : "")
+                      }
+                      style={
+                        cell.isToday
+                          ? undefined
+                          : yearShiftSplitStyle(
+                              markColors(marksByDay.get(cell.key)),
+                            )
+                      }
+                    >
+                      {cell.date.getDate()}
+                      {hasTask && !cell.isToday && (
+                        <span
+                          className={
+                            "absolute bottom-0.5 h-1 w-1 rounded-full " +
+                            (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
+                          }
+                        />
+                      )}
+                    </button>
+                    {eventColor && (
                       <span
-                        className={
-                          "absolute bottom-0.5 h-1 w-1 rounded-full " +
-                          (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
-                        }
+                        className="pointer-events-none absolute right-0 top-0 z-[1] h-1.5 w-1.5 rounded-[1px] shadow-sm"
+                        style={{ backgroundColor: eventColor }}
+                        aria-hidden
                       />
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>

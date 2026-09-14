@@ -16,6 +16,7 @@ from .views import (
     ShiftDayDetailView,
     DayNotesView,
     DayNoteDetailView,
+    EventViewSet,
 )
 
 router = DefaultRouter()
@@ -24,6 +25,7 @@ router.register(r"tags", TagViewSet, basename="tag")
 router.register(r"shift-calendars", ShiftCalendarViewSet, basename="shift-calendar")
 router.register(r"shift-layers", ShiftLayerViewSet, basename="shift-layer")
 router.register(r"shift-kinds", ShiftKindViewSet, basename="shift-kind")
+router.register(r"events", EventViewSet, basename="event")
 
 subtask_list = SubtaskViewSet.as_view({"get": "list", "post": "create"})
 subtask_detail = SubtaskViewSet.as_view(

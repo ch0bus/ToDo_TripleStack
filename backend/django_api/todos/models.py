@@ -150,6 +150,7 @@ class Subtask(models.Model):
 
 
 HEX_COLOR_RE = r"^#[0-9A-Fa-f]{6}$"
+DEFAULT_EVENT_COLOR = "#e11d48"
 
 SHIFT_LAYER_NAMES = ("Слой 1", "Слой 2")
 SHIFT_LAYER_COUNT = 2
@@ -322,6 +323,40 @@ class ShiftDayOverride(models.Model):
         indexes = [
             models.Index(fields=["layer", "date"]),
         ]
+
+
+class Event(models.Model):
+    """Именованный факт во времени. Не задача: без статуса и просрочки."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="events",
+        verbose_name="Владелец",
+        db_index=True,
+    )
+    title = models.CharField("Название", max_length=255)
+    description = models.TextField("Описание", blank=True)
+    start_at = models.DateTimeField("Начало", db_index=True)
+    end_at = models.DateTimeField("Конец", blank=True, null=True)
+    all_day = models.BooleanField("Весь день", default=False)
+    recurrence = models.CharField(
+        max_length=16,
+        choices=Recurrence.choices,
+        default=Recurrence.NEVER,
+    )
+    color = models.CharField("Цвет", max_length=7, default=DEFAULT_EVENT_COLOR)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["start_at", "id"]
+        indexes = [
+            models.Index(fields=["user", "start_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.title} ({self.start_at})"
 
 
 class DayNote(models.Model):

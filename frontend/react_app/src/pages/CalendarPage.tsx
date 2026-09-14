@@ -5,6 +5,9 @@ import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
+import { EventBookmark } from "@/components/EventBookmark";
+import { EventFormModal } from "@/components/EventFormModal";
+import { EventItem } from "@/components/EventItem";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
@@ -36,6 +39,12 @@ import {
   toMonthKey,
 } from "@/lib/calendar";
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
+import {
+  eventFlagColors,
+  groupEventsForRange,
+  uniqueEventEntries,
+  type CalendarEvent,
+} from "@/lib/events";
 import {
   emptyPattern,
   formatShiftPayLine,
@@ -76,6 +85,9 @@ export function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shiftCalendars, setShiftCalendars] = useState<ShiftCalendar[]>([]);
   const [shiftLayers, setShiftLayers] = useState<ShiftLayer[]>([]);
@@ -123,6 +135,10 @@ export function CalendarPage() {
     if (!queryFrom || !queryTo) return new Map<string, CalendarEntry[]>();
     return groupTodosForMonth(todos, queryFrom, queryTo);
   }, [todos, queryFrom, queryTo]);
+  const eventsByDay = useMemo(() => {
+    if (!queryFrom || !queryTo) return new Map();
+    return groupEventsForRange(events, queryFrom, queryTo);
+  }, [events, queryFrom, queryTo]);
   const undated = useMemo(
     () => todos.filter((todo) => !todo.due_date && !todo.event_date),
     [todos],
@@ -135,6 +151,10 @@ export function CalendarPage() {
   const selectedEntries = useMemo(
     () => sortCalendarEntries(byDay.get(selectedKey) ?? []),
     [byDay, selectedKey],
+  );
+  const selectedEventEntries = useMemo(
+    () => uniqueEventEntries(eventsByDay.get(selectedKey) ?? []),
+    [eventsByDay, selectedKey],
   );
   const selectedRealCount = selectedEntries.filter((entry) => !entry.virtual).length;
   const selectedRepeatCount = selectedEntries.length - selectedRealCount;
@@ -217,13 +237,15 @@ export function CalendarPage() {
   }, [queryFrom, queryTo]);
 
   const load = useCallback(async () => {
-    const [todosRes, tagsRes] = await Promise.all([
+    const [todosRes, tagsRes, eventsRes] = await Promise.all([
       apiFetch("/todos/"),
       apiFetch("/tags/"),
+      apiFetch("/events/"),
     ]);
     if (!todosRes.ok) throw new Error("Failed to load todos");
     setTodos((await todosRes.json()) as TodoRow[]);
     if (tagsRes.ok) setTags((await tagsRes.json()) as TagOption[]);
+    if (eventsRes.ok) setEvents((await eventsRes.json()) as CalendarEvent[]);
   }, []);
 
   useEffect(() => {
@@ -506,6 +528,28 @@ export function CalendarPage() {
     }
   }
 
+  function openNewEvent() {
+    setEditingEvent(null);
+    setShowEventForm(true);
+  }
+
+  function openEditEvent(event: CalendarEvent) {
+    setEditingEvent(event);
+    setShowEventForm(true);
+  }
+
+  function handleEventSaved(saved: CalendarEvent) {
+    setEvents((prev) => {
+      const exists = prev.some((item) => item.id === saved.id);
+      if (exists) return prev.map((item) => (item.id === saved.id ? saved : item));
+      return [...prev, saved];
+    });
+  }
+
+  function handleEventDeleted(id: number) {
+    setEvents((prev) => prev.filter((item) => item.id !== id));
+  }
+
   if (!hasToken) {
     return <Navigate to="/login" replace />;
   }
@@ -540,7 +584,7 @@ export function CalendarPage() {
                   onChange={handleShiftCalendarChange}
                   onCreate={() => void handleCreateShiftCalendar()}
                 />
-                <div className="grid w-full grid-cols-2 gap-2 md:w-auto">
+                <div className="grid w-full grid-cols-3 gap-2 md:w-auto">
                   <button
                     type="button"
                     aria-expanded={showShifts}
@@ -554,7 +598,7 @@ export function CalendarPage() {
                       }
                     }}
                     className={
-                      "h-10 rounded-md px-3 text-sm font-medium " +
+                      "h-10 rounded-md px-2 text-sm font-medium sm:px-3 " +
                       (showShifts
                         ? "border border-app-strong bg-app-surface-muted text-app"
                         : "border border-app text-app-muted hover:bg-app-surface-muted hover:text-app")
@@ -564,8 +608,15 @@ export function CalendarPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={openNewEvent}
+                    className="h-10 rounded-md border border-app px-2 text-sm font-medium text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3"
+                  >
+                    + Событие
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setShowForm(true)}
-                    className="btn-primary h-10 rounded-md px-3 text-sm font-medium shadow-sm"
+                    className="btn-primary h-10 rounded-md px-2 text-sm font-medium shadow-sm sm:px-3"
                   >
                     + Новая задача
                   </button>
@@ -662,6 +713,7 @@ export function CalendarPage() {
                   today={today}
                   selectedKey={selectedKey}
                   byDay={byDay}
+                  eventsByDay={eventsByDay}
                   marksByDay={shiftsByDay}
                   notesByDay={notesByDay}
                   onSelectMonth={handleYearMonth}
@@ -699,6 +751,18 @@ export function CalendarPage() {
                       )}
                     </p>
                   ))}
+                  {selectedEventEntries.length > 0 && (
+                    <ul className="space-y-2 pt-2">
+                      {selectedEventEntries.map((entry) => (
+                        <EventItem
+                          key={`${entry.event.id}-${entry.occurrenceStartKey}`}
+                          entry={entry}
+                          onEdit={openEditEvent}
+                          onDeleted={handleEventDeleted}
+                        />
+                      ))}
+                    </ul>
+                  )}
                 </section>
                 </>
               ) : (
@@ -726,6 +790,11 @@ export function CalendarPage() {
                     const selected = cell.key === selectedKey;
                     const dayMarks = shiftsByDay.get(cell.key);
                     const note = notesByDay.get(cell.key);
+                    const dayEvents = eventsByDay.get(cell.key) ?? [];
+                    const flagColors = eventFlagColors(dayEvents);
+                    const eventTitles = uniqueEventEntries(dayEvents).map(
+                      (entry) => entry.event.title,
+                    );
                     const colors = markColors(dayMarks);
                     const marks = Math.min(realCount, 3);
                     const shiftNames = shiftLayers
@@ -742,6 +811,7 @@ export function CalendarPage() {
                         title={
                           [
                             ...shiftNames,
+                            ...eventTitles,
                             note?.text,
                             repeatCount
                               ? `${repeatCount} ${pluralRu(repeatCount, "повтор", "повтора", "повторов")}`
@@ -760,6 +830,9 @@ export function CalendarPage() {
                         }
                       >
                         <MonthShiftFill colors={colors} />
+                        {flagColors.map((color, index) => (
+                          <EventBookmark key={color + index} color={color} index={index} />
+                        ))}
                         <span
                           className={
                             "relative inline-flex h-6 w-6 items-center justify-center rounded-full text-xs " +
@@ -827,18 +900,17 @@ export function CalendarPage() {
                     {formatDayTitle(selectedDay)}
                   </h2>
                   <p className="text-sm text-app-subtle">
-                    {selectedEntries.length
-                      ? [
-                          selectedRealCount
-                            ? `${selectedRealCount} задач`
-                            : "",
-                          selectedRepeatCount
-                            ? `${selectedRepeatCount} ${pluralRu(selectedRepeatCount, "повтор", "повтора", "повторов")}`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")
-                      : "Нет задач со сроком в этот день"}
+                    {[
+                      selectedEventEntries.length
+                        ? `${selectedEventEntries.length} ${pluralRu(selectedEventEntries.length, "событие", "события", "событий")}`
+                        : "",
+                      selectedRealCount ? `${selectedRealCount} задач` : "",
+                      selectedRepeatCount
+                        ? `${selectedRepeatCount} ${pluralRu(selectedRepeatCount, "повтор", "повтора", "повторов")}`
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "Нет событий и задач в этот день"}
                   </p>
                 </div>
                 {shiftLayers.map((layer, index) => {
@@ -874,6 +946,18 @@ export function CalendarPage() {
                   note={selectedNote}
                   onChanged={handleNoteChanged}
                 />
+                {selectedEventEntries.length > 0 && (
+                  <ul className="space-y-2">
+                    {selectedEventEntries.map((entry) => (
+                      <EventItem
+                        key={`${entry.event.id}-${entry.occurrenceStartKey}`}
+                        entry={entry}
+                        onEdit={openEditEvent}
+                        onDeleted={handleEventDeleted}
+                      />
+                    ))}
+                  </ul>
+                )}
                 {selectedEntries.length > 0 ? (
                   <ul className="space-y-3">
                     {selectedEntries.map((entry) =>
@@ -892,11 +976,11 @@ export function CalendarPage() {
                       ),
                     )}
                   </ul>
-                ) : (
+                ) : selectedEventEntries.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
                     На этот день ничего не запланировано.
                   </p>
-                )}
+                ) : null}
               </section>
               )}
 
@@ -967,6 +1051,25 @@ export function CalendarPage() {
         )}
         onClose={() => setShowForm(false)}
         onCreated={handleTodoCreated}
+      />
+      <EventFormModal
+        key={
+          showEventForm
+            ? editingEvent
+              ? `edit-${editingEvent.id}`
+              : `new-${selectedKey}`
+            : "closed"
+        }
+        open={showEventForm}
+        event={editingEvent}
+        defaultStart={toDatetimeLocalValue(
+          defaultDueAtDay(selectedDay).toISOString(),
+        )}
+        onClose={() => {
+          setShowEventForm(false);
+          setEditingEvent(null);
+        }}
+        onSaved={handleEventSaved}
       />
     </div>
   );

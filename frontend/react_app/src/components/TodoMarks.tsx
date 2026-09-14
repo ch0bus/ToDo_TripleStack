@@ -59,6 +59,33 @@ export function StatusCycleIcon({
   );
 }
 
+export function PriorityMark({
+  priority,
+  className = "h-4 w-4",
+}: {
+  priority: string;
+  className?: string;
+}) {
+  const color =
+    priority === "critical"
+      ? "text-red-500"
+      : priority === "high"
+        ? "text-orange-500"
+        : priority === "medium"
+          ? "text-amber-400"
+          : "text-slate-400";
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      className={className + " " + color}
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="9" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function StatusCycleButton({
   status,
   disabled,
