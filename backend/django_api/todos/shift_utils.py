@@ -35,7 +35,12 @@ def expand_shift_days(user, start: date, end: date) -> list[dict]:
                     "source": "override",
                 }
             )
-        elif pattern and slots and cursor >= pattern.start_date:
+        elif (
+            pattern
+            and slots
+            and cursor >= pattern.start_date
+            and (pattern.end_date is None or cursor <= pattern.end_date)
+        ):
             slot = slots[(cursor - pattern.start_date).days % len(slots)]
             if slot.kind_id:
                 result.append(

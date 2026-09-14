@@ -1,5 +1,6 @@
 import re
 from datetime import date
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -233,7 +234,14 @@ class SubtaskSerializer(serializers.ModelSerializer):
 class ShiftKindSerializer(serializers.ModelSerializer):
     class Meta:
         model = ShiftKind
-        fields = ("id", "name", "color")
+        fields = (
+            "id",
+            "name",
+            "color",
+            "duration_hours",
+            "break_minutes",
+            "hourly_rate",
+        )
         read_only_fields = ("id",)
 
     def validate_name(self, value):
@@ -247,6 +255,21 @@ class ShiftKindSerializer(serializers.ModelSerializer):
         if not re.match(HEX_COLOR_RE, color):
             raise serializers.ValidationError("Цвет в формате #RRGGBB.")
         return color.lower()
+
+    def validate_duration_hours(self, value):
+        if value < Decimal("0.25") or value > Decimal("24"):
+            raise serializers.ValidationError("Часы смены — от 0.25 до 24.")
+        return value
+
+    def validate_break_minutes(self, value):
+        if value > 480:
+            raise serializers.ValidationError("Перерыв — от 0 до 480 минут.")
+        return value
+
+    def validate_hourly_rate(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Ставка не может быть отрицательной.")
+        return value
 
     def validate(self, attrs):
         request = self.context["request"]
@@ -275,13 +298,15 @@ class ShiftPatternSlotWriteSerializer(serializers.Serializer):
 
 class ShiftPatternSerializer(serializers.Serializer):
     start_date = serializers.DateField(allow_null=True, required=False)
+    end_date = serializers.DateField(allow_null=True, required=False)
     slots = serializers.ListField(child=ShiftPatternSlotWriteSerializer(), required=False)
 
     def to_representation(self, instance):
         if instance is None:
-            return {"start_date": None, "slots": []}
+            return {"start_date": None, "end_date": None, "slots": []}
         return {
             "start_date": instance.start_date,
+            "end_date": instance.end_date,
             "slots": [
                 {
                     "position": slot.position,
@@ -291,6 +316,15 @@ class ShiftPatternSerializer(serializers.Serializer):
                 for slot in instance.slots.all()
             ],
         }
+
+    def validate(self, attrs):
+        start = attrs.get("start_date") or date.today()
+        end = attrs.get("end_date")
+        if start and end and end < start:
+            raise serializers.ValidationError(
+                {"end_date": "Конец цикла не раньше начала."}
+            )
+        return attrs
 
     def validate_slots(self, slots):
         if len(slots) > 31:
@@ -317,6 +351,8 @@ class ShiftPatternSerializer(serializers.Serializer):
             defaults={"start_date": start_date},
         )
         pattern.start_date = start_date
+        if "end_date" in self.validated_data:
+            pattern.end_date = self.validated_data["end_date"]
         pattern.save()
         pattern.slots.all().delete()
         ShiftPatternSlot.objects.bulk_create(

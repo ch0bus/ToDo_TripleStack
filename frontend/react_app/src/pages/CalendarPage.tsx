@@ -21,6 +21,7 @@ import {
   buildMonthGrid,
   defaultDueAtDay,
   formatDayTitle,
+  formatMonthName,
   formatMonthTitle,
   groupTodosForMonth,
   parseDateKey,
@@ -34,17 +35,21 @@ import {
 } from "@/lib/calendar";
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
+  formatShiftPayLine,
+  formatShiftTotalsLine,
   shiftDayFillStyle,
   shiftDaysMap,
+  summarizeShiftDays,
   type PaintTool,
   type ShiftDay,
   type ShiftKind,
+  type ShiftKindWrite,
   type ShiftPattern,
 } from "@/lib/shifts";
 import type { TagOption } from "@/lib/tags";
 import { isOverdue, pluralRu, toDatetimeLocalValue } from "@/lib/utils";
 
-const emptyPattern: ShiftPattern = { start_date: null, slots: [] };
+const emptyPattern: ShiftPattern = { start_date: null, end_date: null, slots: [] };
 
 function CalendarSkeleton() {
   return (
@@ -82,22 +87,23 @@ export function CalendarPage() {
     return parseMonthKey(searchParams.get("month") ?? "") ?? startOfMonth(today);
   }, [searchParams, today]);
 
+  const calendarView = searchParams.get("view") === "year" ? "year" : "month";
+
   const selectedDay = useMemo(() => {
     const fromUrl = parseDateKey(searchParams.get("day") ?? "");
     if (fromUrl) return fromUrl;
     if (
       today.getFullYear() === month.getFullYear() &&
-      today.getMonth() === month.getMonth()
+      (calendarView === "year" || today.getMonth() === month.getMonth())
     ) {
       return today;
     }
     return startOfMonth(month);
-  }, [searchParams, month, today]);
+  }, [searchParams, month, today, calendarView]);
 
   const cells = useMemo(() => buildMonthGrid(month, today), [month, today]);
   const rangeFrom = cells[0]?.key;
   const rangeTo = cells[cells.length - 1]?.key;
-  const calendarView = searchParams.get("view") === "year" ? "year" : "month";
   const yearFrom = `${month.getFullYear()}-01-01`;
   const yearTo = `${month.getFullYear()}-12-31`;
   const queryFrom = calendarView === "year" ? yearFrom : rangeFrom;
@@ -125,6 +131,16 @@ export function CalendarPage() {
   const notesByDay = useMemo(() => dayNotesMap(dayNotes), [dayNotes]);
   const selectedShift = shiftsByDay.get(selectedKey);
   const selectedNote = notesByDay.get(selectedKey);
+  const monthFrom = `${toMonthKey(month)}-01`;
+  const monthTo = toDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
+  const monthShiftTotals = useMemo(
+    () => summarizeShiftDays(shiftDays, monthFrom, monthTo),
+    [shiftDays, monthFrom, monthTo],
+  );
+  const yearShiftTotals = useMemo(
+    () => summarizeShiftDays(shiftDays, yearFrom, yearTo),
+    [shiftDays, yearFrom, yearTo],
+  );
 
   const loadShifts = useCallback(async () => {
     if (!queryFrom || !queryTo) return;
@@ -228,12 +244,22 @@ export function CalendarPage() {
     });
   }
 
-  function handleYearDate(date: Date) {
+  function handleYearMonth(date: Date) {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       params.set("month", toMonthKey(date));
       params.set("day", toDateKey(date));
       params.delete("view");
+      return params;
+    });
+  }
+
+  function handleYearDay(date: Date) {
+    setSearchParams((prev) => {
+      const params = new URLSearchParams(prev);
+      params.set("month", toMonthKey(date));
+      params.set("day", toDateKey(date));
+      params.set("view", "year");
       return params;
     });
   }
@@ -270,12 +296,21 @@ export function CalendarPage() {
     }
   }
 
-  async function handleCreateKind(name: string, color: string) {
+  async function handleCreateKind(payload: ShiftKindWrite) {
     const res = await apiFetch("/shift-kinds/", {
       method: "POST",
-      body: JSON.stringify({ name, color }),
+      body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error("create kind failed");
+    await loadShifts();
+  }
+
+  async function handleUpdateKind(id: number, payload: ShiftKindWrite) {
+    const res = await apiFetch(`/shift-kinds/${id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("update kind failed");
     await loadShifts();
   }
 
@@ -290,12 +325,14 @@ export function CalendarPage() {
 
   async function handleSavePattern(
     startDate: string,
+    endDate: string | null,
     kindIds: Array<number | null>,
   ) {
     const res = await apiFetch("/shift-pattern/", {
       method: "PUT",
       body: JSON.stringify({
         start_date: startDate,
+        end_date: endDate,
         slots: kindIds.map((kind_id) => ({ kind_id })),
       }),
     });
@@ -449,20 +486,53 @@ export function CalendarPage() {
                   paint={paint}
                   onPaintChange={setPaint}
                   onCreateKind={handleCreateKind}
+                  onUpdateKind={handleUpdateKind}
                   onDeleteKind={handleDeleteKind}
                   onSavePattern={handleSavePattern}
                 />
               )}
 
               {calendarView === "year" ? (
+                <>
                 <CalendarYearGrid
                   year={month.getFullYear()}
                   today={today}
+                  selectedKey={selectedKey}
                   byDay={byDay}
                   shiftsByDay={shiftsByDay}
                   notesByDay={notesByDay}
-                  onSelectDate={handleYearDate}
+                  onSelectMonth={handleYearMonth}
+                  onSelectDay={handleYearDay}
                 />
+                <section className="space-y-1">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 className="text-lg font-semibold capitalize text-app">
+                      {formatDayTitle(selectedDay)}
+                      {selectedShift?.kind && (
+                        <span className="ml-2 inline-flex items-center gap-1 align-middle text-sm font-normal normal-case text-app-muted">
+                          <span
+                            className="h-2.5 w-2.5 rounded-sm"
+                            style={{ backgroundColor: selectedShift.kind.color }}
+                            aria-hidden
+                          />
+                          {selectedShift.kind.name}
+                        </span>
+                      )}
+                    </h2>
+                    <p className="text-sm text-app-subtle">
+                      {selectedShift?.kind
+                        ? formatShiftPayLine(selectedShift.kind)
+                        : "Нет смены"}
+                    </p>
+                  </div>
+                  <p className="text-sm text-app-muted">
+                    {formatShiftTotalsLine(
+                      `За ${month.getFullYear()}`,
+                      yearShiftTotals,
+                    )}
+                  </p>
+                </section>
+                </>
               ) : (
               <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
                 <div className="grid grid-cols-7 border-b border-app bg-app-surface-muted/50">
@@ -579,7 +649,7 @@ export function CalendarPage() {
               {calendarView === "month" && (
               <section className="space-y-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-lg font-semibold capitalize text-app">
+                    <h2 className="text-lg font-semibold capitalize text-app">
                     {formatDayTitle(selectedDay)}
                     {selectedShift?.kind && (
                       <span className="ml-2 inline-flex items-center gap-1 align-middle text-sm font-normal normal-case text-app-muted">
@@ -607,6 +677,17 @@ export function CalendarPage() {
                       : "Нет задач со сроком в этот день"}
                   </p>
                 </div>
+                <p className="text-sm text-app-muted">
+                  {selectedShift?.kind
+                    ? formatShiftPayLine(selectedShift.kind)
+                    : "Нет смены"}
+                </p>
+                <p className="text-sm text-app-muted">
+                  {formatShiftTotalsLine(
+                    `За ${formatMonthName(month).toLowerCase()}`,
+                    monthShiftTotals,
+                  )}
+                </p>
                 <DayNoteEditor
                   dateKey={selectedKey}
                   note={selectedNote}

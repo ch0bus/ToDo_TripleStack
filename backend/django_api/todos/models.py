@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -150,7 +153,7 @@ HEX_COLOR_RE = r"^#[0-9A-Fa-f]{6}$"
 
 
 class ShiftKind(models.Model):
-    """Тип смены: имя и цвет задаёт пользователь."""
+    """Тип смены: имя, цвет, часы и ставка задаёт пользователь."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -159,6 +162,28 @@ class ShiftKind(models.Model):
     )
     name = models.CharField("Название", max_length=80)
     color = models.CharField("Цвет", max_length=7)
+    duration_hours = models.DecimalField(
+        "Продолжительность, ч",
+        max_digits=4,
+        decimal_places=2,
+        default=Decimal("8.00"),
+        validators=[
+            MinValueValidator(Decimal("0.25")),
+            MaxValueValidator(Decimal("24")),
+        ],
+    )
+    break_minutes = models.PositiveSmallIntegerField(
+        "Перерыв, мин",
+        default=0,
+        validators=[MaxValueValidator(480)],
+    )
+    hourly_rate = models.DecimalField(
+        "Оплата, ₽/ч",
+        max_digits=8,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0"))],
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -183,6 +208,7 @@ class ShiftPattern(models.Model):
         related_name="shift_pattern",
     )
     start_date = models.DateField("Начало цикла")
+    end_date = models.DateField("Конец цикла", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

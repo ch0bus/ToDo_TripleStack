@@ -13,19 +13,23 @@ import { isOverdue } from "@/lib/utils";
 interface CalendarYearGridProps {
   year: number;
   today: Date;
+  selectedKey: string;
   byDay: Map<string, CalendarEntry[]>;
   shiftsByDay: Map<string, ShiftDay>;
   notesByDay: Map<string, DayNote>;
-  onSelectDate: (date: Date) => void;
+  onSelectMonth: (date: Date) => void;
+  onSelectDay: (date: Date) => void;
 }
 
 export function CalendarYearGrid({
   year,
   today,
+  selectedKey,
   byDay,
   shiftsByDay,
   notesByDay,
-  onSelectDate,
+  onSelectMonth,
+  onSelectDay,
 }: CalendarYearGridProps) {
   const currentMonth = today.getMonth();
   const currentYear = today.getFullYear();
@@ -44,7 +48,7 @@ export function CalendarYearGrid({
           >
             <button
               type="button"
-              onClick={() => onSelectDate(monthDate)}
+              onClick={() => onSelectMonth(monthDate)}
               className={
                 "w-full px-2 py-1.5 text-left text-sm font-semibold hover:bg-app-surface-muted " +
                 (isCurrentMonth ? "text-app-accent" : "text-app")
@@ -71,21 +75,28 @@ export function CalendarYearGrid({
                 );
                 const shift = shiftsByDay.get(cell.key);
                 const note = notesByDay.get(cell.key);
+                const selected = cell.key === selectedKey;
                 return (
                   <button
                     key={cell.key}
                     type="button"
-                    onClick={() => onSelectDate(cell.date)}
+                    onClick={() => onSelectDay(cell.date)}
                     className={
                       "relative flex h-6 items-center justify-center rounded-full text-[10px] " +
                       (cell.isToday
                         ? "bg-[var(--app-accent)] font-semibold text-white"
-                        : cell.inMonth
-                          ? "text-app hover:bg-app-surface-muted"
-                          : "text-app-subtle/50") +
+                        : selected
+                          ? "bg-[var(--app-accent-soft)] font-semibold text-app-accent"
+                          : cell.inMonth
+                            ? "text-app hover:bg-app-surface-muted"
+                            : "text-app-subtle/50") +
                       (note ? " calendar-day-note" : "")
                     }
-                    style={shiftDayFillStyle(shift?.kind?.color)}
+                    style={
+                      cell.isToday
+                        ? undefined
+                        : shiftDayFillStyle(shift?.kind?.color)
+                    }
                   >
                     {cell.date.getDate()}
                     {hasTask && !cell.isToday && (

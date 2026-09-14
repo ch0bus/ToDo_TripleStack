@@ -70,6 +70,9 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | user_id | FK → users | |
 | name | string 80 | уникален в паре (user, name) |
 | color | string 7 | `#RRGGBB` |
+| duration_hours | decimal 4,2 | длина смены, 0.25–24, по умолчанию 8 |
+| break_minutes | int | перерыв, 0–480, по умолчанию 0 |
+| hourly_rate | decimal 8,2 | ₽/час, ≥ 0 |
 | created_at | datetime | |
 
 ## shift_patterns
@@ -79,6 +82,7 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | id | PK | |
 | user_id | FK → users, unique | один цикл на пользователя |
 | start_date | date | начало цикла |
+| end_date | date, NULL | конец цикла; NULL = без конца |
 | updated_at | datetime | |
 
 ## shift_pattern_slots
