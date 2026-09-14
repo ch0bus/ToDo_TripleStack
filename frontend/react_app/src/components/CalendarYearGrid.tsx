@@ -7,7 +7,11 @@ import {
   type CalendarEntry,
 } from "@/lib/calendar";
 import { type DayNote } from "@/lib/dayNotes";
-import { shiftDayFillStyle, type ShiftDay } from "@/lib/shifts";
+import {
+  markColors,
+  yearShiftSplitStyle,
+  type DayShiftMarks,
+} from "@/lib/shifts";
 import { isOverdue } from "@/lib/utils";
 
 interface CalendarYearGridProps {
@@ -15,7 +19,7 @@ interface CalendarYearGridProps {
   today: Date;
   selectedKey: string;
   byDay: Map<string, CalendarEntry[]>;
-  shiftsByDay: Map<string, ShiftDay>;
+  marksByDay: Map<string, DayShiftMarks>;
   notesByDay: Map<string, DayNote>;
   onSelectMonth: (date: Date) => void;
   onSelectDay: (date: Date) => void;
@@ -26,7 +30,7 @@ export function CalendarYearGrid({
   today,
   selectedKey,
   byDay,
-  shiftsByDay,
+  marksByDay,
   notesByDay,
   onSelectMonth,
   onSelectDay,
@@ -73,7 +77,6 @@ export function CalendarYearGrid({
                     !entry.virtual &&
                     isOverdue(entry.todo.due_date, entry.todo.status),
                 );
-                const shift = shiftsByDay.get(cell.key);
                 const note = notesByDay.get(cell.key);
                 const selected = cell.key === selectedKey;
                 return (
@@ -82,7 +85,7 @@ export function CalendarYearGrid({
                     type="button"
                     onClick={() => onSelectDay(cell.date)}
                     className={
-                      "relative flex h-6 items-center justify-center rounded-full text-[10px] " +
+                      "relative flex h-6 items-center justify-center overflow-hidden rounded-full text-[10px] " +
                       (cell.isToday
                         ? "bg-[var(--app-accent)] font-semibold text-white"
                         : selected
@@ -95,7 +98,9 @@ export function CalendarYearGrid({
                     style={
                       cell.isToday
                         ? undefined
-                        : shiftDayFillStyle(shift?.kind?.color)
+                        : yearShiftSplitStyle(
+                            markColors(marksByDay.get(cell.key)),
+                          )
                     }
                   >
                     {cell.date.getDate()}

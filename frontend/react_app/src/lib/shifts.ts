@@ -1,5 +1,14 @@
+import type { CSSProperties } from "react";
+
+export interface ShiftLayer {
+  id: number;
+  position: number;
+  name: string;
+}
+
 export interface ShiftKind {
   id: number;
+  layer_id: number;
   name: string;
   color: string;
   duration_hours: string | number;
@@ -8,6 +17,7 @@ export interface ShiftKind {
 }
 
 export interface ShiftKindWrite {
+  layer_id: number;
   name: string;
   color: string;
   duration_hours: number;
@@ -22,6 +32,7 @@ export interface ShiftPatternSlot {
 }
 
 export interface ShiftPattern {
+  layer_id: number | null;
   start_date: string | null;
   end_date: string | null;
   slots: ShiftPatternSlot[];
@@ -29,9 +40,12 @@ export interface ShiftPattern {
 
 export interface ShiftDay {
   date: string;
+  layer_id: number;
   kind: ShiftKind | null;
   source: "pattern" | "override";
 }
+
+export type DayShiftMarks = [ShiftDay | undefined, ShiftDay | undefined];
 
 export type PaintTool =
   | { type: "select" }
@@ -44,16 +58,42 @@ export interface ShiftTotals {
   pay: number;
 }
 
-export function shiftDaysMap(days: ShiftDay[]): Map<string, ShiftDay> {
-  const map = new Map<string, ShiftDay>();
+export function emptyPattern(layerId: number | null = null): ShiftPattern {
+  return { layer_id: layerId, start_date: null, end_date: null, slots: [] };
+}
+
+export function shiftMarksByDate(
+  days: ShiftDay[],
+  layers: ShiftLayer[],
+): Map<string, DayShiftMarks> {
+  const posById = new Map(layers.map((layer) => [layer.id, layer.position]));
+  const map = new Map<string, DayShiftMarks>();
   for (const day of days) {
-    map.set(day.date, day);
+    const position = posById.get(day.layer_id);
+    if (position !== 0 && position !== 1) continue;
+    const current = map.get(day.date) ?? [undefined, undefined];
+    current[position] = day;
+    map.set(day.date, current);
   }
   return map;
 }
 
+export function markColors(
+  marks: DayShiftMarks | undefined,
+): [string | undefined, string | undefined] {
+  return [marks?.[0]?.kind?.color, marks?.[1]?.kind?.color];
+}
+
 export function isHexColor(value: string): boolean {
   return /^#[0-9A-Fa-f]{6}$/.test(value);
+}
+
+function hexRgba(color: string | undefined, alpha: number): string | undefined {
+  if (!color || !isHexColor(color)) return undefined;
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgb(${r} ${g} ${b} / ${alpha})`;
 }
 
 export function kindHours(kind: ShiftKind): number {
@@ -80,10 +120,12 @@ export function summarizeShiftDays(
   days: ShiftDay[],
   from: string,
   to: string,
+  layerId?: number,
 ): ShiftTotals {
   let hours = 0;
   let pay = 0;
   for (const day of days) {
+    if (layerId != null && day.layer_id !== layerId) continue;
     if (day.date < from || day.date > to || !day.kind) continue;
     hours += paidHours(day.kind);
     pay += shiftPay(day.kind);
@@ -132,11 +174,28 @@ export function formatShiftTotalsLine(label: string, totals: ShiftTotals): strin
 export function shiftDayFillStyle(
   color: string | undefined,
 ): { backgroundImage: string } | undefined {
-  if (!color || !isHexColor(color)) return undefined;
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
+  const fill = hexRgba(color, 0.38);
+  const mid = hexRgba(color, 0.14);
+  const end = hexRgba(color, 0.03);
+  if (!fill || !mid || !end) return undefined;
   return {
-    backgroundImage: `linear-gradient(165deg, rgb(${r} ${g} ${b} / 0.38) 0%, rgb(${r} ${g} ${b} / 0.14) 52%, rgb(${r} ${g} ${b} / 0.03) 100%)`,
+    backgroundImage: `linear-gradient(165deg, ${fill} 0%, ${mid} 52%, ${end} 100%)`,
   };
+}
+
+/** Кружок года: диагональный разрез без градиента. */
+export function yearShiftSplitStyle(
+  colors: [string | undefined, string | undefined],
+): CSSProperties | undefined {
+  const a = hexRgba(colors[0], 0.5);
+  const b = hexRgba(colors[1], 0.5);
+  if (a && b) {
+    return {
+      backgroundImage: `linear-gradient(to bottom right, ${a} 50%, ${b} 50%)`,
+    };
+  }
+  if (a || b) {
+    return { backgroundColor: a || b };
+  }
+  return undefined;
 }

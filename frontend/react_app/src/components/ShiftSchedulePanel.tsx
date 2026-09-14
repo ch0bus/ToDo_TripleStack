@@ -6,17 +6,22 @@ import {
   type PaintTool,
   type ShiftKind,
   type ShiftKindWrite,
+  type ShiftLayer,
   type ShiftPattern,
 } from "@/lib/shifts";
 import { btnPrimary, btnSecondary, inputClass } from "@/lib/uiClasses";
 
 interface ShiftSchedulePanelProps {
+  layers: ShiftLayer[];
+  activeLayer: ShiftLayer;
   kinds: ShiftKind[];
   pattern: ShiftPattern;
   paint: PaintTool;
+  onActiveLayerChange: (id: number) => void;
+  onRenameLayer: (id: number, name: string) => Promise<void>;
   onPaintChange: (tool: PaintTool) => void;
   onCreateKind: (payload: ShiftKindWrite) => Promise<void>;
-  onUpdateKind: (id: number, payload: ShiftKindWrite) => Promise<void>;
+  onUpdateKind: (id: number, payload: Omit<ShiftKindWrite, "layer_id">) => Promise<void>;
   onDeleteKind: (id: number) => Promise<void>;
   onSavePattern: (
     startDate: string,
@@ -36,9 +41,13 @@ function toolActive(paint: PaintTool, tool: PaintTool): boolean {
 const compactInput = inputClass + " w-24 shrink-0";
 
 export function ShiftSchedulePanel({
+  layers,
+  activeLayer,
   kinds,
   pattern,
   paint,
+  onActiveLayerChange,
+  onRenameLayer,
   onPaintChange,
   onCreateKind,
   onUpdateKind,
@@ -50,6 +59,7 @@ export function ShiftSchedulePanel({
   const [durationHours, setDurationHours] = useState("8");
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [hourlyRate, setHourlyRate] = useState("0");
+  const [layerName, setLayerName] = useState(activeLayer.name);
   const [startDate, setStartDate] = useState(pattern.start_date ?? "");
   const [endDate, setEndDate] = useState(pattern.end_date ?? "");
   const [slots, setSlots] = useState<Array<number | null>>(
@@ -114,7 +124,12 @@ export function ShiftSchedulePanel({
     try {
       setBusy(true);
       setError("");
-      await onCreateKind({ name: trimmed, color, ...fields });
+      await onCreateKind({
+        layer_id: activeLayer.id,
+        name: trimmed,
+        color,
+        ...fields,
+      });
       setName("");
     } catch {
       setError("Не удалось создать тип смены");
@@ -167,6 +182,43 @@ export function ShiftSchedulePanel({
       className="rounded-xl border border-app bg-app-surface px-3 py-3 sm:px-4"
     >
       <h2 className="text-sm font-semibold text-app">График смен</h2>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {layers.map((layer) => (
+          <button
+            key={layer.id}
+            type="button"
+            onClick={() => onActiveLayerChange(layer.id)}
+            className={
+              "rounded-md px-2.5 py-1 text-xs " +
+              (layer.id === activeLayer.id
+                ? "bg-app-surface-muted text-app"
+                : "text-app-subtle hover:bg-app-surface-muted")
+            }
+          >
+            {layer.position === 0 ? "↖ " : "↘ "}
+            {layer.name}
+          </button>
+        ))}
+        <input
+          type="text"
+          value={layerName}
+          maxLength={40}
+          aria-label="Название слоя"
+          onChange={(e) => setLayerName(e.target.value)}
+          onBlur={() => {
+            const trimmed = layerName.trim();
+            if (!trimmed || trimmed === activeLayer.name) {
+              setLayerName(activeLayer.name);
+              return;
+            }
+            void onRenameLayer(activeLayer.id, trimmed).catch(() => {
+              setLayerName(activeLayer.name);
+            });
+          }}
+          className={inputClass + " h-8 w-36 py-1 text-xs"}
+        />
+      </div>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         <button

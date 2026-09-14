@@ -12,6 +12,7 @@ from todos.models import (
     DayNote,
     ShiftDayOverride,
     ShiftKind,
+    ShiftLayer,
     ShiftPattern,
     ShiftPatternSlot,
     Todo,
@@ -19,6 +20,7 @@ from todos.models import (
     Subtask,
     Status,
 )
+from todos.shift_utils import ensure_shift_layers
 
 
 User = get_user_model()
@@ -231,11 +233,29 @@ class SubtaskSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at", "updated_at")
 
 
+class ShiftLayerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShiftLayer
+        fields = ("id", "position", "name")
+        read_only_fields = ("id", "position")
+
+    def validate_name(self, value):
+        name = (value or "").strip()
+        if not name:
+            raise serializers.ValidationError("Укажите название слоя.")
+        if len(name) > 40:
+            raise serializers.ValidationError("Название слоя — до 40 символов.")
+        return name
+
+
 class ShiftKindSerializer(serializers.ModelSerializer):
+    layer_id = serializers.IntegerField(required=False)
+
     class Meta:
         model = ShiftKind
         fields = (
             "id",
+            "layer_id",
             "name",
             "color",
             "duration_hours",
@@ -271,12 +291,27 @@ class ShiftKindSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Ставка не может быть отрицательной.")
         return value
 
+    def _layer_for(self, layer_id):
+        user = self.context["request"].user
+        ensure_shift_layers(user)
+        layer = ShiftLayer.objects.filter(user=user, pk=layer_id).first()
+        if not layer:
+            raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
+        return layer
+
     def validate(self, attrs):
-        request = self.context["request"]
+        layer_id = attrs.get("layer_id")
+        if layer_id is None and self.instance:
+            layer = self.instance.layer
+        elif layer_id is None:
+            raise serializers.ValidationError({"layer_id": "Укажите слой."})
+        else:
+            layer = self._layer_for(layer_id)
+        attrs["layer"] = layer
         name = attrs.get("name")
         if name is None and self.instance:
             return attrs
-        qs = ShiftKind.objects.filter(user=request.user, name=name)
+        qs = ShiftKind.objects.filter(layer=layer, name=name)
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
@@ -286,10 +321,17 @@ class ShiftKindSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        if ShiftKind.objects.filter(user=self.context["request"].user).count() >= 12:
+        layer = validated_data.pop("layer")
+        validated_data.pop("layer_id", None)
+        if ShiftKind.objects.filter(layer=layer).count() >= 12:
             raise serializers.ValidationError("Можно создать не больше 12 типов смен.")
-        validated_data["user"] = self.context["request"].user
+        validated_data["layer"] = layer
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("layer", None)
+        validated_data.pop("layer_id", None)
+        return super().update(instance, validated_data)
 
 
 class ShiftPatternSlotWriteSerializer(serializers.Serializer):
@@ -297,14 +339,22 @@ class ShiftPatternSlotWriteSerializer(serializers.Serializer):
 
 
 class ShiftPatternSerializer(serializers.Serializer):
+    layer_id = serializers.IntegerField(required=False)
     start_date = serializers.DateField(allow_null=True, required=False)
     end_date = serializers.DateField(allow_null=True, required=False)
     slots = serializers.ListField(child=ShiftPatternSlotWriteSerializer(), required=False)
 
     def to_representation(self, instance):
+        layer_id = self.context.get("layer_id")
         if instance is None:
-            return {"start_date": None, "end_date": None, "slots": []}
+            return {
+                "layer_id": layer_id,
+                "start_date": None,
+                "end_date": None,
+                "slots": [],
+            }
         return {
+            "layer_id": instance.layer_id,
             "start_date": instance.start_date,
             "end_date": instance.end_date,
             "slots": [
@@ -316,6 +366,17 @@ class ShiftPatternSerializer(serializers.Serializer):
                 for slot in instance.slots.all()
             ],
         }
+
+    def _layer(self):
+        user = self.context["request"].user
+        ensure_shift_layers(user)
+        layer_id = self.validated_data.get("layer_id") or self.context.get("layer_id")
+        if not layer_id:
+            raise serializers.ValidationError({"layer_id": "Укажите слой."})
+        layer = ShiftLayer.objects.filter(user=user, pk=layer_id).first()
+        if not layer:
+            raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
+        return layer
 
     def validate(self, attrs):
         start = attrs.get("start_date") or date.today()
@@ -329,25 +390,26 @@ class ShiftPatternSerializer(serializers.Serializer):
     def validate_slots(self, slots):
         if len(slots) > 31:
             raise serializers.ValidationError("В цикле не больше 31 дня.")
-        user = self.context["request"].user
+        return slots
+
+    def save(self, **kwargs):
+        layer = self._layer()
+        start_date = self.validated_data.get("start_date") or date.today()
+        slots = self.validated_data.get("slots", [])
         kind_ids = [s["kind_id"] for s in slots if s.get("kind_id") is not None]
         if kind_ids:
             found = set(
-                ShiftKind.objects.filter(user=user, id__in=kind_ids).values_list(
+                ShiftKind.objects.filter(layer=layer, id__in=kind_ids).values_list(
                     "id", flat=True
                 )
             )
             missing = set(kind_ids) - found
             if missing:
-                raise serializers.ValidationError("Неизвестный тип смены.")
-        return slots
-
-    def save(self, **kwargs):
-        user = self.context["request"].user
-        start_date = self.validated_data.get("start_date") or date.today()
-        slots = self.validated_data.get("slots", [])
+                raise serializers.ValidationError(
+                    {"slots": "Тип смены должен принадлежать этому слою."}
+                )
         pattern, _ = ShiftPattern.objects.get_or_create(
-            user=user,
+            layer=layer,
             defaults={"start_date": start_date},
         )
         pattern.start_date = start_date
@@ -374,24 +436,33 @@ class ShiftPatternSerializer(serializers.Serializer):
 
 class ShiftDaySerializer(serializers.Serializer):
     date = serializers.DateField()
+    layer_id = serializers.IntegerField()
     kind_id = serializers.IntegerField(allow_null=True)
     kind = ShiftKindSerializer(read_only=True, allow_null=True)
     source = serializers.CharField(read_only=True)
 
-    def validate_kind_id(self, value):
-        if value is None:
-            return value
+    def validate(self, attrs):
         user = self.context["request"].user
-        if not ShiftKind.objects.filter(user=user, id=value).exists():
-            raise serializers.ValidationError("Неизвестный тип смены.")
-        return value
+        ensure_shift_layers(user)
+        layer = ShiftLayer.objects.filter(user=user, pk=attrs["layer_id"]).first()
+        if not layer:
+            raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
+        attrs["layer"] = layer
+        kind_id = attrs.get("kind_id")
+        if kind_id is not None and not ShiftKind.objects.filter(
+            layer=layer, id=kind_id
+        ).exists():
+            raise serializers.ValidationError(
+                {"kind_id": "Тип смены должен принадлежать этому слою."}
+            )
+        return attrs
 
     def save(self, **kwargs):
-        user = self.context["request"].user
+        layer = self.validated_data["layer"]
         day = self.validated_data["date"]
         kind_id = self.validated_data.get("kind_id")
         override, _ = ShiftDayOverride.objects.update_or_create(
-            user=user,
+            layer=layer,
             date=day,
             defaults={"kind_id": kind_id},
         )

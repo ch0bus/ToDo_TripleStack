@@ -62,13 +62,22 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | created_at | datetime | |
 | updated_at | datetime | |
 
-## shift_kinds
+## shift_layers
 
 | Поле | Тип | Описание |
 |------|-----|----------|
 | id | PK | |
 | user_id | FK → users | |
-| name | string 80 | уникален в паре (user, name) |
+| position | int | 0 или 1, уникален в паре (user, position) |
+| name | string 40 | «Я» / «Супруга» по умолчанию |
+
+## shift_kinds
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| layer_id | FK → shift_layers | CASCADE |
+| name | string 80 | уникален в паре (layer, name) |
 | color | string 7 | `#RRGGBB` |
 | duration_hours | decimal 4,2 | длина смены, 0.25–24, по умолчанию 8 |
 | break_minutes | int | перерыв, 0–480, по умолчанию 0 |
@@ -80,7 +89,7 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | Поле | Тип | Описание |
 |------|-----|----------|
 | id | PK | |
-| user_id | FK → users, unique | один цикл на пользователя |
+| layer_id | FK → shift_layers, unique | один цикл на слой |
 | start_date | date | начало цикла |
 | end_date | date, NULL | конец цикла; NULL = без конца |
 | updated_at | datetime | |
@@ -99,8 +108,8 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | Поле | Тип | Описание |
 |------|-----|----------|
 | id | PK | |
-| user_id | FK → users | |
-| date | date | уникален в паре (user, date) |
+| layer_id | FK → shift_layers | |
+| date | date | уникален в паре (layer, date) |
 | kind_id | FK → shift_kinds, NULL | NULL = выходной поверх шаблона |
 
 ## day_notes
@@ -120,9 +129,10 @@ User 1 ── * Todo
 User 1 ── * Tag (личные; системные без user)
 Todo * ── * Tag
 Todo 1 ── * Subtask
-User 1 ── * ShiftKind
-User 1 ── 1 ShiftPattern ── * ShiftPatternSlot
-User 1 ── * ShiftDayOverride
+User 1 ── * ShiftLayer
+ShiftLayer 1 ── * ShiftKind
+ShiftLayer 1 ── 1 ShiftPattern ── * ShiftPatternSlot
+ShiftLayer 1 ── * ShiftDayOverride
 User 1 ── * DayNote
 ```
 

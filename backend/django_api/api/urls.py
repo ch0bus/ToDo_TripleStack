@@ -9,6 +9,7 @@ from .views import (
     TagViewSet,
     SubtaskViewSet,
     ShiftKindViewSet,
+    ShiftLayerViewSet,
     ShiftPatternView,
     ShiftDaysView,
     ShiftDayDetailView,
@@ -19,6 +20,7 @@ from .views import (
 router = DefaultRouter()
 router.register(r"todos", TodoViewSet, basename="todo")
 router.register(r"tags", TagViewSet, basename="tag")
+router.register(r"shift-layers", ShiftLayerViewSet, basename="shift-layer")
 router.register(r"shift-kinds", ShiftKindViewSet, basename="shift-kind")
 
 subtask_list = SubtaskViewSet.as_view({"get": "list", "post": "create"})

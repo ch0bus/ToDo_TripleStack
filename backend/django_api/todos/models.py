@@ -151,14 +151,41 @@ class Subtask(models.Model):
 
 HEX_COLOR_RE = r"^#[0-9A-Fa-f]{6}$"
 
+SHIFT_LAYER_NAMES = ("Я", "Супруга")
+SHIFT_LAYER_COUNT = 2
 
-class ShiftKind(models.Model):
-    """Тип смены: имя, цвет, часы и ставка задаёт пользователь."""
+
+class ShiftLayer(models.Model):
+    """Именованный график. У пользователя ровно два слоя (позиции 0 и 1)."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="shift_kinds",
+        related_name="shift_layers",
+    )
+    position = models.PositiveSmallIntegerField()
+    name = models.CharField("Название", max_length=40)
+
+    class Meta:
+        ordering = ["position"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "position"],
+                name="unique_user_shift_layer_position",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.position})"
+
+
+class ShiftKind(models.Model):
+    """Тип смены: имя, цвет, часы и ставка задаёт пользователь."""
+
+    layer = models.ForeignKey(
+        ShiftLayer,
+        on_delete=models.CASCADE,
+        related_name="kinds",
     )
     name = models.CharField("Название", max_length=80)
     color = models.CharField("Цвет", max_length=7)
@@ -190,8 +217,8 @@ class ShiftKind(models.Model):
         ordering = ["created_at"]
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "name"],
-                name="unique_user_shift_kind_name",
+                fields=["layer", "name"],
+                name="unique_layer_shift_kind_name",
             ),
         ]
 
@@ -200,19 +227,19 @@ class ShiftKind(models.Model):
 
 
 class ShiftPattern(models.Model):
-    """Один активный цикл смен на пользователя."""
+    """Один активный цикл смен на слой."""
 
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
+    layer = models.OneToOneField(
+        ShiftLayer,
         on_delete=models.CASCADE,
-        related_name="shift_pattern",
+        related_name="pattern",
     )
     start_date = models.DateField("Начало цикла")
     end_date = models.DateField("Конец цикла", null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"pattern {self.user_id} from {self.start_date}"
+        return f"pattern {self.layer_id} from {self.start_date}"
 
 
 class ShiftPatternSlot(models.Model):
@@ -245,10 +272,10 @@ class ShiftPatternSlot(models.Model):
 class ShiftDayOverride(models.Model):
     """Ручная правка дня. kind=NULL — снять смену (в т.ч. поверх шаблона)."""
 
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    layer = models.ForeignKey(
+        ShiftLayer,
         on_delete=models.CASCADE,
-        related_name="shift_day_overrides",
+        related_name="day_overrides",
     )
     date = models.DateField()
     kind = models.ForeignKey(
@@ -262,12 +289,12 @@ class ShiftDayOverride(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "date"],
-                name="unique_user_shift_day",
+                fields=["layer", "date"],
+                name="unique_layer_shift_day",
             ),
         ]
         indexes = [
-            models.Index(fields=["user", "date"]),
+            models.Index(fields=["layer", "date"]),
         ]
 
 
