@@ -290,6 +290,10 @@ CRUD подзадачи в рамках родительской задачи.
 
 `{ "date": "2026-09-12", "text": "Смена графика" }` — создать или заменить.
 
+### GET `/api/day-notes/{date}/`
+
+Своя заметка на день. `404`, если её нет.
+
 ### DELETE `/api/day-notes/{date}/`
 
 Удалить заметку дня.
@@ -366,7 +370,7 @@ CRUD подзадачи в рамках родительской задачи.
 - Dev: `http://localhost:5173`, proxy `/api` → Django `:8000`.
 - Переменная: `VITE_API_URL` (пусто = `/api` через proxy).
 
-Маршруты UI: `/`, `/todos/:id`, `/calendar`, `/settings`, `/login`, `/register`.
+Маршруты UI: `/`, `/todos/new`, `/todos/:id`, `/notes/:date`, `/events/new`, `/events/:id`, `/calendar`, `/settings`, `/login`, `/register`.
 
 Календарь (`/calendar`) грузит свои `/todos/`, `/events/`, `/shift-days/` и `/day-notes/` на видимый месяц или год.
 Доска смен выбирается `?calendar=id`. Задачи ставятся в день `event_date`, иначе `due_date`. События — по `start_at`…`end_at`. Смены двух слоёв заливают день по диагонали.

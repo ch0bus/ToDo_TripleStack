@@ -1,11 +1,11 @@
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { TagOption } from "@/lib/tags";
+import { locationFrom, newTodoPath } from "@/lib/nav";
 import { btnPrimary, cardClass } from "@/lib/uiClasses";
 
 interface DashboardSidebarProps {
   tags: TagOption[];
-  onNewTask: () => void;
   onNavigate?: () => void;
   className?: string;
 }
@@ -48,7 +48,6 @@ function TagList({
 
 export function DashboardSidebar({
   tags,
-  onNewTask,
   onNavigate,
   className = "",
 }: DashboardSidebarProps) {
@@ -93,7 +92,7 @@ export function DashboardSidebar({
   }
 
   function handleNewTask() {
-    onNewTask();
+    navigate(newTodoPath(), { state: { from: locationFrom(location) } });
     onNavigate?.();
   }
 

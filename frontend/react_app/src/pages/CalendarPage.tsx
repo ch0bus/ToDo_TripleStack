@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { EventBookmark } from "@/components/EventBookmark";
-import { EventFormModal } from "@/components/EventFormModal";
 import { EventItem } from "@/components/EventItem";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { ShiftCalendarPicker } from "@/components/ShiftCalendarPicker";
 import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
-import { TodoFormModal } from "@/components/TodoFormModal";
 import { TodoItem } from "@/components/TodoItem";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { useAppShell } from "@/contexts/AppShellContext";
@@ -24,7 +22,6 @@ import {
   addMonths,
   addYears,
   buildMonthGrid,
-  defaultDueAtDay,
   formatDayTitle,
   formatMonthName,
   formatMonthTitle,
@@ -61,8 +58,9 @@ import {
   type ShiftLayer,
   type ShiftPattern,
 } from "@/lib/shifts";
+import { locationFrom, newEventPath, newTodoPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
-import { isOverdue, pluralRu, toDatetimeLocalValue } from "@/lib/utils";
+import { isOverdue, pluralRu } from "@/lib/utils";
 
 function CalendarSkeleton() {
   return (
@@ -79,14 +77,12 @@ function CalendarSkeleton() {
 
 export function CalendarPage() {
   const { registerFiltersToggle } = useAppShell();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [todos, setTodos] = useState<TodoRow[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [showEventForm, setShowEventForm] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [shiftCalendars, setShiftCalendars] = useState<ShiftCalendar[]>([]);
@@ -520,32 +516,6 @@ export function CalendarPage() {
     }
   }
 
-  async function handleTodoCreated() {
-    try {
-      await load();
-    } catch {
-      /* ignore */
-    }
-  }
-
-  function openNewEvent() {
-    setEditingEvent(null);
-    setShowEventForm(true);
-  }
-
-  function openEditEvent(event: CalendarEvent) {
-    setEditingEvent(event);
-    setShowEventForm(true);
-  }
-
-  function handleEventSaved(saved: CalendarEvent) {
-    setEvents((prev) => {
-      const exists = prev.some((item) => item.id === saved.id);
-      if (exists) return prev.map((item) => (item.id === saved.id ? saved : item));
-      return [...prev, saved];
-    });
-  }
-
   function handleEventDeleted(id: number) {
     setEvents((prev) => prev.filter((item) => item.id !== id));
   }
@@ -555,7 +525,7 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:py-8">
+    <div className="mx-auto min-w-0 max-w-6xl px-4 py-6 md:py-8">
       {error && (
         <div className="chip-danger mb-4 rounded-md border px-3 py-2 text-sm">
           {error}
@@ -566,11 +536,10 @@ export function CalendarPage() {
         <div className="hidden lg:block">
           <DashboardSidebar
             tags={tags}
-            onNewTask={() => setShowForm(true)}
           />
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {loading ? (
             <CalendarSkeleton />
           ) : (
@@ -606,20 +575,20 @@ export function CalendarPage() {
                   >
                     График смен
                   </button>
-                  <button
-                    type="button"
-                    onClick={openNewEvent}
-                    className="h-10 rounded-md border border-app px-2 text-sm font-medium text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3"
+                  <Link
+                    to={newEventPath(selectedKey)}
+                    state={{ from: locationFrom(location) }}
+                    className="flex h-10 items-center justify-center rounded-md border border-app px-2 text-sm font-medium text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3"
                   >
                     + Событие
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(true)}
-                    className="btn-primary h-10 rounded-md px-2 text-sm font-medium shadow-sm sm:px-3"
+                  </Link>
+                  <Link
+                    to={newTodoPath(selectedKey)}
+                    state={{ from: locationFrom(location) }}
+                    className="btn-primary flex h-10 items-center justify-center rounded-md px-2 text-sm font-medium shadow-sm sm:px-3"
                   >
                     + Новая задача
-                  </button>
+                  </Link>
                 </div>
               </div>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -757,7 +726,6 @@ export function CalendarPage() {
                         <EventItem
                           key={`${entry.event.id}-${entry.occurrenceStartKey}`}
                           entry={entry}
-                          onEdit={openEditEvent}
                           onDeleted={handleEventDeleted}
                         />
                       ))}
@@ -894,7 +862,7 @@ export function CalendarPage() {
               )}
 
               {calendarView === "month" && (
-              <section className="space-y-3">
+              <section className="min-w-0 space-y-3">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <h2 className="text-lg font-semibold capitalize text-app">
                     {formatDayTitle(selectedDay)}
@@ -952,7 +920,6 @@ export function CalendarPage() {
                       <EventItem
                         key={`${entry.event.id}-${entry.occurrenceStartKey}`}
                         entry={entry}
-                        onEdit={openEditEvent}
                         onDeleted={handleEventDeleted}
                       />
                     ))}
@@ -1037,40 +1004,10 @@ export function CalendarPage() {
       >
         <DashboardSidebar
           tags={tags}
-          onNewTask={() => setShowForm(true)}
           onNavigate={() => setSidebarOpen(false)}
           className="border-0 bg-transparent p-0"
         />
       </MobileSidebarDrawer>
-
-      <TodoFormModal
-        open={showForm}
-        tags={tags}
-        defaultEventDate={toDatetimeLocalValue(
-          defaultDueAtDay(selectedDay).toISOString(),
-        )}
-        onClose={() => setShowForm(false)}
-        onCreated={handleTodoCreated}
-      />
-      <EventFormModal
-        key={
-          showEventForm
-            ? editingEvent
-              ? `edit-${editingEvent.id}`
-              : `new-${selectedKey}`
-            : "closed"
-        }
-        open={showEventForm}
-        event={editingEvent}
-        defaultStart={toDatetimeLocalValue(
-          defaultDueAtDay(selectedDay).toISOString(),
-        )}
-        onClose={() => {
-          setShowEventForm(false);
-          setEditingEvent(null);
-        }}
-        onSaved={handleEventSaved}
-      />
     </div>
   );
 }

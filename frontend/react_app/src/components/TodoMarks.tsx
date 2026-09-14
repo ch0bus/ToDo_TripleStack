@@ -73,7 +73,9 @@ export function PriorityMark({
         ? "text-orange-500"
         : priority === "medium"
           ? "text-amber-400"
-          : "text-slate-400";
+          : priority === "low"
+            ? "text-slate-400"
+            : "text-app-subtle";
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

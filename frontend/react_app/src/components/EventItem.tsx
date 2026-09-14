@@ -1,22 +1,24 @@
+import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
+
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import {
   formatEventWhen,
-  type CalendarEvent,
   type EventEntry,
 } from "@/lib/events";
+import { eventPath, locationFrom } from "@/lib/nav";
 import { getRecurrenceLabel } from "@/lib/recurrence";
-import { useState } from "react";
 
 interface EventItemProps {
   entry: EventEntry;
-  onEdit: (event: CalendarEvent) => void;
   onDeleted: (id: number) => void;
 }
 
-export function EventItem({ entry, onEdit, onDeleted }: EventItemProps) {
+export function EventItem({ entry, onDeleted }: EventItemProps) {
   const { event, virtual } = entry;
+  const location = useLocation();
   const { pushToast } = useToast();
   const [busy, setBusy] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -44,7 +46,7 @@ export function EventItem({ entry, onEdit, onDeleted }: EventItemProps) {
 
   return (
     <li>
-      <div className="flex overflow-hidden rounded-lg border border-app bg-app-surface">
+      <div className="flex min-w-0 overflow-hidden rounded-lg border border-app bg-app-surface">
         <span
           className="w-1 shrink-0 self-stretch"
           style={{ backgroundColor: event.color }}
@@ -52,9 +54,9 @@ export function EventItem({ entry, onEdit, onDeleted }: EventItemProps) {
         />
         <div className="min-w-0 flex-1 px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
-            <button
-              type="button"
-              onClick={() => onEdit(event)}
+            <Link
+              to={eventPath(event.id)}
+              state={{ from: locationFrom(location) }}
               className="min-w-0 flex-1 text-left"
             >
               <p className="truncate font-medium text-app">{event.title}</p>
@@ -63,7 +65,7 @@ export function EventItem({ entry, onEdit, onDeleted }: EventItemProps) {
                   .filter(Boolean)
                   .join(" · ")}
               </p>
-            </button>
+            </Link>
             <button
               type="button"
               disabled={busy}

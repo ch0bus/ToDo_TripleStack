@@ -1,24 +1,17 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { apiFetch } from "@/lib/api";
-import { toDateKey } from "@/lib/calendar";
-import type { DayNote } from "@/lib/dayNotes";
-import { useFocusTrap } from "@/lib/useFocusTrap";
-import { btnPrimary, btnSecondary } from "@/lib/uiClasses";
-import { formatDueDateShort } from "@/lib/utils";
+import {
+  dayNotePath,
+  formatDayNoteLabel,
+  type DayNote,
+} from "@/lib/dayNotes";
 
 interface DayNoteEditorProps {
   dateKey: string;
   note: DayNote | undefined;
   onChanged: (note: DayNote | null) => void;
-}
-
-function dateLabel(dateKey: string): string {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  if (toDateKey(date) === toDateKey(new Date())) return "сегодня";
-  return formatDueDateShort(date.toISOString());
 }
 
 function NoteIcon() {
@@ -58,21 +51,15 @@ function MoreIcon() {
 
 export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) {
   const menuId = useId();
-  const titleId = useId();
   const menuRef = useRef<HTMLDivElement>(null);
-  const [text, setText] = useState(note?.text ?? "");
-  const [open, setOpen] = useState(false);
+  const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const panelRef = useFocusTrap(open, "#day-note-text");
+  const from = location.pathname + location.search;
+  const href = dayNotePath(dateKey);
 
-  useEffect(() => {
-    if (!open) {
-      setText(note?.text ?? "");
-      setError("");
-    }
-  }, [dateKey, note?.text, open, note]);
+  const [title, ...restParts] = (note?.text ?? "").split(/\n+/);
+  const rest = restParts.join(" ");
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -92,175 +79,54 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
     };
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== "Escape" || busy) return;
-      e.preventDefault();
-      e.stopPropagation();
-      closeModal();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, busy]);
-
-  const trimmed = text.trim();
-  const dirty = trimmed !== (note?.text ?? "");
-  const [title, ...restParts] = (note?.text ?? "").split(/\n+/);
-  const rest = restParts.join(" ");
-
-  function openModal() {
-    setText(note?.text ?? "");
-    setError("");
-    setMenuOpen(false);
-    setOpen(true);
-  }
-
-  function closeModal() {
-    if (busy) return;
-    setOpen(false);
-    setText(note?.text ?? "");
-    setError("");
-  }
-
-  async function save() {
-    if (!trimmed) return;
-    try {
-      setBusy(true);
-      setError("");
-      const res = await apiFetch("/day-notes/", {
-        method: "PUT",
-        body: JSON.stringify({ date: dateKey, text: trimmed }),
-      });
-      if (!res.ok) throw new Error("save failed");
-      onChanged((await res.json()) as DayNote);
-      setOpen(false);
-    } catch (e) {
-      console.error(e);
-      setError("Не удалось сохранить заметку");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function remove() {
     try {
       setBusy(true);
-      setError("");
       setMenuOpen(false);
       const res = await apiFetch(`/day-notes/${dateKey}/`, { method: "DELETE" });
       if (!res.ok && res.status !== 404) throw new Error("delete failed");
-      setText("");
       onChanged(null);
     } catch (e) {
       console.error(e);
-      setError("Не удалось удалить заметку");
     } finally {
       setBusy(false);
     }
   }
 
-  const modal = open
-    ? createPortal(
-        <div
-          className="overlay-app fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !busy) closeModal();
-          }}
-        >
-          <div
-            ref={panelRef}
-            className="w-full max-w-md rounded-xl border border-app bg-app-modal p-4 shadow-app sm:p-5"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 id={titleId} className="text-lg font-semibold text-app">
-                {note ? "Изменить заметку" : "Новая заметка"}
-              </h2>
-              <button
-                type="button"
-                onClick={closeModal}
-                disabled={busy}
-                className="rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
-                aria-label="Закрыть"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="mb-3 text-sm text-app-subtle">{dateLabel(dateKey)}</p>
-            <textarea
-              id="day-note-text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              rows={5}
-              maxLength={2000}
-              disabled={busy}
-              placeholder="Напишите заметку к этому дню"
-              className="w-full resize-y rounded-md border border-app bg-app-input px-3 py-2 text-sm text-app placeholder:text-app-subtle focus:ring-2 focus:ring-[var(--app-accent)] focus:outline-none"
-            />
-            {error && (
-              <p className="mt-2 text-xs text-[var(--app-danger)]">{error}</p>
-            )}
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={closeModal}
-                className={btnSecondary}
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                disabled={busy || !trimmed || !dirty}
-                onClick={() => void save()}
-                className={btnPrimary}
-              >
-                {busy ? "Сохраняю..." : "Сохранить"}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )
-    : null;
-
   if (!note) {
     return (
-      <>
-        <button
-          type="button"
-          onClick={openModal}
-          className="flex w-full items-center gap-2 rounded-lg border border-dashed border-app px-3 py-2.5 text-left text-sm text-app-subtle hover:bg-app-surface-muted hover:text-app"
-        >
-          <NoteIcon />
-          Добавить заметку
-        </button>
-        {modal}
-      </>
+      <Link
+        to={href}
+        state={{ from }}
+        className="flex w-full items-center gap-2 rounded-lg border border-dashed border-app px-3 py-2.5 text-left text-sm text-app-subtle hover:bg-app-surface-muted hover:text-app"
+      >
+        <NoteIcon />
+        Добавить заметку
+      </Link>
     );
   }
 
   return (
-    <>
-      <ul className="space-y-3">
-        <li
-          className={
-            "group relative flex rounded-lg border bg-app-surface calendar-day-note " +
-            (busy ? "opacity-80 " : "") +
-            (menuOpen ? "z-20" : "")
-          }
-        >
-          <div
-            className="w-1 shrink-0 self-stretch rounded-l-lg bg-[var(--calendar-note-frame)]"
-            aria-hidden
-          />
-          <div className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3 sm:py-2">
+    <ul className="min-w-0">
+      <li
+        className={
+          "group relative flex min-w-0 max-w-full rounded-lg border bg-app-surface calendar-day-note " +
+          (busy ? "opacity-80 " : "") +
+          (menuOpen ? "z-20 overflow-visible " : "overflow-hidden ")
+        }
+      >
+        <div
+          className="w-1 shrink-0 self-stretch rounded-l-lg bg-[var(--calendar-note-frame)]"
+          aria-hidden
+        />
+        <div className="flex min-w-0 flex-1 items-start gap-1 px-2 py-2 sm:gap-2.5 sm:px-3">
+          <Link
+            to={href}
+            state={{ from }}
+            className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden text-left hover:opacity-90"
+          >
             <NoteIcon />
-            <div className="min-w-0 flex-1 pt-px">
+            <div className="min-w-0 flex-1 overflow-hidden pt-px">
               <p className="truncate text-[15px] font-medium leading-snug text-app">
                 {title}
               </p>
@@ -274,52 +140,52 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
                 </p>
               )}
             </div>
-            <div className="flex w-28 shrink-0 flex-col items-end pt-0.5 text-right text-xs text-app-subtle">
-              {dateLabel(dateKey)}
-            </div>
-            <div ref={menuRef} className="relative shrink-0">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setMenuOpen((isOpen) => !isOpen)}
-                className="rounded-md p-1.5 text-app-subtle opacity-70 hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 disabled:opacity-40"
-                aria-label="Действия с заметкой"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-controls={menuId}
+            <span className="hidden shrink-0 pt-0.5 text-xs text-app-subtle sm:inline">
+              {formatDayNoteLabel(dateKey)}
+            </span>
+          </Link>
+          <div ref={menuRef} className="relative shrink-0">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setMenuOpen((isOpen) => !isOpen)}
+              className="rounded-md p-1.5 text-app-subtle opacity-70 hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 disabled:opacity-40"
+              aria-label="Действия с заметкой"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
+            >
+              <MoreIcon />
+            </button>
+            {menuOpen && (
+              <div
+                id={menuId}
+                role="menu"
+                className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-lg border border-app bg-app-modal py-1 shadow-app"
               >
-                <MoreIcon />
-              </button>
-              {menuOpen && (
-                <div
-                  id={menuId}
-                  role="menu"
-                  className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-lg border border-app bg-app-modal py-1 shadow-app"
+                <Link
+                  to={href}
+                  state={{ from }}
+                  role="menuitem"
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full px-3 py-1.5 text-left text-sm text-app hover:bg-app-surface-muted"
                 >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={openModal}
-                    className="w-full px-3 py-1.5 text-left text-sm text-app hover:bg-app-surface-muted"
-                  >
-                    Изменить
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={busy}
-                    onClick={() => void remove()}
-                    className="w-full px-3 py-1.5 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg)]"
-                  >
-                    Удалить
-                  </button>
-                </div>
-              )}
-            </div>
+                  Открыть
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={busy}
+                  onClick={() => void remove()}
+                  className="w-full px-3 py-1.5 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg)]"
+                >
+                  Удалить
+                </button>
+              </div>
+            )}
           </div>
-        </li>
-      </ul>
-      {modal}
-    </>
+        </div>
+      </li>
+    </ul>
   );
 }

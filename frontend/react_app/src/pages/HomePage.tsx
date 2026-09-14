@@ -7,13 +7,13 @@ import { useAppShell } from "@/contexts/AppShellContext";
 import { FilterBar } from "@/components/FilterBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { StatsCards } from "@/components/StatsCards";
-import { TodoFormModal } from "@/components/TodoFormModal";
 import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar";
 import type { DayNote } from "@/lib/dayNotes";
+import { locationFrom, newEventPath, newTodoPath } from "@/lib/nav";
 import { groupInboxTodos, hasActiveFilters } from "@/lib/todoFilters";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
@@ -65,7 +65,7 @@ function InboxSection({
   onDeleted: (id: number) => void;
 }) {
   return (
-    <section id={id} className="space-y-3 scroll-mt-24">
+    <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
         {title}
         <span className="ml-2 font-normal text-app-subtle">{todos.length}</span>
@@ -94,7 +94,6 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [todayNote, setTodayNote] = useState<DayNote | null>(null);
-  const [showForm, setShowForm] = useState(false);
   const todayKey = useMemo(() => toDateKey(new Date()), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(
@@ -212,16 +211,6 @@ export function HomePage() {
 
   const grouped = useMemo(() => groupInboxTodos(todos), [todos]);
 
-  async function handleTodoCreated(todo: unknown) {
-    const row = todo as TodoRow;
-    setTodos((prev) => [row, ...prev]);
-    try {
-      await refreshDashboard();
-    } catch {
-      /* list already optimistically updated */
-    }
-  }
-
   async function handleTodoUpdated(updated: TodoRow) {
     setTodos((prev) =>
       prev.map((t) => (t.id === updated.id ? updated : t)),
@@ -260,7 +249,7 @@ export function HomePage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:py-8">
+    <div className="mx-auto min-w-0 max-w-6xl px-4 py-6 md:py-8">
       {error && (
         <div className="mb-4 rounded-md border border-red-700 bg-red-900/40 px-3 py-2 text-sm text-red-200">
           {error}
@@ -271,11 +260,10 @@ export function HomePage() {
         <div className="hidden lg:block">
           <DashboardSidebar
             tags={tags}
-            onNewTask={() => setShowForm(true)}
           />
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {loading ? (
             <div className="grid grid-cols-4 gap-1 sm:gap-3" aria-hidden>
               {Array.from({ length: 4 }).map((_, i) => (
@@ -305,15 +293,24 @@ export function HomePage() {
             className={inputClass}
           />
 
-          <div className="flex min-w-0 w-full items-center gap-1.5 sm:gap-2">
+          <div className="flex min-w-0 w-full items-center gap-2">
             <FilterBar />
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="btn-primary shrink-0 rounded-md px-2 py-1.5 text-xs font-medium shadow-sm sm:px-3 sm:py-2 sm:text-sm"
-            >
-              + Задача
-            </button>
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+              <Link
+                to={newEventPath(todayKey)}
+                state={{ from: locationFrom(location) }}
+                className="flex h-10 items-center justify-center rounded-md border border-app px-2 text-sm font-medium text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3"
+              >
+                + Событие
+              </Link>
+              <Link
+                to={newTodoPath()}
+                state={{ from: locationFrom(location) }}
+                className="btn-primary flex h-10 items-center justify-center rounded-md px-2 text-sm font-medium shadow-sm sm:px-3"
+              >
+                + Задача
+              </Link>
+            </div>
           </div>
 
           <p className="text-sm text-app-muted">
@@ -337,13 +334,13 @@ export function HomePage() {
                 onDeleted={handleTodoDeleted}
               />
               {todos.length === 0 && !filtersActive ? (
-                <button
-                  type="button"
-                  onClick={() => setShowForm(true)}
-                  className={btnPrimary}
+                <Link
+                  to={newTodoPath()}
+                  state={{ from: locationFrom(location) }}
+                  className={btnPrimary + " inline-flex"}
                 >
                   Создать задачу
-                </button>
+                </Link>
               ) : todos.length === 0 ? (
                 <p className="text-sm text-app-subtle">
                   По выбранным фильтрам задач нет
@@ -388,18 +385,10 @@ export function HomePage() {
       >
         <DashboardSidebar
           tags={tags}
-          onNewTask={() => setShowForm(true)}
           onNavigate={() => setSidebarOpen(false)}
           className="border-0 bg-transparent p-0"
         />
       </MobileSidebarDrawer>
-
-      <TodoFormModal
-        open={showForm}
-        tags={tags}
-        onClose={() => setShowForm(false)}
-        onCreated={handleTodoCreated}
-      />
     </div>
   );
 }

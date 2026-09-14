@@ -626,14 +626,25 @@ class DayNotesView(APIView):
 class DayNoteDetailView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
-    def delete(self, request, day: str):
+    def _date(self, day: str) -> date:
         try:
-            parsed = date.fromisoformat(day)
+            return date.fromisoformat(day)
         except ValueError:
             raise ValidationError({"detail": "Ожидается дата YYYY-MM-DD."})
+
+    def get(self, request, day: str):
+        note = DayNote.objects.filter(
+            user=request.user,
+            date=self._date(day),
+        ).first()
+        if not note:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(DayNoteSerializer(note).data)
+
+    def delete(self, request, day: str):
         deleted, _ = DayNote.objects.filter(
             user=request.user,
-            date=parsed,
+            date=self._date(day),
         ).delete()
         if not deleted:
             return Response(status=status.HTTP_404_NOT_FOUND)

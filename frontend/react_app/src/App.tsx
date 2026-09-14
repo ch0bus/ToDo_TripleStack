@@ -5,7 +5,10 @@ import { HomePage } from "@/pages/HomePage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { CalendarPage } from "@/pages/CalendarPage";
+import { DayNotePage } from "@/pages/DayNotePage";
+import { EventFormPage } from "@/pages/EventFormPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { TodoCreatePage } from "@/pages/TodoCreatePage";
 import { TodoDetailPage } from "@/pages/TodoDetailPage";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
 
@@ -19,7 +22,11 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route element={<ProtectedRoute />}>
+            <Route path="/todos/new" element={<TodoCreatePage />} />
             <Route path="/todos/:todoId" element={<TodoDetailPage />} />
+            <Route path="/notes/:date" element={<DayNotePage />} />
+            <Route path="/events/new" element={<EventFormPage />} />
+            <Route path="/events/:eventId" element={<EventFormPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Route>
