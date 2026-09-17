@@ -3,6 +3,7 @@ import { Navigate, useLocation, useNavigate, useSearchParams } from "react-route
 
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
+import { MonthNoteCorner } from "@/components/CalendarNoteMarks";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
@@ -677,20 +678,21 @@ export function CalendarPage() {
                             ? "bg-[var(--app-accent-soft)]"
                             : "hover:bg-app-surface-muted") +
                           (cell.inMonth ? "" : " opacity-40") +
-                          (note ? " calendar-day-note" : "")
+                          (cell.isToday ? " calendar-day-today" : "")
                         }
                       >
                         <MonthShiftFill colors={colors} />
+                        {note ? <MonthNoteCorner /> : null}
                         {flagColors.map((color, index) => (
                           <EventBookmark key={color + index} color={color} index={index} />
                         ))}
                         <span
                           className={
                             "relative inline-flex h-6 w-6 items-center justify-center rounded-full text-xs " +
-                            (cell.isToday
-                              ? "bg-[var(--app-accent)] font-semibold text-white"
-                              : selected
-                                ? "font-semibold text-app-accent"
+                            (selected
+                              ? "font-semibold text-app-accent"
+                              : cell.isToday
+                                ? "font-semibold text-app"
                                 : "text-app-muted")
                           }
                         >

@@ -1,3 +1,4 @@
+import { YearNoteUnderline, YearTodayHalo } from "@/components/CalendarNoteMarks";
 import {
   MONTH_LABELS_SHORT,
   WEEKDAY_LABELS,
@@ -63,7 +64,7 @@ export function CalendarYearGrid({
             >
               {formatMonthName(monthDate)}
             </button>
-            <div className="grid grid-cols-7 px-1 pb-1">
+            <div className="grid grid-cols-7 px-1.5 pb-1.5">
               {WEEKDAY_LABELS.map((label) => (
                 <div
                   key={label}
@@ -88,38 +89,37 @@ export function CalendarYearGrid({
                 const selected = cell.key === selectedKey;
                 return (
                   <div key={cell.key} className="relative">
+                    {cell.isToday ? <YearTodayHalo /> : null}
                     <button
                       type="button"
                       onClick={() => onSelectDay(cell.date)}
                       className={
-                        "relative flex h-6 w-full items-center justify-center overflow-hidden rounded-full text-[10px] " +
+                        "relative z-[1] flex h-8 w-full items-center justify-center overflow-hidden rounded-full text-[10px] " +
                         (cell.isToday
-                          ? "bg-[var(--app-accent)] font-semibold text-white"
+                          ? selected
+                            ? "font-semibold text-app-accent"
+                            : "font-semibold text-app"
                           : selected
                             ? "bg-[var(--app-accent-soft)] font-semibold text-app-accent"
                             : cell.inMonth
                               ? "text-app hover:bg-app-surface-muted"
-                              : "text-app-subtle/50") +
-                        (note ? " calendar-day-note" : "")
+                              : "text-app-subtle/50")
                       }
-                      style={
-                        cell.isToday
-                          ? undefined
-                          : yearShiftSplitStyle(
-                              markColors(marksByDay.get(cell.key)),
-                            )
-                      }
+                      style={yearShiftSplitStyle(
+                        markColors(marksByDay.get(cell.key)),
+                      )}
                     >
                       {cell.date.getDate()}
-                      {hasTask && !cell.isToday && (
+                      {hasTask ? (
                         <span
                           className={
-                            "absolute bottom-0.5 h-1 w-1 rounded-full " +
+                            "absolute bottom-0 h-1 w-1 rounded-full " +
                             (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
                           }
                         />
-                      )}
+                      ) : null}
                     </button>
+                    {note ? <YearNoteUnderline /> : null}
                     {eventColor && (
                       <span
                         className="pointer-events-none absolute right-0 top-0 z-[1] h-1.5 w-1.5 rounded-[1px] shadow-sm"

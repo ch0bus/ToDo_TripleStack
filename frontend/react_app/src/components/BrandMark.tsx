@@ -3,17 +3,27 @@ interface BrandMarkProps {
   className?: string;
 }
 
-function HaloGlyph({ size }: { size: "sm" | "lg" }) {
-  const px = size === "lg" ? "1.05em" : "0.92em";
+export function HaloGlyph({
+  size = "sm",
+  width,
+  height,
+  className = "",
+}: {
+  size?: "sm" | "lg";
+  width?: number | string;
+  height?: number | string;
+  className?: string;
+}) {
+  const px = width ?? (size === "lg" ? "1.05em" : "0.92em");
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
       width={px}
-      height={px}
+      height={height ?? px}
       fill="none"
       aria-hidden
-      className="brand-halo-ring"
+      className={"brand-halo-ring" + (className ? ` ${className}` : "")}
     >
       <circle
         cx="12"
