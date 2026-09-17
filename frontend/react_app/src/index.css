@@ -266,11 +266,6 @@ html[data-theme="dark"] .bg-app-modal {
 .calendar-day-note {
   box-shadow: inset 0 0 0 2px var(--calendar-note-frame);
 }
-.calendar-day-today {
-  box-shadow:
-    inset 0 0 0 2px var(--calendar-note-frame),
-    inset 0 0 10px color-mix(in srgb, var(--calendar-note-frame) 40%, transparent);
-}
 .btn-primary {
   background-color: var(--app-accent);
   color: var(--app-on-accent);

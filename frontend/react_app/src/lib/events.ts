@@ -232,18 +232,6 @@ export function eventColorsInList(entries: EventEntry[]): string[] {
   return colors;
 }
 
-export function eventFlagColors(entries: EventEntry[], max = 3): string[] {
-  const seen = new Set<number>();
-  const colors: string[] = [];
-  for (const entry of entries) {
-    if (seen.has(entry.event.id)) continue;
-    seen.add(entry.event.id);
-    colors.push(entry.event.color || DEFAULT_EVENT_COLOR);
-    if (colors.length >= max) break;
-  }
-  return colors;
-}
-
 export function formatEventWhen(event: CalendarEvent): string {
   const start = new Date(event.start_at);
   if (Number.isNaN(start.getTime())) return "";

@@ -1,4 +1,4 @@
-import { YearNoteUnderline, YearTodayHalo } from "@/components/CalendarNoteMarks";
+import { TodayHalo } from "@/components/CalendarNoteMarks";
 import {
   MONTH_LABELS_SHORT,
   WEEKDAY_LABELS,
@@ -8,7 +8,7 @@ import {
   type CalendarEntry,
 } from "@/lib/calendar";
 import { type DayNote } from "@/lib/dayNotes";
-import { eventFlagColors, type EventEntry } from "@/lib/events";
+import { type EventEntry } from "@/lib/events";
 import {
   markColors,
   yearShiftSplitStyle,
@@ -75,21 +75,19 @@ export function CalendarYearGrid({
               ))}
               {cells.map((cell) => {
                 const entries = byDay.get(cell.key) ?? [];
-                const hasTask = entries.some((entry) => !entry.virtual);
                 const overdue = entries.some(
                   (entry) =>
                     !entry.virtual &&
                     isOverdue(entry.todo.due_date, entry.todo.status),
                 );
-                const eventColor = eventFlagColors(
-                  eventsByDay.get(cell.key) ?? [],
-                  1,
-                )[0];
-                const note = notesByDay.get(cell.key);
+                const busy =
+                  entries.length > 0 ||
+                  (eventsByDay.get(cell.key)?.length ?? 0) > 0 ||
+                  Boolean(notesByDay.get(cell.key));
                 const selected = cell.key === selectedKey;
                 return (
                   <div key={cell.key} className="relative">
-                    {cell.isToday ? <YearTodayHalo /> : null}
+                    {cell.isToday ? <TodayHalo /> : null}
                     <button
                       type="button"
                       onClick={() => onSelectDay(cell.date)}
@@ -110,23 +108,15 @@ export function CalendarYearGrid({
                       )}
                     >
                       {cell.date.getDate()}
-                      {hasTask ? (
+                      {busy ? (
                         <span
                           className={
-                            "absolute bottom-0 h-1 w-1 rounded-full " +
+                            "absolute bottom-0.5 h-1 w-1 rounded-full " +
                             (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
                           }
                         />
                       ) : null}
                     </button>
-                    {note ? <YearNoteUnderline /> : null}
-                    {eventColor && (
-                      <span
-                        className="pointer-events-none absolute right-0 top-0 z-[1] h-1.5 w-1.5 rounded-[1px] shadow-sm"
-                        style={{ backgroundColor: eventColor }}
-                        aria-hidden
-                      />
-                    )}
                   </div>
                 );
               })}

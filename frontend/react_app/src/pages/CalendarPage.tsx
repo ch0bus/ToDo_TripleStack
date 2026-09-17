@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { TodayHalo } from "@/components/CalendarNoteMarks";
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
-import { MonthNoteCorner } from "@/components/CalendarNoteMarks";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
-import { EventBookmark } from "@/components/EventBookmark";
 import { EventFilterBar } from "@/components/EventFilterBar";
 import { EventList } from "@/components/EventList";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
+import { MonthDayBars, collectDayBars } from "@/components/MonthDayBars";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { ShiftCalendarPicker } from "@/components/ShiftCalendarPicker";
@@ -44,7 +44,6 @@ import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
   EVENT_SORT_OPTIONS,
   eventColorsInList,
-  eventFlagColors,
   filterEventsByColor,
   groupEventsForRange,
   parseEventSort,
@@ -67,7 +66,7 @@ import {
 import { shiftSettingsPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
 import { parseTodoSort, sortTodos } from "@/lib/todoSort";
-import { isOverdue, pluralRu } from "@/lib/utils";
+import { pluralRu } from "@/lib/utils";
 
 function CalendarSkeleton() {
   return (
@@ -632,23 +631,19 @@ export function CalendarPage() {
                 <div className="grid grid-cols-7">
                   {cells.map((cell) => {
                     const dayEntries = byDay.get(cell.key) ?? [];
-                    const realCount = dayEntries.filter((entry) => !entry.virtual).length;
-                    const repeatCount = dayEntries.length - realCount;
-                    const overdue = dayEntries.some(
-                      (entry) =>
-                        !entry.virtual &&
-                        isOverdue(entry.todo.due_date, entry.todo.status),
-                    );
                     const selected = cell.key === selectedKey;
                     const dayMarks = shiftsByDay.get(cell.key);
                     const note = notesByDay.get(cell.key);
                     const dayEvents = eventsByDay.get(cell.key) ?? [];
-                    const flagColors = eventFlagColors(dayEvents);
                     const eventTitles = uniqueEventEntries(dayEvents).map(
                       (entry) => entry.event.title,
                     );
                     const colors = markColors(dayMarks);
-                    const marks = Math.min(realCount, 3);
+                    const dayBars = collectDayBars(
+                      dayEvents,
+                      dayEntries,
+                      note?.text,
+                    );
                     const shiftNames = shiftLayers
                       .map((layer, index) => {
                         const kind = dayMarks?.[index as 0 | 1]?.kind;
@@ -664,81 +659,37 @@ export function CalendarPage() {
                           [
                             ...shiftNames,
                             ...eventTitles,
+                            ...dayEntries.map((entry) => entry.todo.title),
                             note?.text,
-                            repeatCount
-                              ? `${repeatCount} ${pluralRu(repeatCount, "повтор", "повтора", "повторов")}`
-                              : "",
                           ]
                             .filter(Boolean)
                             .join(" · ") || undefined
                         }
                         className={
-                          "relative min-h-16 overflow-hidden border-b border-r border-app px-1.5 py-1.5 text-left last:border-r-0 sm:min-h-20 " +
+                          "relative flex min-h-[4.5rem] flex-col overflow-hidden border-b border-r border-app px-1 py-1 text-left last:border-r-0 sm:min-h-28 sm:px-1.5 sm:py-1.5 " +
                           (selected
                             ? "bg-[var(--app-accent-soft)]"
                             : "hover:bg-app-surface-muted") +
-                          (cell.inMonth ? "" : " opacity-40") +
-                          (cell.isToday ? " calendar-day-today" : "")
+                          (cell.inMonth ? "" : " opacity-40")
                         }
                       >
                         <MonthShiftFill colors={colors} />
-                        {note ? <MonthNoteCorner /> : null}
-                        {flagColors.map((color, index) => (
-                          <EventBookmark key={color + index} color={color} index={index} />
-                        ))}
-                        <span
-                          className={
-                            "relative inline-flex h-6 w-6 items-center justify-center rounded-full text-xs " +
-                            (selected
-                              ? "font-semibold text-app-accent"
-                              : cell.isToday
-                                ? "font-semibold text-app"
-                                : "text-app-muted")
-                          }
-                        >
-                          {cell.date.getDate()}
-                        </span>
-                        {(realCount > 0 || repeatCount > 0) && (
-                          <span className="relative mt-1 flex flex-wrap items-center justify-center gap-0.5">
-                            {Array.from({ length: marks }).map((_, i) => (
-                              <span
-                                key={i}
-                                className={
-                                  "h-1.5 w-1.5 rounded-full " +
-                                  (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
-                                }
-                              />
-                            ))}
-                            {realCount > 3 && (
-                              <span className="text-[10px] text-app-subtle">
-                                +{realCount - 3}
-                              </span>
-                            )}
-                            {repeatCount > 0 && (
-                              <span
-                                className="ml-0.5 inline-flex h-3.5 w-3.5 items-center justify-center text-app-subtle"
-                                aria-label="Есть повторы задач"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2.4"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  className="h-3 w-3"
-                                  aria-hidden
-                                >
-                                  <path d="M17 1v4h-4" />
-                                  <path d="M7 23v-4h4" />
-                                  <path d="M20.5 9A8 8 0 0 0 7.2 5.2L7 5" />
-                                  <path d="M3.5 15A8 8 0 0 0 16.8 18.8L17 19" />
-                                </svg>
-                              </span>
-                            )}
+                        <span className="relative isolate inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs">
+                          {cell.isToday ? <TodayHalo size={28} /> : null}
+                          <span
+                            className={
+                              "relative " +
+                              (selected
+                                ? "font-semibold text-app-accent"
+                                : cell.isToday
+                                  ? "font-semibold text-app"
+                                  : "text-app-muted")
+                            }
+                          >
+                            {cell.date.getDate()}
                           </span>
-                        )}
+                        </span>
+                        <MonthDayBars items={dayBars} />
                       </button>
                     );
                   })}

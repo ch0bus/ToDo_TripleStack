@@ -62,7 +62,7 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | end_at | datetime | NULL; не раньше start_at |
 | all_day | bool | default false |
 | recurrence | enum | daily, weekly, monthly, never. Повтор от start_at вперёд |
-| color | string 7 | `#RRGGBB`, закладка на календаре, по умолчанию `#e11d48` |
+| color | string 7 | `#RRGGBB`, полоска на месяце, по умолчанию `#e11d48` |
 | created_at | datetime | auto |
 | updated_at | datetime | auto |
 
