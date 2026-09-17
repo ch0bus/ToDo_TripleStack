@@ -226,6 +226,22 @@ export function SettingsPage() {
 
       <section className={"mb-8 p-5 " + cardClass}>
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
+          Смены
+        </h2>
+        <p className="mb-3 text-sm text-app-muted">
+          Типы смен, слои и шаблон цикла.
+        </p>
+        <Link
+          to="/settings/shifts"
+          state={{ from: "/settings" }}
+          className="text-sm text-app-accent hover:underline"
+        >
+          Настройки смен
+        </Link>
+      </section>
+
+      <section className={"mb-8 p-5 " + cardClass}>
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
           Подключение к API
         </h2>
         <p className="mb-4 text-xs text-app-subtle">

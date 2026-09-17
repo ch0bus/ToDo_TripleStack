@@ -11,6 +11,7 @@ export function backFromState(state: unknown, fallback = "/"): string {
 
 export function backLabel(path: string): string {
   if (path.startsWith("/calendar")) return "Календарь";
+  if (path.startsWith("/settings")) return "Настройки";
   return "Входящие";
 }
 
@@ -24,4 +25,10 @@ export function newEventPath(day?: string | null): string {
 
 export function eventPath(id: number): string {
   return `/events/${id}`;
+}
+
+export function shiftSettingsPath(calendarId?: number | null): string {
+  return calendarId
+    ? `/settings/shifts?calendar=${calendarId}`
+    : "/settings/shifts";
 }

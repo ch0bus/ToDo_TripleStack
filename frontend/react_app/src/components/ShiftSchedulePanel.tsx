@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
   formatKindMeta,
   isHexColor,
-  type PaintTool,
   type ShiftCalendar,
   type ShiftKind,
   type ShiftKindWrite,
@@ -19,12 +18,10 @@ interface ShiftSchedulePanelProps {
   activeLayer: ShiftLayer;
   kinds: ShiftKind[];
   pattern: ShiftPattern;
-  paint: PaintTool;
   onActiveLayerChange: (id: number) => void;
   onRenameLayer: (id: number, name: string) => Promise<void>;
   onRenameCalendar: (name: string) => Promise<void>;
   onDeleteCalendar: () => Promise<void>;
-  onPaintChange: (tool: PaintTool) => void;
   onCreateKind: (payload: ShiftKindWrite) => Promise<void>;
   onUpdateKind: (id: number, payload: Omit<ShiftKindWrite, "layer_id">) => Promise<void>;
   onDeleteKind: (id: number) => Promise<void>;
@@ -33,14 +30,6 @@ interface ShiftSchedulePanelProps {
     endDate: string | null,
     kindIds: Array<number | null>,
   ) => Promise<void>;
-}
-
-function toolActive(paint: PaintTool, tool: PaintTool): boolean {
-  if (paint.type !== tool.type) return false;
-  if (paint.type === "kind" && tool.type === "kind") {
-    return paint.id === tool.id;
-  }
-  return true;
 }
 
 const compactInput = inputClass + " w-24 shrink-0";
@@ -52,12 +41,10 @@ export function ShiftSchedulePanel({
   activeLayer,
   kinds,
   pattern,
-  paint,
   onActiveLayerChange,
   onRenameLayer,
   onRenameCalendar,
   onDeleteCalendar,
-  onPaintChange,
   onCreateKind,
   onUpdateKind,
   onDeleteKind,
@@ -187,13 +174,8 @@ export function ShiftSchedulePanel({
   }
 
   return (
-    <section
-      id="shift-schedule"
-      className="rounded-xl border border-app bg-app-surface px-3 py-3 sm:px-4"
-    >
-      <h2 className="text-sm font-semibold text-app">График смен</h2>
-
-      <div className="mt-3 flex flex-wrap items-end gap-2">
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-end gap-2">
         <label className="min-w-0 flex-1 text-xs text-app-muted sm:max-w-xs">
           Календарь
           <input
@@ -263,66 +245,7 @@ export function ShiftSchedulePanel({
         />
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        <button
-          type="button"
-          onClick={() => onPaintChange({ type: "select" })}
-          className={
-            "rounded-md px-2.5 py-1 text-xs " +
-            (toolActive(paint, { type: "select" })
-              ? "bg-app-surface-muted text-app"
-              : "text-app-subtle hover:bg-app-surface-muted")
-          }
-        >
-          Выбор дня
-        </button>
-        {kinds.map((kind) => (
-          <button
-            key={kind.id}
-            type="button"
-            onClick={() => onPaintChange({ type: "kind", id: kind.id })}
-            className={
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs " +
-              (toolActive(paint, { type: "kind", id: kind.id })
-                ? "bg-app-surface-muted text-app"
-                : "text-app-subtle hover:bg-app-surface-muted")
-            }
-          >
-            <span
-              className="h-3 w-3 rounded-sm border border-black/10"
-              style={{ backgroundColor: kind.color }}
-              aria-hidden
-            />
-            {kind.name}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => onPaintChange({ type: "off" })}
-          className={
-            "rounded-md px-2.5 py-1 text-xs " +
-            (toolActive(paint, { type: "off" })
-              ? "bg-app-surface-muted text-app"
-              : "text-app-subtle hover:bg-app-surface-muted")
-          }
-        >
-          Выходной
-        </button>
-        <button
-          type="button"
-          onClick={() => onPaintChange({ type: "pattern" })}
-          className={
-            "rounded-md px-2.5 py-1 text-xs " +
-            (toolActive(paint, { type: "pattern" })
-              ? "bg-app-surface-muted text-app"
-              : "text-app-subtle hover:bg-app-surface-muted")
-          }
-        >
-          По шаблону
-        </button>
-      </div>
-
-      <div className="mt-4 space-y-4 border-t border-app pt-4">
+      <div className="space-y-4 border-t border-app pt-4">
           {error && (
             <p className="text-xs text-[var(--app-danger)]">{error}</p>
           )}

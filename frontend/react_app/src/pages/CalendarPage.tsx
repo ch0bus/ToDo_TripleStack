@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
@@ -13,7 +13,8 @@ import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { ShiftCalendarPicker } from "@/components/ShiftCalendarPicker";
-import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
+import { ShiftDaySummary } from "@/components/ShiftDaySummary";
+import { ShiftPaintBar } from "@/components/ShiftPaintBar";
 import { SortBar } from "@/components/SortBar";
 import { TodoItem } from "@/components/TodoItem";
 import { TodoList, type TodoRow } from "@/components/TodoList";
@@ -52,21 +53,17 @@ import {
   type CalendarEvent,
 } from "@/lib/events";
 import {
-  emptyPattern,
-  formatShiftPayLine,
-  formatShiftTotalsLine,
-  markColors,
   nextShiftCalendarName,
+  markColors,
   shiftMarksByDate,
   summarizeShiftDays,
   type PaintTool,
   type ShiftCalendar,
   type ShiftDay,
   type ShiftKind,
-  type ShiftKindWrite,
   type ShiftLayer,
-  type ShiftPattern,
 } from "@/lib/shifts";
+import { shiftSettingsPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
 import { parseTodoSort, sortTodos } from "@/lib/todoSort";
 import { isOverdue, pluralRu } from "@/lib/utils";
@@ -86,6 +83,8 @@ function CalendarSkeleton() {
 
 export function CalendarPage() {
   const { registerFiltersToggle } = useAppShell();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [todos, setTodos] = useState<TodoRow[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
@@ -96,12 +95,11 @@ export function CalendarPage() {
   const [shiftCalendars, setShiftCalendars] = useState<ShiftCalendar[]>([]);
   const [shiftLayers, setShiftLayers] = useState<ShiftLayer[]>([]);
   const [shiftKinds, setShiftKinds] = useState<ShiftKind[]>([]);
-  const [shiftPatterns, setShiftPatterns] = useState<ShiftPattern[]>([]);
   const [shiftDays, setShiftDays] = useState<ShiftDay[]>([]);
   const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
   const [paint, setPaint] = useState<PaintTool>({ type: "select" });
   const [activeLayerId, setActiveLayerId] = useState<number | null>(null);
-  const [showShifts, setShowShifts] = useState(false);
+  const [showPaint, setShowPaint] = useState(false);
 
   const hasToken = !!getAccessToken();
   const today = useMemo(() => new Date(), []);
@@ -199,13 +197,6 @@ export function CalendarPage() {
       shiftKinds.filter((kind) => (activeLayer ? kind.layer_id === activeLayer.id : false)),
     [shiftKinds, activeLayer],
   );
-  const activePattern = useMemo(() => {
-    if (!activeLayer) return emptyPattern(null);
-    return (
-      shiftPatterns.find((row) => row.layer_id === activeLayer.id) ??
-      emptyPattern(activeLayer.id)
-    );
-  }, [shiftPatterns, activeLayer]);
   const monthFrom = `${toMonthKey(month)}-01`;
   const monthTo = toDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
   const monthLayerTotals = useMemo(
@@ -233,10 +224,9 @@ export function CalendarPage() {
   const loadShifts = useCallback(async () => {
     if (!queryFrom || !queryTo || !selectedShiftCalendar) return;
     const calendarQ = `calendar=${selectedShiftCalendar.id}`;
-    const [layersRes, kindsRes, patternRes, daysRes] = await Promise.all([
+    const [layersRes, kindsRes, daysRes] = await Promise.all([
       apiFetch(`/shift-layers/?${calendarQ}`),
       apiFetch(`/shift-kinds/?${calendarQ}`),
-      apiFetch(`/shift-pattern/?${calendarQ}`),
       apiFetch(`/shift-days/?from=${queryFrom}&to=${queryTo}&${calendarQ}`),
     ]);
     if (layersRes.ok) {
@@ -248,12 +238,6 @@ export function CalendarPage() {
       });
     }
     if (kindsRes.ok) setShiftKinds((await kindsRes.json()) as ShiftKind[]);
-    if (patternRes.ok) {
-      const payload = await patternRes.json();
-      setShiftPatterns(
-        Array.isArray(payload) ? (payload as ShiftPattern[]) : [payload as ShiftPattern],
-      );
-    }
     if (daysRes.ok) setShiftDays((await daysRes.json()) as ShiftDay[]);
   }, [queryFrom, queryTo, selectedShiftCalendar]);
 
@@ -374,21 +358,12 @@ export function CalendarPage() {
     });
   }
 
-  function handleYearDay(date: Date) {
-    setSearchParams((prev) => {
-      const params = new URLSearchParams(prev);
-      params.set("month", toMonthKey(date));
-      params.set("day", toDateKey(date));
-      params.set("view", "year");
-      return params;
-    });
-  }
-
   function selectDay(date: Date) {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       params.set("month", toMonthKey(date));
       params.set("day", toDateKey(date));
+      if (calendarView === "year") params.set("view", "year");
       return params;
     });
   }
@@ -396,7 +371,7 @@ export function CalendarPage() {
   async function handleDayClick(date: Date) {
     selectDay(date);
     const key = toDateKey(date);
-    if (paint.type === "select" || !activeLayer) return;
+    if (!showPaint || paint.type === "select" || !activeLayer) return;
     try {
       if (paint.type === "pattern") {
         await apiFetch(`/shift-days/${key}/?layer=${activeLayer.id}`, {
@@ -419,62 +394,13 @@ export function CalendarPage() {
     }
   }
 
-  async function handleCreateKind(payload: ShiftKindWrite) {
-    const res = await apiFetch("/shift-kinds/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("create kind failed");
-    await loadShifts();
-  }
-
-  async function handleUpdateKind(
-    id: number,
-    payload: Omit<ShiftKindWrite, "layer_id">,
-  ) {
-    const res = await apiFetch(`/shift-kinds/${id}/`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) throw new Error("update kind failed");
-    await loadShifts();
-  }
-
-  async function handleDeleteKind(id: number) {
-    const res = await apiFetch(`/shift-kinds/${id}/`, { method: "DELETE" });
-    if (!res.ok) throw new Error("delete kind failed");
-    if (paint.type === "kind" && paint.id === id) {
+  function handleTogglePaint() {
+    if (showPaint) {
       setPaint({ type: "select" });
+      setShowPaint(false);
+    } else {
+      setShowPaint(true);
     }
-    await loadShifts();
-  }
-
-  async function handleSavePattern(
-    startDate: string,
-    endDate: string | null,
-    kindIds: Array<number | null>,
-  ) {
-    if (!activeLayer) throw new Error("no layer");
-    const res = await apiFetch("/shift-pattern/", {
-      method: "PUT",
-      body: JSON.stringify({
-        layer_id: activeLayer.id,
-        start_date: startDate,
-        end_date: endDate,
-        slots: kindIds.map((kind_id) => ({ kind_id })),
-      }),
-    });
-    if (!res.ok) throw new Error("save pattern failed");
-    await loadShifts();
-  }
-
-  async function handleRenameLayer(id: number, name: string) {
-    const res = await apiFetch(`/shift-layers/${id}/`, {
-      method: "PATCH",
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) throw new Error("rename layer failed");
-    await loadShifts();
   }
 
   function handleActiveLayerChange(id: number) {
@@ -500,33 +426,11 @@ export function CalendarPage() {
     });
     if (!res.ok) return;
     const created = (await res.json()) as ShiftCalendar;
-    setShiftCalendars((prev) => [...prev, created]);
-    setShowShifts(true);
-    handleShiftCalendarChange(created.id);
-  }
-
-  async function handleRenameCalendar(name: string) {
-    if (!selectedShiftCalendar) return;
-    const res = await apiFetch(`/shift-calendars/${selectedShiftCalendar.id}/`, {
-      method: "PATCH",
-      body: JSON.stringify({ name }),
+    const fromParams = new URLSearchParams(location.search);
+    fromParams.set("calendar", String(created.id));
+    navigate(shiftSettingsPath(created.id), {
+      state: { from: `${location.pathname}?${fromParams.toString()}` },
     });
-    if (!res.ok) throw new Error("rename calendar failed");
-    await loadCalendars();
-  }
-
-  async function handleDeleteCalendar() {
-    if (!selectedShiftCalendar || shiftCalendars.length <= 1) return;
-    if (!window.confirm("Удалить этот календарь смен?")) return;
-    const res = await apiFetch(`/shift-calendars/${selectedShiftCalendar.id}/`, {
-      method: "DELETE",
-    });
-    if (!res.ok) return;
-    const remaining = shiftCalendars.filter(
-      (row) => row.id !== selectedShiftCalendar.id,
-    );
-    setShiftCalendars(remaining);
-    if (remaining[0]) handleShiftCalendarChange(remaining[0].id);
   }
 
   async function handleTodoUpdated(updated: TodoRow) {
@@ -550,6 +454,36 @@ export function CalendarPage() {
   function handleEventDeleted(id: number) {
     setEvents((prev) => prev.filter((item) => item.id !== id));
   }
+
+  const paintBar =
+    showPaint && activeLayer ? (
+      <div className="rounded-xl border border-app bg-app-surface px-3 py-2.5">
+        <ShiftPaintBar
+          layers={shiftLayers}
+          activeLayer={activeLayer}
+          kinds={activeKinds}
+          paint={paint}
+          onActiveLayerChange={handleActiveLayerChange}
+          onPaintChange={setPaint}
+        />
+      </div>
+    ) : null;
+
+  const shiftSummary = (
+    <ShiftDaySummary
+      layers={shiftLayers}
+      marks={selectedMarks}
+      totals={calendarView === "year" ? yearLayerTotals : monthLayerTotals}
+      periodLabel={(layer) =>
+        calendarView === "year"
+          ? `За ${month.getFullYear()} · ${layer.name}`
+          : `За ${formatMonthName(month).toLowerCase()} · ${layer.name}`
+      }
+      calendarId={selectedShiftCalendar?.id}
+      painting={showPaint}
+      onTogglePaint={handleTogglePaint}
+    />
+  );
 
   if (!hasToken) {
     return <Navigate to="/login" replace />;
@@ -584,28 +518,7 @@ export function CalendarPage() {
                   onChange={handleShiftCalendarChange}
                   onCreate={() => void handleCreateShiftCalendar()}
                 />
-                <div className="grid w-full grid-cols-2 gap-2 md:w-auto md:min-w-[20rem]">
-                  <button
-                    type="button"
-                    aria-expanded={showShifts}
-                    aria-controls="shift-schedule"
-                    onClick={() => {
-                      if (showShifts) {
-                        setPaint({ type: "select" });
-                        setShowShifts(false);
-                      } else {
-                        setShowShifts(true);
-                      }
-                    }}
-                    className={
-                      "h-10 rounded-md px-2 text-sm font-medium sm:px-3 " +
-                      (showShifts
-                        ? "border border-app-strong bg-app-surface-muted text-app"
-                        : "border border-app text-app-muted hover:bg-app-surface-muted hover:text-app")
-                    }
-                  >
-                    График смен
-                  </button>
+                <div className="w-full md:w-auto md:min-w-[10rem]">
                   <CreateAddMenu
                     day={selectedKey}
                     hasNote={Boolean(selectedNote)}
@@ -674,28 +587,6 @@ export function CalendarPage() {
               </div>
               </div>
 
-              {showShifts && activeLayer && selectedShiftCalendar && (
-                <ShiftSchedulePanel
-                  key={`${selectedShiftCalendar.id}-${activeLayer.id}`}
-                  calendar={selectedShiftCalendar}
-                  canDeleteCalendar={shiftCalendars.length > 1}
-                  layers={shiftLayers}
-                  activeLayer={activeLayer}
-                  kinds={activeKinds}
-                  pattern={activePattern}
-                  paint={paint}
-                  onActiveLayerChange={handleActiveLayerChange}
-                  onRenameLayer={handleRenameLayer}
-                  onRenameCalendar={handleRenameCalendar}
-                  onDeleteCalendar={handleDeleteCalendar}
-                  onPaintChange={setPaint}
-                  onCreateKind={handleCreateKind}
-                  onUpdateKind={handleUpdateKind}
-                  onDeleteKind={handleDeleteKind}
-                  onSavePattern={handleSavePattern}
-                />
-              )}
-
               {calendarView === "year" ? (
                 <>
                 <CalendarYearGrid
@@ -707,40 +598,14 @@ export function CalendarPage() {
                   marksByDay={shiftsByDay}
                   notesByDay={notesByDay}
                   onSelectMonth={handleYearMonth}
-                  onSelectDay={handleYearDay}
+                  onSelectDay={(date) => void handleDayClick(date)}
                 />
-                <section className="space-y-1">
+                {paintBar}
+                <section className="space-y-3">
                   <h2 className="text-lg font-semibold capitalize text-app">
                     {formatDayTitle(selectedDay)}
                   </h2>
-                  {shiftLayers.map((layer, index) => {
-                    const mark = selectedMarks?.[index as 0 | 1];
-                    return (
-                      <p key={layer.id} className="text-sm text-app-muted">
-                        <span className="text-app">{layer.name}: </span>
-                        {mark?.kind ? (
-                          <>
-                            <span
-                              className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
-                              style={{ backgroundColor: mark.kind.color }}
-                              aria-hidden
-                            />
-                            {mark.kind.name} · {formatShiftPayLine(mark.kind)}
-                          </>
-                        ) : (
-                          "нет смены"
-                        )}
-                      </p>
-                    );
-                  })}
-                  {yearLayerTotals.map(({ layer, totals }) => (
-                    <p key={layer.id} className="text-sm text-app-muted">
-                      {formatShiftTotalsLine(
-                        `За ${month.getFullYear()} · ${layer.name}`,
-                        totals,
-                      )}
-                    </p>
-                  ))}
+                  {shiftSummary}
                   {selectedEventEntries.length > 0 && (
                     <EventList
                       className="pt-2"
@@ -751,6 +616,7 @@ export function CalendarPage() {
                 </section>
                 </>
               ) : (
+              <>
               <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
                 <div className="grid grid-cols-7 border-b border-app bg-app-surface-muted/50">
                   {WEEKDAY_LABELS.map((label) => (
@@ -876,6 +742,8 @@ export function CalendarPage() {
                   })}
                 </div>
               </div>
+              {paintBar}
+              </>
               )}
 
               {calendarView === "month" && (
@@ -898,34 +766,7 @@ export function CalendarPage() {
                       .join(" · ") || "Нет событий и задач в этот день"}
                   </p>
                 </div>
-                {shiftLayers.map((layer, index) => {
-                  const mark = selectedMarks?.[index as 0 | 1];
-                  return (
-                    <p key={layer.id} className="text-sm text-app-muted">
-                      <span className="text-app">{layer.name}: </span>
-                      {mark?.kind ? (
-                        <>
-                          <span
-                            className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
-                            style={{ backgroundColor: mark.kind.color }}
-                            aria-hidden
-                          />
-                          {mark.kind.name} · {formatShiftPayLine(mark.kind)}
-                        </>
-                      ) : (
-                        "нет смены"
-                      )}
-                    </p>
-                  );
-                })}
-                {monthLayerTotals.map(({ layer, totals }) => (
-                  <p key={layer.id} className="text-sm text-app-muted">
-                    {formatShiftTotalsLine(
-                      `За ${formatMonthName(month).toLowerCase()} · ${layer.name}`,
-                      totals,
-                    )}
-                  </p>
-                ))}
+                {shiftSummary}
                 <DayNoteEditor
                   dateKey={selectedKey}
                   note={selectedNote}

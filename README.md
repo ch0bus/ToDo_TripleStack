@@ -43,7 +43,7 @@ ToDoApp/                    # репозиторий; продукт — Haloday
 - Прямой URL API: в `.env` задайте `VITE_API_URL=http://127.0.0.1:8000/api`.
 - Swagger: `http://127.0.0.1:8000/api/docs/`
 
-Маршруты UI: `/`, `/todos/new`, `/todos/:id`, `/notes/:date`, `/events/new`, `/events/:id`, `/calendar`, `/settings`, `/login`, `/register`.
+Маршруты UI: `/`, `/todos/new`, `/todos/:id`, `/notes/:date`, `/events/new`, `/events/:id`, `/calendar`, `/settings`, `/settings/shifts`, `/login`, `/register`.
 
 ## Запуск
 
