@@ -1,8 +1,7 @@
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { TagOption } from "@/lib/tags";
-import { locationFrom, newTodoPath } from "@/lib/nav";
-import { btnPrimary, cardClass } from "@/lib/uiClasses";
+import { cardClass } from "@/lib/uiClasses";
 
 interface DashboardSidebarProps {
   tags: TagOption[];
@@ -91,11 +90,6 @@ export function DashboardSidebar({
     });
   }
 
-  function handleNewTask() {
-    navigate(newTodoPath(), { state: { from: locationFrom(location) } });
-    onNavigate?.();
-  }
-
   const allTasksActive = !activeTag;
 
   return (
@@ -137,10 +131,6 @@ export function DashboardSidebar({
           </Link>
         </p>
       </div>
-
-      <button type="button" onClick={handleNewTask} className={btnPrimary + " w-full"}>
-        + Новая задача
-      </button>
     </aside>
   );
 }

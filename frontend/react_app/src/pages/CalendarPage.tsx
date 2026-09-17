@@ -1,17 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
+import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { EventBookmark } from "@/components/EventBookmark";
-import { EventItem } from "@/components/EventItem";
+import { EventFilterBar } from "@/components/EventFilterBar";
+import { EventList } from "@/components/EventList";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { ShiftCalendarPicker } from "@/components/ShiftCalendarPicker";
 import { ShiftSchedulePanel } from "@/components/ShiftSchedulePanel";
+import { SortBar } from "@/components/SortBar";
 import { TodoItem } from "@/components/TodoItem";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { useAppShell } from "@/contexts/AppShellContext";
@@ -37,9 +40,15 @@ import {
 } from "@/lib/calendar";
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
+  EVENT_SORT_OPTIONS,
+  eventColorsInList,
   eventFlagColors,
+  filterEventsByColor,
   groupEventsForRange,
+  parseEventSort,
+  sortEventEntries,
   uniqueEventEntries,
+  uniqueEventsInMonth,
   type CalendarEvent,
 } from "@/lib/events";
 import {
@@ -58,8 +67,8 @@ import {
   type ShiftLayer,
   type ShiftPattern,
 } from "@/lib/shifts";
-import { locationFrom, newEventPath, newTodoPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
+import { parseTodoSort, sortTodos } from "@/lib/todoSort";
 import { isOverdue, pluralRu } from "@/lib/utils";
 
 function CalendarSkeleton() {
@@ -77,7 +86,6 @@ function CalendarSkeleton() {
 
 export function CalendarPage() {
   const { registerFiltersToggle } = useAppShell();
-  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [todos, setTodos] = useState<TodoRow[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
@@ -139,9 +147,32 @@ export function CalendarPage() {
     () => todos.filter((todo) => !todo.due_date && !todo.event_date),
     [todos],
   );
-  const monthTodos = useMemo(
+  const monthTodosUnsorted = useMemo(
     () => uniqueTodosInMonth(cells, byDay),
     [cells, byDay],
+  );
+  const monthSort = parseTodoSort(searchParams.get("sort"), "due");
+  const monthTodos = useMemo(
+    () => sortTodos(monthTodosUnsorted, monthSort),
+    [monthTodosUnsorted, monthSort],
+  );
+  const monthEventsUnsorted = useMemo(
+    () => uniqueEventsInMonth(cells, eventsByDay),
+    [cells, eventsByDay],
+  );
+  const eventColor = searchParams.get("ecolor");
+  const eventSort = parseEventSort(searchParams.get("esort"), "start");
+  const monthEvents = useMemo(
+    () =>
+      sortEventEntries(
+        filterEventsByColor(monthEventsUnsorted, eventColor),
+        eventSort,
+      ),
+    [monthEventsUnsorted, eventColor, eventSort],
+  );
+  const eventFilterColors = useMemo(
+    () => eventColorsInList(monthEventsUnsorted),
+    [monthEventsUnsorted],
   );
   const selectedKey = toDateKey(selectedDay);
   const selectedEntries = useMemo(
@@ -553,7 +584,7 @@ export function CalendarPage() {
                   onChange={handleShiftCalendarChange}
                   onCreate={() => void handleCreateShiftCalendar()}
                 />
-                <div className="grid w-full grid-cols-3 gap-2 md:w-auto">
+                <div className="grid w-full grid-cols-2 gap-2 md:w-auto md:min-w-[20rem]">
                   <button
                     type="button"
                     aria-expanded={showShifts}
@@ -575,20 +606,10 @@ export function CalendarPage() {
                   >
                     График смен
                   </button>
-                  <Link
-                    to={newEventPath(selectedKey)}
-                    state={{ from: locationFrom(location) }}
-                    className="flex h-10 items-center justify-center rounded-md border border-app px-2 text-sm font-medium text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3"
-                  >
-                    + Событие
-                  </Link>
-                  <Link
-                    to={newTodoPath(selectedKey)}
-                    state={{ from: locationFrom(location) }}
-                    className="btn-primary flex h-10 items-center justify-center rounded-md px-2 text-sm font-medium shadow-sm sm:px-3"
-                  >
-                    + Новая задача
-                  </Link>
+                  <CreateAddMenu
+                    day={selectedKey}
+                    hasNote={Boolean(selectedNote)}
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -721,15 +742,11 @@ export function CalendarPage() {
                     </p>
                   ))}
                   {selectedEventEntries.length > 0 && (
-                    <ul className="space-y-2 pt-2">
-                      {selectedEventEntries.map((entry) => (
-                        <EventItem
-                          key={`${entry.event.id}-${entry.occurrenceStartKey}`}
-                          entry={entry}
-                          onDeleted={handleEventDeleted}
-                        />
-                      ))}
-                    </ul>
+                    <EventList
+                      className="pt-2"
+                      entries={selectedEventEntries}
+                      onDeleted={handleEventDeleted}
+                    />
                   )}
                 </section>
                 </>
@@ -915,15 +932,10 @@ export function CalendarPage() {
                   onChanged={handleNoteChanged}
                 />
                 {selectedEventEntries.length > 0 && (
-                  <ul className="space-y-2">
-                    {selectedEventEntries.map((entry) => (
-                      <EventItem
-                        key={`${entry.event.id}-${entry.occurrenceStartKey}`}
-                        entry={entry}
-                        onDeleted={handleEventDeleted}
-                      />
-                    ))}
-                  </ul>
+                  <EventList
+                    entries={selectedEventEntries}
+                    onDeleted={handleEventDeleted}
+                  />
                 )}
                 {selectedEntries.length > 0 ? (
                   <ul className="space-y-3">
@@ -969,16 +981,18 @@ export function CalendarPage() {
               </section>
 
               {calendarView === "month" && (
+              <>
               <section className="space-y-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
                     Задачи месяца
+                    <span className="ml-2 font-normal text-app-subtle">
+                      {monthTodos.length
+                        ? `${monthTodos.length} · ${formatMonthTitle(month)}`
+                        : formatMonthTitle(month)}
+                    </span>
                   </h2>
-                  <p className="text-sm text-app-subtle">
-                    {monthTodos.length
-                      ? `${monthTodos.length} · ${formatMonthTitle(month)}`
-                      : formatMonthTitle(month)}
-                  </p>
+                  <SortBar defaultSort="due" />
                 </div>
                 {monthTodos.length > 0 ? (
                   <TodoList
@@ -992,6 +1006,41 @@ export function CalendarPage() {
                   </p>
                 )}
               </section>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    События месяца
+                    <span className="ml-2 font-normal text-app-subtle">
+                      {monthEvents.length
+                        ? `${monthEvents.length} · ${formatMonthTitle(month)}`
+                        : formatMonthTitle(month)}
+                    </span>
+                  </h2>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <EventFilterBar colors={eventFilterColors} />
+                    <SortBar
+                      paramName="esort"
+                      defaultSort="start"
+                      options={EVENT_SORT_OPTIONS}
+                      label="Сортировка событий"
+                    />
+                  </div>
+                </div>
+                {monthEvents.length > 0 ? (
+                  <EventList
+                    entries={monthEvents}
+                    onDeleted={handleEventDeleted}
+                    showDate
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
+                    {monthEventsUnsorted.length
+                      ? "Нет событий выбранного цвета."
+                      : "В этом месяце нет событий."}
+                  </p>
+                )}
+              </section>
+              </>
               )}
             </>
           )}

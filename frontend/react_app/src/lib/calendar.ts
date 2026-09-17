@@ -167,11 +167,7 @@ export function uniqueTodosInMonth(
       list.push(entry.todo);
     }
   }
-  return list.sort((a, b) => {
-    const aTime = a.due_date ? new Date(a.due_date).getTime() : 0;
-    const bTime = b.due_date ? new Date(b.due_date).getTime() : 0;
-    return aTime - bTime;
-  });
+  return list;
 }
 
 export function formatMonthTitle(date: Date): string {

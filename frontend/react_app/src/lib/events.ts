@@ -1,4 +1,4 @@
-import { dueDateKey, toDateKey } from "@/lib/calendar";
+import { dueDateKey, parseDateKey, toDateKey, type CalendarCell } from "@/lib/calendar";
 import { isRecurring, nextDueDate, type RecurrenceValue } from "@/lib/recurrence";
 
 export const DEFAULT_EVENT_COLOR = "#e11d48";
@@ -131,6 +131,107 @@ export function uniqueEventEntries(entries: EventEntry[]): EventEntry[] {
   return list.sort((a, b) => a.event.start_at.localeCompare(b.event.start_at));
 }
 
+/** Уникальные события месяца: одна строка на событие, первое вхождение в месяце. */
+export function uniqueEventsInMonth(
+  cells: CalendarCell[],
+  byDay: Map<string, EventEntry[]>,
+): EventEntry[] {
+  const seen = new Set<number>();
+  const list: EventEntry[] = [];
+  for (const cell of cells) {
+    if (!cell.inMonth) continue;
+    for (const entry of uniqueEventEntries(byDay.get(cell.key) ?? [])) {
+      if (seen.has(entry.event.id)) continue;
+      seen.add(entry.event.id);
+      list.push(entry);
+    }
+  }
+  return list;
+}
+
+export const EVENT_SORTS = ["start", "new", "title"] as const;
+export type EventSort = (typeof EVENT_SORTS)[number];
+
+export const EVENT_SORT_OPTIONS: { value: EventSort; label: string }[] = [
+  { value: "start", label: "По времени" },
+  { value: "new", label: "Новые сверху" },
+  { value: "title", label: "По названию" },
+];
+
+export function parseEventSort(
+  value: string | null | undefined,
+  fallback: EventSort = "start",
+): EventSort {
+  if (value && (EVENT_SORTS as readonly string[]).includes(value)) {
+    return value as EventSort;
+  }
+  return fallback;
+}
+
+function occurrenceTime(entry: EventEntry): number {
+  const date = parseDateKey(entry.occurrenceStartKey);
+  if (!date) {
+    const start = new Date(entry.event.start_at);
+    return Number.isNaN(start.getTime()) ? 0 : start.getTime();
+  }
+  if (entry.event.all_day) return date.getTime();
+  const start = new Date(entry.event.start_at);
+  if (Number.isNaN(start.getTime())) return date.getTime();
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    start.getHours(),
+    start.getMinutes(),
+    start.getSeconds(),
+  ).getTime();
+}
+
+export function filterEventsByColor(
+  entries: EventEntry[],
+  color: string | null | undefined,
+): EventEntry[] {
+  if (!color) return entries;
+  return entries.filter((entry) => entry.event.color === color);
+}
+
+export function sortEventEntries(
+  entries: EventEntry[],
+  sort: EventSort,
+): EventEntry[] {
+  return [...entries].sort((a, b) => {
+    if (sort === "new") {
+      return (
+        b.event.created_at.localeCompare(a.event.created_at) ||
+        a.event.id - b.event.id
+      );
+    }
+    if (sort === "title") {
+      return (
+        a.event.title.localeCompare(b.event.title, "ru") ||
+        occurrenceTime(a) - occurrenceTime(b)
+      );
+    }
+    return occurrenceTime(a) - occurrenceTime(b) || a.event.id - b.event.id;
+  });
+}
+
+export function eventColorsInList(entries: EventEntry[]): string[] {
+  const seen = new Set<string>();
+  const colors: string[] = [];
+  for (const preset of EVENT_COLOR_PRESETS) {
+    seen.add(preset);
+    colors.push(preset);
+  }
+  for (const entry of entries) {
+    const color = entry.event.color || DEFAULT_EVENT_COLOR;
+    if (seen.has(color)) continue;
+    seen.add(color);
+    colors.push(color);
+  }
+  return colors;
+}
+
 export function eventFlagColors(entries: EventEntry[], max = 3): string[] {
   const seen = new Set<number>();
   const colors: string[] = [];
@@ -168,4 +269,19 @@ export function formatEventWhen(event: CalendarEvent): string {
   });
   if (toDateKey(start) === toDateKey(end)) return `${startTime}–${endTime}`;
   return `${startTime} — ${end.toLocaleDateString("ru-RU", { day: "numeric", month: "short" })} ${endTime}`;
+}
+
+export function formatEventEntryWhen(
+  entry: EventEntry,
+  includeDate = false,
+): string {
+  const when = formatEventWhen(entry.event);
+  if (!includeDate) return when;
+  const date = parseDateKey(entry.dateKey);
+  if (!date) return when;
+  const label = date.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+  return when ? `${label} · ${when}` : label;
 }

@@ -3,8 +3,8 @@ export function InboxSkeleton() {
     <div className="animate-pulse space-y-4" aria-hidden>
       <div className="h-10 rounded-lg border border-app bg-app-surface" />
       <div className="flex gap-2">
-        <div className="h-10 w-36 rounded-md border border-app bg-app-surface" />
-        <div className="h-10 w-36 rounded-md border border-app bg-app-surface" />
+        <div className="h-10 w-10 shrink-0 rounded-md border border-app bg-app-surface" />
+        <div className="h-10 min-w-0 flex-1 rounded-md border border-app bg-app-surface" />
       </div>
       <div className="space-y-3">
         {Array.from({ length: 4 }).map((_, i) => (

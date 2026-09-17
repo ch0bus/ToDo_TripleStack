@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
+import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
+import { EventList } from "@/components/EventList";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { FilterBar } from "@/components/FilterBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
+import { SortBar } from "@/components/SortBar";
 import { StatsCards } from "@/components/StatsCards";
 import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
@@ -13,8 +16,14 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { toDateKey } from "@/lib/calendar";
 import type { DayNote } from "@/lib/dayNotes";
-import { locationFrom, newEventPath, newTodoPath } from "@/lib/nav";
+import {
+  groupEventsForRange,
+  uniqueEventEntries,
+  type CalendarEvent,
+} from "@/lib/events";
+import { locationFrom, newTodoPath } from "@/lib/nav";
 import { groupInboxTodos, hasActiveFilters } from "@/lib/todoFilters";
+import { parseTodoSort, sortTodos } from "@/lib/todoSort";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
@@ -53,6 +62,8 @@ function InboxSection({
   todos,
   empty,
   lead,
+  action,
+  count,
   onUpdated,
   onDeleted,
 }: {
@@ -61,15 +72,22 @@ function InboxSection({
   todos: TodoRow[];
   empty: string;
   lead?: ReactNode;
+  action?: ReactNode;
+  count?: number;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
 }) {
   return (
     <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-app-muted">
-        {title}
-        <span className="ml-2 font-normal text-app-subtle">{todos.length}</span>
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
+          {title}
+          <span className="ml-2 font-normal text-app-subtle">
+            {count ?? todos.length}
+          </span>
+        </h2>
+        {action}
+      </div>
       {lead}
       {todos.length > 0 ? (
         <TodoList
@@ -77,9 +95,9 @@ function InboxSection({
           onUpdated={onUpdated}
           onDeleted={onDeleted}
         />
-      ) : (
+      ) : empty ? (
         <p className="text-sm text-app-subtle">{empty}</p>
-      )}
+      ) : null}
     </section>
   );
 }
@@ -94,6 +112,7 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [todayNote, setTodayNote] = useState<DayNote | null>(null);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
   const todayKey = useMemo(() => toDateKey(new Date()), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(
@@ -166,6 +185,21 @@ export function HomePage() {
 
   useEffect(() => {
     if (!hasToken) return;
+    let cancelled = false;
+    async function loadEvents() {
+      const res = await apiFetch("/events/");
+      if (!res.ok || cancelled) return;
+      const data = (await res.json()) as CalendarEvent[];
+      if (!cancelled) setEvents(data);
+    }
+    void loadEvents();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasToken, location.pathname]);
+
+  useEffect(() => {
+    if (!hasToken) return;
 
     async function load() {
       try {
@@ -210,6 +244,15 @@ export function HomePage() {
   });
 
   const grouped = useMemo(() => groupInboxTodos(todos), [todos]);
+  const restSort = parseTodoSort(searchParams.get("sort"), "new");
+  const restTodos = useMemo(
+    () => sortTodos(grouped.rest, restSort),
+    [grouped.rest, restSort],
+  );
+  const todayEvents = useMemo(() => {
+    const byDay = groupEventsForRange(events, todayKey, todayKey);
+    return uniqueEventEntries(byDay.get(todayKey) ?? []);
+  }, [events, todayKey]);
 
   async function handleTodoUpdated(updated: TodoRow) {
     setTodos((prev) =>
@@ -229,6 +272,10 @@ export function HomePage() {
     } catch {
       /* ignore */
     }
+  }
+
+  function handleEventDeleted(id: number) {
+    setEvents((prev) => prev.filter((item) => item.id !== id));
   }
 
   if (!hasToken) {
@@ -295,22 +342,12 @@ export function HomePage() {
 
           <div className="flex min-w-0 w-full items-center gap-2">
             <FilterBar />
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
-              <Link
-                to={newEventPath(todayKey)}
-                state={{ from: locationFrom(location) }}
-                className="flex h-10 items-center justify-center rounded-md border border-app px-2 text-sm font-medium text-app-muted hover:bg-app-surface-muted hover:text-app sm:px-3"
-              >
-                + Событие
-              </Link>
-              <Link
-                to={newTodoPath()}
-                state={{ from: locationFrom(location) }}
-                className="btn-primary flex h-10 items-center justify-center rounded-md px-2 text-sm font-medium shadow-sm sm:px-3"
-              >
-                + Задача
-              </Link>
-            </div>
+            <CreateAddMenu
+              className="min-w-0 flex-1"
+              day={todayKey}
+              hasNote={Boolean(todayNote)}
+              attachDayToTodo={false}
+            />
           </div>
 
           <p className="text-sm text-app-muted">
@@ -322,13 +359,24 @@ export function HomePage() {
                 id="inbox-today"
                 title="Сегодня"
                 todos={grouped.today}
-                empty="На сегодня ничего не запланировано"
+                count={grouped.today.length + todayEvents.length}
+                empty={
+                  todayEvents.length > 0
+                    ? ""
+                    : "На сегодня ничего не запланировано"
+                }
                 lead={
-                  <DayNoteEditor
-                    dateKey={todayKey}
-                    note={todayNote ?? undefined}
-                    onChanged={setTodayNote}
-                  />
+                  <>
+                    <DayNoteEditor
+                      dateKey={todayKey}
+                      note={todayNote ?? undefined}
+                      onChanged={setTodayNote}
+                    />
+                    <EventList
+                      entries={todayEvents}
+                      onDeleted={handleEventDeleted}
+                    />
+                  </>
                 }
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
@@ -358,8 +406,9 @@ export function HomePage() {
               <InboxSection
                 id="inbox-all"
                 title="Все задачи"
-                todos={grouped.rest}
+                todos={restTodos}
                 empty="Других активных задач нет"
+                action={<SortBar defaultSort="new" />}
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
