@@ -34,13 +34,14 @@ import {
   formatMonthName,
   formatMonthTitle,
   formatWeekRangeTitle,
+  formatYearTitle,
   groupTodosForMonth,
   parseCalendarView,
   parseDateKey,
   parseMonthKey,
   sortCalendarEntries,
   startOfWeek,
-  uniqueTodosInMonth,
+  uniqueTodosInRange,
   type CalendarEntry,
   type CalendarView,
   startOfMonth,
@@ -57,7 +58,7 @@ import {
   parseEventSort,
   sortEventEntries,
   uniqueEventEntries,
-  uniqueEventsInMonth,
+  uniqueEventsInRange,
   type CalendarEvent,
 } from "@/lib/events";
 import {
@@ -75,6 +76,27 @@ import { shiftSettingsPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
 import { parseTodoSort, sortTodos } from "@/lib/todoSort";
 import { pluralRu } from "@/lib/utils";
+
+const PERIOD_SCOPE: Record<CalendarView, string> = {
+  day: "дня",
+  week: "недели",
+  month: "месяца",
+  year: "года",
+};
+
+const PERIOD_TODOS_EMPTY: Record<CalendarView, string> = {
+  day: "В этот день нет задач со сроком или повтором.",
+  week: "На этой неделе нет задач со сроком или повтором.",
+  month: "В этом месяце нет задач со сроком или повтором.",
+  year: "В этом году нет задач со сроком или повтором.",
+};
+
+const PERIOD_EVENTS_EMPTY: Record<CalendarView, string> = {
+  day: "В этот день нет событий.",
+  week: "На этой неделе нет событий.",
+  month: "В этом месяце нет событий.",
+  year: "В этом году нет событий.",
+};
 
 function CalendarSkeleton() {
   return (
@@ -172,32 +194,56 @@ export function CalendarPage() {
     () => todos.filter((todo) => !todo.due_date && !todo.event_date),
     [todos],
   );
-  const monthTodosUnsorted = useMemo(
-    () => uniqueTodosInMonth(cells, byDay),
-    [cells, byDay],
+  const listFrom =
+    calendarView === "year"
+      ? yearFrom
+      : calendarView === "week"
+        ? weekFrom
+        : calendarView === "day"
+          ? dayKey
+          : `${toMonthKey(month)}-01`;
+  const listTo =
+    calendarView === "year"
+      ? yearTo
+      : calendarView === "week"
+        ? weekTo
+        : calendarView === "day"
+          ? dayKey
+          : toDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
+  const periodCaption =
+    calendarView === "year"
+      ? formatYearTitle(month)
+      : calendarView === "week"
+        ? formatWeekRangeTitle(weekStart)
+        : calendarView === "day"
+          ? formatDayTitle(selectedDay)
+          : formatMonthTitle(month);
+  const periodTodosUnsorted = useMemo(
+    () => uniqueTodosInRange(byDay, listFrom, listTo),
+    [byDay, listFrom, listTo],
   );
   const monthSort = parseTodoSort(searchParams.get("sort"), "due");
-  const monthTodos = useMemo(
-    () => sortTodos(monthTodosUnsorted, monthSort),
-    [monthTodosUnsorted, monthSort],
+  const periodTodos = useMemo(
+    () => sortTodos(periodTodosUnsorted, monthSort),
+    [periodTodosUnsorted, monthSort],
   );
-  const monthEventsUnsorted = useMemo(
-    () => uniqueEventsInMonth(cells, eventsByDay),
-    [cells, eventsByDay],
+  const periodEventsUnsorted = useMemo(
+    () => uniqueEventsInRange(eventsByDay, listFrom, listTo),
+    [eventsByDay, listFrom, listTo],
   );
   const eventColor = searchParams.get("ecolor");
   const eventSort = parseEventSort(searchParams.get("esort"), "start");
-  const monthEvents = useMemo(
+  const periodEvents = useMemo(
     () =>
       sortEventEntries(
-        filterEventsByColor(monthEventsUnsorted, eventColor),
+        filterEventsByColor(periodEventsUnsorted, eventColor),
         eventSort,
       ),
-    [monthEventsUnsorted, eventColor, eventSort],
+    [periodEventsUnsorted, eventColor, eventSort],
   );
   const eventFilterColors = useMemo(
-    () => eventColorsInList(monthEventsUnsorted),
-    [monthEventsUnsorted],
+    () => eventColorsInList(periodEventsUnsorted),
+    [periodEventsUnsorted],
   );
   const selectedKey = toDateKey(selectedDay);
   const selectedEntries = useMemo(
@@ -700,6 +746,7 @@ export function CalendarPage() {
                     today={today}
                     selectedKey={selectedKey}
                     eventsByDay={eventsByDay}
+                    todosByDay={byDay}
                     notesByDay={notesByDay}
                     shiftsByDay={shiftsByDay}
                     shiftLayers={shiftLayers}
@@ -910,40 +957,38 @@ export function CalendarPage() {
                 )}
               </section>
 
-              {calendarView === "month" && (
-              <>
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-                    Задачи месяца
+                    Задачи {PERIOD_SCOPE[calendarView]}
                     <span className="ml-2 font-normal text-app-subtle">
-                      {monthTodos.length
-                        ? `${monthTodos.length} · ${formatMonthTitle(month)}`
-                        : formatMonthTitle(month)}
+                      {periodTodos.length
+                        ? `${periodTodos.length} · ${periodCaption}`
+                        : periodCaption}
                     </span>
                   </h2>
                   <SortBar defaultSort="due" />
                 </div>
-                {monthTodos.length > 0 ? (
+                {periodTodos.length > 0 ? (
                   <TodoList
-                    todos={monthTodos}
+                    todos={periodTodos}
                     onUpdated={handleTodoUpdated}
                     onDeleted={handleTodoDeleted}
                   />
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
-                    В этом месяце нет задач со сроком или повтором.
+                    {PERIOD_TODOS_EMPTY[calendarView]}
                   </p>
                 )}
               </section>
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-                    События месяца
+                    События {PERIOD_SCOPE[calendarView]}
                     <span className="ml-2 font-normal text-app-subtle">
-                      {monthEvents.length
-                        ? `${monthEvents.length} · ${formatMonthTitle(month)}`
-                        : formatMonthTitle(month)}
+                      {periodEvents.length
+                        ? `${periodEvents.length} · ${periodCaption}`
+                        : periodCaption}
                     </span>
                   </h2>
                   <div className="flex shrink-0 items-center gap-2">
@@ -956,22 +1001,20 @@ export function CalendarPage() {
                     />
                   </div>
                 </div>
-                {monthEvents.length > 0 ? (
+                {periodEvents.length > 0 ? (
                   <EventList
-                    entries={monthEvents}
+                    entries={periodEvents}
                     onDeleted={handleEventDeleted}
-                    showDate
+                    showDate={calendarView !== "day"}
                   />
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
-                    {monthEventsUnsorted.length
+                    {periodEventsUnsorted.length
                       ? "Нет событий выбранного цвета."
-                      : "В этом месяце нет событий."}
+                      : PERIOD_EVENTS_EMPTY[calendarView]}
                   </p>
                 )}
               </section>
-              </>
-              )}
             </>
           )}
         </div>

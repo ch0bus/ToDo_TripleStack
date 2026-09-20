@@ -16,7 +16,7 @@ import {
   getStatusLabel,
 } from "@/lib/labels";
 import { type RecurrenceValue } from "@/lib/recurrence";
-import type { TagOption } from "@/lib/tags";
+import { useHideSystemTags, visibleTagOptions, type TagOption } from "@/lib/tags";
 import { btnPrimary, propertyControlClass } from "@/lib/uiClasses";
 import {
   formatDateStamp,
@@ -72,6 +72,7 @@ export function TodoEditForm({
   children,
 }: TodoEditFormProps) {
   const { pushToast } = useToast();
+  const [hideSystem] = useHideSystemTags();
   const [title, setTitle] = useState(todo.title);
   const [description, setDescription] = useState(todo.description ?? "");
   const [priority, setPriority] = useState(todo.priority);
@@ -170,9 +171,7 @@ export function TodoEditForm({
     }
   }
 
-  const systemTags = tags.filter((t) => t.is_system);
-  const userTags = tags.filter((t) => !t.is_system);
-  const allTags = [...systemTags, ...userTags];
+  const allTags = visibleTagOptions(tags, hideSystem, tagIds);
 
   return (
     <form

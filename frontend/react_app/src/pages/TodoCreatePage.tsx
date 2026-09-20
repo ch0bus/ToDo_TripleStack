@@ -13,8 +13,10 @@ export function TodoCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const backTo = backFromState(location.state);
-  const day = parseDateKey(searchParams.get("day") ?? "") ?? new Date();
-  const defaultDate = toDatetimeLocalValue(defaultDueAtDay(day).toISOString());
+  const day = parseDateKey(searchParams.get("day") ?? "");
+  const defaultEventDate = day
+    ? toDatetimeLocalValue(defaultDueAtDay(day).toISOString())
+    : "";
 
   const [tags, setTags] = useState<TagOption[]>([]);
 
@@ -44,7 +46,7 @@ export function TodoCreatePage() {
           </h1>
           <TodoForm
             tags={tags}
-            defaultEventDate={defaultDate}
+            defaultEventDate={defaultEventDate}
             onCreated={(todo) => {
               const id = (todo as { id?: number }).id;
               if (id) {

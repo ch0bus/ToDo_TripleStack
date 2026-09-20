@@ -131,22 +131,34 @@ export function uniqueEventEntries(entries: EventEntry[]): EventEntry[] {
   return list.sort((a, b) => a.event.start_at.localeCompare(b.event.start_at));
 }
 
-/** Уникальные события месяца: одна строка на событие, первое вхождение в месяце. */
-export function uniqueEventsInMonth(
-  cells: CalendarCell[],
+/** Уникальные события диапазона: одна строка на событие, первое вхождение. */
+export function uniqueEventsInRange(
   byDay: Map<string, EventEntry[]>,
+  rangeFrom: string,
+  rangeTo: string,
 ): EventEntry[] {
   const seen = new Set<number>();
   const list: EventEntry[] = [];
-  for (const cell of cells) {
-    if (!cell.inMonth) continue;
-    for (const entry of uniqueEventEntries(byDay.get(cell.key) ?? [])) {
+  const keys = [...byDay.keys()].sort();
+  for (const key of keys) {
+    if (key < rangeFrom || key > rangeTo) continue;
+    for (const entry of uniqueEventEntries(byDay.get(key) ?? [])) {
       if (seen.has(entry.event.id)) continue;
       seen.add(entry.event.id);
       list.push(entry);
     }
   }
   return list;
+}
+
+/** Уникальные события месяца: одна строка на событие, первое вхождение в месяце. */
+export function uniqueEventsInMonth(
+  cells: CalendarCell[],
+  byDay: Map<string, EventEntry[]>,
+): EventEntry[] {
+  const inMonth = cells.filter((cell) => cell.inMonth);
+  if (!inMonth.length) return [];
+  return uniqueEventsInRange(byDay, inMonth[0].key, inMonth[inMonth.length - 1].key);
 }
 
 export const EVENT_SORTS = ["start", "new", "title"] as const;

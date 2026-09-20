@@ -208,22 +208,34 @@ export function sortCalendarEntries(entries: CalendarEntry[]): CalendarEntry[] {
   });
 }
 
-/** Уникальные задачи, которые попадают на дни выбранного месяца (срок или повтор). */
-export function uniqueTodosInMonth(
-  cells: CalendarCell[],
+/** Уникальные задачи, которые попадают на дни диапазона (якорь или повтор). */
+export function uniqueTodosInRange(
   byDay: Map<string, CalendarEntry[]>,
+  rangeFrom: string,
+  rangeTo: string,
 ): TodoRow[] {
   const seen = new Set<number>();
   const list: TodoRow[] = [];
-  for (const cell of cells) {
-    if (!cell.inMonth) continue;
-    for (const entry of byDay.get(cell.key) ?? []) {
+  const keys = [...byDay.keys()].sort();
+  for (const key of keys) {
+    if (key < rangeFrom || key > rangeTo) continue;
+    for (const entry of byDay.get(key) ?? []) {
       if (seen.has(entry.todo.id)) continue;
       seen.add(entry.todo.id);
       list.push(entry.todo);
     }
   }
   return list;
+}
+
+/** Уникальные задачи, которые попадают на дни выбранного месяца (срок или повтор). */
+export function uniqueTodosInMonth(
+  cells: CalendarCell[],
+  byDay: Map<string, CalendarEntry[]>,
+): TodoRow[] {
+  const inMonth = cells.filter((cell) => cell.inMonth);
+  if (!inMonth.length) return [];
+  return uniqueTodosInRange(byDay, inMonth[0].key, inMonth[inMonth.length - 1].key);
 }
 
 export function formatMonthTitle(date: Date): string {

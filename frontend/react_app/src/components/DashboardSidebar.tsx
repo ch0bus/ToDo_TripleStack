@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import type { TagOption } from "@/lib/tags";
+import { useHideSystemTags, type TagOption } from "@/lib/tags";
 import { cardClass } from "@/lib/uiClasses";
 
 interface DashboardSidebarProps {
@@ -53,11 +53,14 @@ export function DashboardSidebar({
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [hideSystem] = useHideSystemTags();
   const onInbox = location.pathname === "/";
 
   const activeTag = searchParams.get("tag") ?? "";
 
-  const systemTags = tags.filter((t) => t.is_system);
+  const systemTags = tags.filter(
+    (t) => t.is_system && (!hideSystem || String(t.id) === activeTag),
+  );
   const userTags = tags.filter((t) => !t.is_system);
 
   function setParams(updater: (p: URLSearchParams) => void) {
@@ -114,14 +117,27 @@ export function DashboardSidebar({
           </li>
         </ul>
 
-        <p className="mb-1 px-2 text-[10px] uppercase text-app-subtle">Системные</p>
-        <TagList
-          items={systemTags}
-          activeTag={activeTag}
-          onSelect={selectTag}
-        />
+        {systemTags.length > 0 ? (
+          <>
+            <p className="mb-1 px-2 text-[10px] uppercase text-app-subtle">
+              Системные
+            </p>
+            <TagList
+              items={systemTags}
+              activeTag={activeTag}
+              onSelect={selectTag}
+            />
+          </>
+        ) : null}
 
-        <p className="mb-1 mt-3 px-2 text-[10px] uppercase text-app-subtle">Мои</p>
+        <p
+          className={
+            "mb-1 px-2 text-[10px] uppercase text-app-subtle" +
+            (systemTags.length > 0 ? " mt-3" : "")
+          }
+        >
+          Мои
+        </p>
         <TagList items={userTags} activeTag={activeTag} onSelect={selectTag} />
 
         <p className="mt-2 px-2 text-[10px] text-app-subtle">

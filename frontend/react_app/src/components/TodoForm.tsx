@@ -13,7 +13,7 @@ import {
   getStatusLabel,
 } from "@/lib/labels";
 import { type RecurrenceValue } from "@/lib/recurrence";
-import type { TagOption } from "@/lib/tags";
+import { useHideSystemTags, visibleTagOptions, type TagOption } from "@/lib/tags";
 import { btnPrimary, propertyControlClass } from "@/lib/uiClasses";
 import {
   formatDueCountdown,
@@ -88,6 +88,7 @@ export function TodoForm({
   defaultDueDate = "",
 }: TodoFormProps) {
   const { pushToast } = useToast();
+  const [hideSystem] = useHideSystemTags();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("low");
@@ -166,10 +167,7 @@ export function TodoForm({
     }
   }
 
-  const allTags = [
-    ...tags.filter((t) => t.is_system),
-    ...tags.filter((t) => !t.is_system),
-  ];
+  const allTags = visibleTagOptions(tags, hideSystem);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

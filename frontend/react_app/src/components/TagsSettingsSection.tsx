@@ -4,7 +4,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { TagCreateForm } from "@/components/TagCreateForm";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import { TAG_KIND_OPTIONS, type TagOption } from "@/lib/tags";
+import { TAG_KIND_OPTIONS, useHideSystemTags, type TagOption } from "@/lib/tags";
 import { cardClass } from "@/lib/uiClasses";
 
 function kindLabel(kind: string): string {
@@ -13,6 +13,7 @@ function kindLabel(kind: string): string {
 
 export function TagsSettingsSection() {
   const { pushToast } = useToast();
+  const [hideSystem, setHideSystem] = useHideSystemTags();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<TagOption | null>(null);
@@ -67,8 +68,8 @@ export function TagsSettingsSection() {
         Теги
       </h2>
       <p className="mb-4 text-xs text-app-subtle">
-        Системные теги общие для всех. Свои теги можно создавать и удалять здесь;
-        они появятся в фильтрах на главной.
+        Системные теги общие для всех. Их можно скрыть в фильтрах и формах —
+        на задачах они останутся. Свои теги создаются и удаляются здесь.
       </p>
 
       {loading ? (
@@ -77,10 +78,38 @@ export function TagsSettingsSection() {
         <>
           <div className="mb-4">
             <h3 className="mb-2 text-xs font-medium text-app-muted">Системные</h3>
+            <label className="mb-3 flex items-start gap-2 text-sm text-app">
+              <input
+                type="checkbox"
+                checked={hideSystem}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setHideSystem(next);
+                  pushToast(
+                    next
+                      ? "Системные теги скрыты в меню и формах"
+                      : "Системные теги снова видны",
+                    "info",
+                  );
+                }}
+                className="mt-0.5 rounded border-app"
+              />
+              <span>
+                Скрыть в меню и формах
+                <span className="mt-0.5 block text-xs text-app-subtle">
+                  Список ниже остаётся. Уже назначенные теги на задачах не
+                  снимаются.
+                </span>
+              </span>
+            </label>
             {systemTags.length === 0 ? (
               <p className="text-xs text-app-subtle">Нет данных</p>
             ) : (
-              <ul className="space-y-1 text-sm text-app">
+              <ul
+                className={
+                  "space-y-1 text-sm text-app " + (hideSystem ? "opacity-60" : "")
+                }
+              >
                 {systemTags.map((tag) => (
                   <li
                     key={tag.id}

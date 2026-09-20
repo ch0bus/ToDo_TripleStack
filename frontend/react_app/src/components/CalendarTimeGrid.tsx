@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
-import { toDateKey } from "@/lib/calendar";
+import { toDateKey, type CalendarEntry } from "@/lib/calendar";
 import {
   GRID_HOURS,
   HOUR_HEIGHT,
   allDayEventEntries,
+  allDayTodoEntries,
   blockHeight,
   blockTop,
   formatDayColumnLabel,
@@ -24,6 +25,7 @@ interface CalendarTimeGridProps {
   today: Date;
   selectedKey: string;
   eventsByDay: Map<string, EventEntry[]>;
+  todosByDay: Map<string, CalendarEntry[]>;
   notesByDay: Map<string, DayNote>;
   shiftsByDay: Map<string, DayShiftMarks>;
   shiftLayers: ShiftLayer[];
@@ -45,6 +47,7 @@ export function CalendarTimeGrid({
   today,
   selectedKey,
   eventsByDay,
+  todosByDay,
   notesByDay,
   shiftsByDay,
   shiftLayers,
@@ -115,6 +118,7 @@ export function CalendarTimeGrid({
               {days.map((date) => {
                 const key = toDateKey(date);
                 const allDay = allDayEventEntries(eventsByDay.get(key) ?? []);
+                const allDayTodos = allDayTodoEntries(todosByDay.get(key) ?? []);
                 const note = notesByDay.get(key);
                 const marks = shiftsByDay.get(key);
                 return (
@@ -163,6 +167,16 @@ export function CalendarTimeGrid({
                         {entry.event.title}
                       </Link>
                     ))}
+                    {allDayTodos.map((entry) => (
+                      <Link
+                        key={`todo-${entry.todo.id}-${entry.dateKey}`}
+                        to={`/todos/${entry.todo.id}`}
+                        state={{ from }}
+                        className="truncate rounded bg-[var(--app-accent)] px-1.5 py-0.5 text-[11px] text-white"
+                      >
+                        {entry.todo.title}
+                      </Link>
+                    ))}
                   </div>
                 );
               })}
@@ -187,7 +201,11 @@ export function CalendarTimeGrid({
             {days.map((date) => {
               const key = toDateKey(date);
               const blocks = layoutTimedBlocks(
-                timedBlocksForDay(eventsByDay.get(key) ?? [], key),
+                timedBlocksForDay(
+                  eventsByDay.get(key) ?? [],
+                  todosByDay.get(key) ?? [],
+                  key,
+                ),
               );
               const isToday = key === todayKey;
               const nowMin = minutesFromMidnight(now);
@@ -206,25 +224,24 @@ export function CalendarTimeGrid({
                   ))}
                   {blocks.map((block) => {
                     const width = 100 / block.colCount;
-                    const color = block.entry.event.color;
                     return (
                       <Link
-                        key={`${block.entry.event.id}-${block.entry.occurrenceStartKey}-${block.startMin}`}
-                        to={eventPath(block.entry.event.id)}
+                        key={block.key}
+                        to={block.to}
                         state={{ from }}
-                        title={block.entry.event.title}
+                        title={block.title}
                         className="absolute overflow-hidden rounded-md px-1.5 py-0.5 text-[11px] leading-snug shadow-sm"
                         style={{
                           top: blockTop(block.startMin),
                           height: blockHeight(block.startMin, block.endMin),
                           left: `calc(${block.col * width}% + 2px)`,
                           width: `calc(${width}% - 4px)`,
-                          backgroundColor: color,
-                          color: contrastText(color),
+                          backgroundColor: block.color,
+                          color: contrastText(block.color),
                         }}
                       >
                         <span className="line-clamp-2 font-medium">
-                          {block.entry.event.title}
+                          {block.title}
                         </span>
                       </Link>
                     );
