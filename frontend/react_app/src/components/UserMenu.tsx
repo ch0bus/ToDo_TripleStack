@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { apiFetch } from "@/lib/api";
-import { clearTokens } from "@/lib/auth";
+import { logoutKeepLock } from "@/lib/appLock";
 
 function ProfileIcon() {
   return (
@@ -69,7 +69,7 @@ export function UserMenu() {
 
   function handleLogout() {
     setOpen(false);
-    clearTokens();
+    logoutKeepLock();
     navigate("/login");
   }
 

@@ -3,10 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { SettingsSkeleton } from "@/components/skeletons/SettingsSkeleton";
 import { TagsSettingsSection } from "@/components/TagsSettingsSection";
+import { QuickUnlockSettings } from "@/components/QuickUnlockSettings";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import { clearTokens } from "@/lib/auth";
+import { logoutKeepLock } from "@/lib/appLock";
 import {
   defaultApiBaseHint,
   getApiBaseOverride,
@@ -112,7 +113,7 @@ export function SettingsPage() {
   }
 
   function handleLogout() {
-    clearTokens();
+    logoutKeepLock();
     navigate("/login");
   }
 
@@ -223,6 +224,8 @@ export function SettingsPage() {
       </section>
 
       <TagsSettingsSection />
+
+      {profile ? <QuickUnlockSettings username={profile.username} /> : null}
 
       <section className={"mb-8 p-5 " + cardClass}>
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">

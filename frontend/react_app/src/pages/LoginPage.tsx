@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { AuthLayout } from "@/layouts/AuthLayout";
+import { bindLockToLogin, markSessionUnlocked } from "@/lib/appLock";
 import { apiBaseUrl, setTokens } from "@/lib/auth";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
@@ -33,7 +34,9 @@ export function LoginPage() {
       }
 
       const data = (await res.json()) as { access: string; refresh: string };
-      setTokens(data.access, data.refresh);
+      setTokens(data.access, data.refresh, username);
+      bindLockToLogin(username);
+      markSessionUnlocked();
       navigate("/");
     } catch (e) {
       console.error(e);
