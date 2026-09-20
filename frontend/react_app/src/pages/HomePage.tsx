@@ -12,9 +12,16 @@ import { SortBar } from "@/components/SortBar";
 import { StatsCards } from "@/components/StatsCards";
 import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
+import { WeekDayStrip } from "@/components/WeekDayStrip";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
-import { toDateKey } from "@/lib/calendar";
+import {
+  addDays,
+  formatInboxDayTitle,
+  parseDateKey,
+  startOfWeek,
+  toDateKey,
+} from "@/lib/calendar";
 import type { DayNote } from "@/lib/dayNotes";
 import {
   groupEventsForRange,
@@ -22,7 +29,12 @@ import {
   type CalendarEvent,
 } from "@/lib/events";
 import { locationFrom, newTodoPath } from "@/lib/nav";
-import { groupInboxTodos, hasActiveFilters } from "@/lib/todoFilters";
+import {
+  groupInboxTodos,
+  hasActiveFilters,
+  inboxBusyDayKeys,
+  inboxTodosForDay,
+} from "@/lib/todoFilters";
 import { parseTodoSort, sortTodos } from "@/lib/todoSort";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
@@ -111,9 +123,15 @@ export function HomePage() {
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [todayNote, setTodayNote] = useState<DayNote | null>(null);
+  const [dayNote, setDayNote] = useState<DayNote | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const todayKey = useMemo(() => toDateKey(new Date()), []);
+  const today = useMemo(() => new Date(), []);
+  const todayKey = toDateKey(today);
+  const selectedDate = useMemo(() => {
+    return parseDateKey(searchParams.get("day") ?? "") ?? today;
+  }, [searchParams, today]);
+  const selectedKey = toDateKey(selectedDate);
+  const selectedIsToday = selectedKey === todayKey;
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(
     () => searchParams.get("search") ?? "",
@@ -170,18 +188,19 @@ export function HomePage() {
 
   useEffect(() => {
     if (!hasToken) return;
+    setDayNote(null);
     let cancelled = false;
-    async function loadTodayNote() {
-      const res = await apiFetch(`/day-notes/?from=${todayKey}&to=${todayKey}`);
+    async function loadDayNote() {
+      const res = await apiFetch(`/day-notes/?from=${selectedKey}&to=${selectedKey}`);
       if (!res.ok || cancelled) return;
       const notes = (await res.json()) as DayNote[];
-      if (!cancelled) setTodayNote(notes[0] ?? null);
+      if (!cancelled) setDayNote(notes[0] ?? null);
     }
-    void loadTodayNote();
+    void loadDayNote();
     return () => {
       cancelled = true;
     };
-  }, [hasToken, todayKey, location.pathname]);
+  }, [hasToken, selectedKey, location.pathname]);
 
   useEffect(() => {
     if (!hasToken) return;
@@ -244,15 +263,43 @@ export function HomePage() {
   });
 
   const grouped = useMemo(() => groupInboxTodos(todos), [todos]);
+  const dayTodos = useMemo(
+    () => inboxTodosForDay(todos, selectedDate),
+    [todos, selectedDate],
+  );
   const restSort = parseTodoSort(searchParams.get("sort"), "new");
   const restTodos = useMemo(
     () => sortTodos(grouped.rest, restSort),
     [grouped.rest, restSort],
   );
-  const todayEvents = useMemo(() => {
-    const byDay = groupEventsForRange(events, todayKey, todayKey);
-    return uniqueEventEntries(byDay.get(todayKey) ?? []);
-  }, [events, todayKey]);
+  const dayEvents = useMemo(() => {
+    const byDay = groupEventsForRange(events, selectedKey, selectedKey);
+    return uniqueEventEntries(byDay.get(selectedKey) ?? []);
+  }, [events, selectedKey]);
+  const weekStart = startOfWeek(selectedDate);
+  const weekFrom = toDateKey(weekStart);
+  const weekTo = toDateKey(addDays(weekStart, 6));
+  const busyDays = useMemo(() => {
+    const keys = inboxBusyDayKeys(todos, weekFrom, weekTo);
+    const byDay = groupEventsForRange(events, weekFrom, weekTo);
+    for (const [key, list] of byDay) {
+      if (list.length > 0) keys.add(key);
+    }
+    return keys;
+  }, [todos, events, weekFrom, weekTo]);
+
+  function selectDay(date: Date) {
+    const key = toDateKey(date);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (key === todayKey) next.delete("day");
+        else next.set("day", key);
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   async function handleTodoUpdated(updated: TodoRow) {
     setTodos((prev) =>
@@ -344,8 +391,8 @@ export function HomePage() {
             <FilterBar />
             <CreateAddMenu
               className="min-w-0 flex-1"
-              day={todayKey}
-              hasNote={Boolean(todayNote)}
+              day={selectedKey}
+              hasNote={Boolean(dayNote)}
               attachDayToTodo={false}
             />
           </div>
@@ -354,26 +401,36 @@ export function HomePage() {
             Показано {todos.length} из {stats.total} задач
           </p>
 
+          <WeekDayStrip
+            selected={selectedDate}
+            today={today}
+            busyDays={busyDays}
+            onSelect={selectDay}
+          />
+
           <div className="space-y-8">
               <InboxSection
                 id="inbox-today"
-                title="Сегодня"
-                todos={grouped.today}
-                count={grouped.today.length + todayEvents.length}
+                title={formatInboxDayTitle(selectedDate, today)}
+                todos={dayTodos}
+                count={dayTodos.length + dayEvents.length}
                 empty={
-                  todayEvents.length > 0
+                  dayEvents.length > 0
                     ? ""
-                    : "На сегодня ничего не запланировано"
+                    : selectedIsToday
+                      ? "На сегодня ничего не запланировано"
+                      : "На этот день ничего не запланировано"
                 }
                 lead={
                   <>
                     <DayNoteEditor
-                      dateKey={todayKey}
-                      note={todayNote ?? undefined}
-                      onChanged={setTodayNote}
+                      key={selectedKey}
+                      dateKey={selectedKey}
+                      note={dayNote ?? undefined}
+                      onChanged={setDayNote}
                     />
                     <EventList
-                      entries={todayEvents}
+                      entries={dayEvents}
                       onDeleted={handleEventDeleted}
                     />
                   </>

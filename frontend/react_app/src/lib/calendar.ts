@@ -56,6 +56,47 @@ export function addYears(date: Date, amount: number): Date {
   return new Date(date.getFullYear() + amount, date.getMonth(), 1);
 }
 
+export function addDays(date: Date, amount: number): Date {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  next.setDate(next.getDate() + amount);
+  return next;
+}
+
+/** Понедельник той недели, где лежит `date`. */
+export function startOfWeek(date: Date): Date {
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const mondayOffset = (start.getDay() + 6) % 7;
+  start.setDate(start.getDate() - mondayOffset);
+  return start;
+}
+
+export function weekDates(weekStart: Date): Date[] {
+  return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+}
+
+export function formatWeekStripLabel(weekStart: Date): string {
+  const weekEnd = addDays(weekStart, 6);
+  const sameMonth =
+    weekStart.getMonth() === weekEnd.getMonth() &&
+    weekStart.getFullYear() === weekEnd.getFullYear();
+  if (sameMonth) return formatMonthTitle(weekStart);
+  const left = MONTH_LABELS_SHORT[weekStart.getMonth()].toLowerCase();
+  const right = MONTH_LABELS_SHORT[weekEnd.getMonth()].toLowerCase();
+  if (weekStart.getFullYear() === weekEnd.getFullYear()) {
+    return `${left}–${right} ${weekStart.getFullYear()}`;
+  }
+  return `${left} ${weekStart.getFullYear()}–${right} ${weekEnd.getFullYear()}`;
+}
+
+export function formatInboxDayTitle(date: Date, today = new Date()): string {
+  if (toDateKey(date) === toDateKey(today)) return "Сегодня";
+  return date.toLocaleDateString("ru-RU", {
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+  });
+}
+
 export function dueDateKey(iso: string): string | null {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return null;
