@@ -40,8 +40,8 @@ export function ShiftDaySummary({
   totals: Array<{ layer: ShiftLayer; totals: ShiftTotals }>;
   periodLabel: (layer: ShiftLayer) => string;
   calendarId?: number | null;
-  painting: boolean;
-  onTogglePaint: () => void;
+  painting?: boolean;
+  onTogglePaint?: () => void;
 }) {
   const location = useLocation();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -133,6 +133,7 @@ export function ShiftDaySummary({
                 Типы, слои и шаблон цикла
               </span>
             </Link>
+            {onTogglePaint ? (
             <button
               type="button"
               role="menuitem"
@@ -149,6 +150,7 @@ export function ShiftDaySummary({
                 {painting ? "Убрать кисть с календаря" : "Кисть сразу под календарём"}
               </span>
             </button>
+            ) : null}
           </div>
         )}
       </div>

@@ -26,6 +26,7 @@ function parseYear(raw: string): number | null {
 interface MonthYearPickerProps {
   value: Date;
   mode?: "month" | "year";
+  label?: string;
   onChange: (month: Date) => void;
   onToday: () => void;
 }
@@ -33,6 +34,7 @@ interface MonthYearPickerProps {
 export function MonthYearPicker({
   value,
   mode = "month",
+  label,
   onChange,
   onToday,
 }: MonthYearPickerProps) {
@@ -161,7 +163,8 @@ export function MonthYearPicker({
           className="flex max-w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-lg font-semibold text-app hover:bg-app-surface-muted sm:text-xl"
         >
           <span className="truncate">
-            {mode === "year" ? formatYearTitle(value) : formatMonthTitle(value)}
+            {label ??
+              (mode === "year" ? formatYearTitle(value) : formatMonthTitle(value))}
           </span>
           <svg
             xmlns="http://www.w3.org/2000/svg"

@@ -4,6 +4,21 @@ import { calendarAnchorIso } from "@/lib/utils";
 
 export const WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"] as const;
 
+export const CALENDAR_VIEWS = ["day", "week", "month", "year"] as const;
+export type CalendarView = (typeof CALENDAR_VIEWS)[number];
+
+export const CALENDAR_VIEW_OPTIONS: { id: CalendarView; label: string }[] = [
+  { id: "day", label: "День" },
+  { id: "week", label: "Неделя" },
+  { id: "month", label: "Месяц" },
+  { id: "year", label: "Год" },
+];
+
+export function parseCalendarView(value: string | null | undefined): CalendarView {
+  if (value === "day" || value === "week" || value === "year") return value;
+  return "month";
+}
+
 export const MONTH_LABELS_SHORT = [
   "Янв",
   "Фев",
@@ -219,6 +234,22 @@ export function formatMonthTitle(date: Date): string {
 export function formatMonthName(date: Date): string {
   const raw = date.toLocaleDateString("ru-RU", { month: "long" });
   return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+export function formatWeekRangeTitle(weekStart: Date): string {
+  const weekEnd = addDays(weekStart, 6);
+  const y1 = weekStart.getFullYear();
+  const y2 = weekEnd.getFullYear();
+  if (
+    weekStart.getMonth() === weekEnd.getMonth() &&
+    y1 === y2
+  ) {
+    return `${weekStart.getDate()}–${weekEnd.getDate()} ${formatMonthName(weekStart).toLowerCase()} ${y1}`;
+  }
+  const left = `${weekStart.getDate()} ${MONTH_LABELS_SHORT[weekStart.getMonth()].toLowerCase()}`;
+  const right = `${weekEnd.getDate()} ${MONTH_LABELS_SHORT[weekEnd.getMonth()].toLowerCase()}`;
+  if (y1 === y2) return `${left} – ${right} ${y1}`;
+  return `${left} ${y1} – ${right} ${y2}`;
 }
 
 export function formatYearTitle(date: Date): string {

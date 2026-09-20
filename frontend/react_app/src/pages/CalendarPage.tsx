@@ -3,6 +3,8 @@ import { Navigate, useLocation, useNavigate, useSearchParams } from "react-route
 
 import { TodayHalo } from "@/components/CalendarNoteMarks";
 import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
+import { CalendarTimeGrid } from "@/components/CalendarTimeGrid";
+import { CalendarViewSwitch } from "@/components/CalendarViewSwitch";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
@@ -24,21 +26,27 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import {
   WEEKDAY_LABELS,
+  addDays,
   addMonths,
   addYears,
   buildMonthGrid,
   formatDayTitle,
   formatMonthName,
   formatMonthTitle,
+  formatWeekRangeTitle,
   groupTodosForMonth,
+  parseCalendarView,
   parseDateKey,
   parseMonthKey,
   sortCalendarEntries,
+  startOfWeek,
   uniqueTodosInMonth,
   type CalendarEntry,
+  type CalendarView,
   startOfMonth,
   toDateKey,
   toMonthKey,
+  weekDates,
 } from "@/lib/calendar";
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
@@ -108,7 +116,7 @@ export function CalendarPage() {
     return parseMonthKey(searchParams.get("month") ?? "") ?? startOfMonth(today);
   }, [searchParams, today]);
 
-  const calendarView = searchParams.get("view") === "year" ? "year" : "month";
+  const calendarView = parseCalendarView(searchParams.get("view"));
   const calendarIdFromUrl = Number(searchParams.get("calendar") ?? "");
   const selectedShiftCalendar =
     shiftCalendars.find((row) => row.id === calendarIdFromUrl) ??
@@ -127,12 +135,31 @@ export function CalendarPage() {
   }, [searchParams, month, today, calendarView]);
 
   const cells = useMemo(() => buildMonthGrid(month, today), [month, today]);
+  const weekStart = useMemo(() => startOfWeek(selectedDay), [selectedDay]);
+  const weekDays = useMemo(() => weekDates(weekStart), [weekStart]);
   const rangeFrom = cells[0]?.key;
   const rangeTo = cells[cells.length - 1]?.key;
   const yearFrom = `${month.getFullYear()}-01-01`;
   const yearTo = `${month.getFullYear()}-12-31`;
-  const queryFrom = calendarView === "year" ? yearFrom : rangeFrom;
-  const queryTo = calendarView === "year" ? yearTo : rangeTo;
+  const weekFrom = toDateKey(weekStart);
+  const weekTo = toDateKey(weekDays[6] ?? weekStart);
+  const dayKey = toDateKey(selectedDay);
+  const queryFrom =
+    calendarView === "year"
+      ? yearFrom
+      : calendarView === "week"
+        ? weekFrom
+        : calendarView === "day"
+          ? dayKey
+          : rangeFrom;
+  const queryTo =
+    calendarView === "year"
+      ? yearTo
+      : calendarView === "week"
+        ? weekTo
+        : calendarView === "day"
+          ? dayKey
+          : rangeTo;
   const byDay = useMemo(() => {
     if (!queryFrom || !queryTo) return new Map<string, CalendarEntry[]>();
     return groupTodosForMonth(todos, queryFrom, queryTo);
@@ -214,6 +241,22 @@ export function CalendarPage() {
         totals: summarizeShiftDays(shiftDays, yearFrom, yearTo, layer.id),
       })),
     [shiftLayers, shiftDays, yearFrom, yearTo],
+  );
+  const weekLayerTotals = useMemo(
+    () =>
+      shiftLayers.map((layer) => ({
+        layer,
+        totals: summarizeShiftDays(shiftDays, weekFrom, weekTo, layer.id),
+      })),
+    [shiftLayers, shiftDays, weekFrom, weekTo],
+  );
+  const dayLayerTotals = useMemo(
+    () =>
+      shiftLayers.map((layer) => ({
+        layer,
+        totals: summarizeShiftDays(shiftDays, dayKey, dayKey, layer.id),
+      })),
+    [shiftLayers, shiftDays, dayKey],
   );
 
   const loadCalendars = useCallback(async () => {
@@ -297,6 +340,12 @@ export function CalendarPage() {
   }, [loadNotes]);
 
   useEffect(() => {
+    if (calendarView === "month") return;
+    setShowPaint(false);
+    setPaint({ type: "select" });
+  }, [calendarView]);
+
+  useEffect(() => {
     if (!shiftCalendars.length) return;
     if (shiftCalendars.some((row) => row.id === calendarIdFromUrl)) return;
     setSearchParams(
@@ -317,6 +366,11 @@ export function CalendarPage() {
     });
   }
 
+  function writeView(params: URLSearchParams, view: CalendarView) {
+    if (view === "month") params.delete("view");
+    else params.set("view", view);
+  }
+
   function setMonth(next: Date) {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
@@ -329,11 +383,12 @@ export function CalendarPage() {
     });
   }
 
-  function setCalendarView(next: "month" | "year") {
+  function setCalendarView(next: CalendarView) {
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
-      if (next === "year") params.set("view", "year");
-      else params.delete("view");
+      writeView(params, next);
+      if (!params.get("day")) params.set("day", toDateKey(selectedDay));
+      params.set("month", toMonthKey(selectedDay));
       return params;
     });
   }
@@ -343,7 +398,7 @@ export function CalendarPage() {
       const params = new URLSearchParams(prev);
       params.set("month", toMonthKey(today));
       params.set("day", toDateKey(today));
-      params.delete("view");
+      writeView(params, calendarView);
       return params;
     });
   }
@@ -363,9 +418,25 @@ export function CalendarPage() {
       const params = new URLSearchParams(prev);
       params.set("month", toMonthKey(date));
       params.set("day", toDateKey(date));
-      if (calendarView === "year") params.set("view", "year");
+      writeView(params, calendarView);
       return params;
     });
+  }
+
+  function shiftPeriod(delta: number) {
+    if (calendarView === "day") {
+      selectDay(addDays(selectedDay, delta));
+      return;
+    }
+    if (calendarView === "week") {
+      selectDay(addDays(selectedDay, delta * 7));
+      return;
+    }
+    if (calendarView === "year") {
+      setMonth(addYears(month, delta));
+      return;
+    }
+    setMonth(addMonths(month, delta));
   }
 
   async function handleDayClick(date: Date) {
@@ -469,21 +540,60 @@ export function CalendarPage() {
       </div>
     ) : null;
 
+  const periodTotals =
+    calendarView === "year"
+      ? yearLayerTotals
+      : calendarView === "week"
+        ? weekLayerTotals
+        : calendarView === "day"
+          ? dayLayerTotals
+          : monthLayerTotals;
+
   const shiftSummary = (
     <ShiftDaySummary
       layers={shiftLayers}
       marks={selectedMarks}
-      totals={calendarView === "year" ? yearLayerTotals : monthLayerTotals}
+      totals={periodTotals}
       periodLabel={(layer) =>
         calendarView === "year"
           ? `За ${month.getFullYear()} · ${layer.name}`
-          : `За ${formatMonthName(month).toLowerCase()} · ${layer.name}`
+          : calendarView === "week"
+            ? `За неделю · ${layer.name}`
+            : calendarView === "day"
+              ? `За день · ${layer.name}`
+              : `За ${formatMonthName(month).toLowerCase()} · ${layer.name}`
       }
       calendarId={selectedShiftCalendar?.id}
       painting={showPaint}
-      onTogglePaint={handleTogglePaint}
+      onTogglePaint={
+        calendarView === "month" ? handleTogglePaint : undefined
+      }
     />
   );
+
+  const pickerLabel =
+    calendarView === "day"
+      ? formatDayTitle(selectedDay)
+      : calendarView === "week"
+        ? formatWeekRangeTitle(weekStart)
+        : undefined;
+
+  const periodAria =
+    calendarView === "day"
+      ? "Предыдущий день"
+      : calendarView === "week"
+        ? "Предыдущая неделя"
+        : calendarView === "year"
+          ? "Предыдущий год"
+          : "Предыдущий месяц";
+  const periodAriaNext =
+    calendarView === "day"
+      ? "Следующий день"
+      : calendarView === "week"
+        ? "Следующая неделя"
+        : calendarView === "year"
+          ? "Следующий год"
+          : "Следующий месяц";
 
   if (!hasToken) {
     return <Navigate to="/login" replace />;
@@ -525,65 +635,34 @@ export function CalendarPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-                <div />
-                <div className="flex items-center justify-center gap-1 sm:gap-2">
+              <CalendarViewSwitch
+                value={calendarView}
+                onChange={setCalendarView}
+              />
+              <div className="flex items-center justify-center gap-1 sm:gap-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      setMonth(
-                        calendarView === "year"
-                          ? addYears(month, -1)
-                          : addMonths(month, -1),
-                      )
-                    }
+                    onClick={() => shiftPeriod(-1)}
                     className="shrink-0 rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
-                    aria-label={
-                      calendarView === "year"
-                        ? "Предыдущий год"
-                        : "Предыдущий месяц"
-                    }
+                    aria-label={periodAria}
                   >
                     ←
                   </button>
                   <MonthYearPicker
                     value={month}
-                    mode={calendarView}
+                    mode={calendarView === "year" ? "year" : "month"}
+                    label={pickerLabel}
                     onChange={setMonth}
                     onToday={handleToday}
                   />
                   <button
                     type="button"
-                    onClick={() =>
-                      setMonth(
-                        calendarView === "year"
-                          ? addYears(month, 1)
-                          : addMonths(month, 1),
-                      )
-                    }
+                    onClick={() => shiftPeriod(1)}
                     className="shrink-0 rounded-md px-2 py-1 text-app-muted hover:bg-app-surface-muted hover:text-app"
-                    aria-label={
-                      calendarView === "year"
-                        ? "Следующий год"
-                        : "Следующий месяц"
-                    }
+                    aria-label={periodAriaNext}
                   >
                     →
                   </button>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCalendarView(
-                        calendarView === "year" ? "month" : "year",
-                      )
-                    }
-                    className="text-sm text-app-accent hover:underline"
-                  >
-                    {calendarView === "year" ? "Месяц" : "Год"}
-                  </button>
-                </div>
               </div>
               </div>
 
@@ -600,7 +679,6 @@ export function CalendarPage() {
                   onSelectMonth={handleYearMonth}
                   onSelectDay={(date) => void handleDayClick(date)}
                 />
-                {paintBar}
                 <section className="space-y-3">
                   <h2 className="text-lg font-semibold capitalize text-app">
                     {formatDayTitle(selectedDay)}
@@ -614,6 +692,64 @@ export function CalendarPage() {
                     />
                   )}
                 </section>
+                </>
+              ) : calendarView === "day" || calendarView === "week" ? (
+                <>
+                  <CalendarTimeGrid
+                    days={calendarView === "day" ? [selectedDay] : weekDays}
+                    today={today}
+                    selectedKey={selectedKey}
+                    eventsByDay={eventsByDay}
+                    notesByDay={notesByDay}
+                    shiftsByDay={shiftsByDay}
+                    shiftLayers={shiftLayers}
+                    onSelectDay={selectDay}
+                  />
+                  <section className="min-w-0 space-y-3">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h2 className="text-lg font-semibold capitalize text-app">
+                        {formatDayTitle(selectedDay)}
+                      </h2>
+                      <p className="text-sm text-app-subtle">
+                        {[
+                          selectedEventEntries.length
+                            ? `${selectedEventEntries.length} ${pluralRu(selectedEventEntries.length, "событие", "события", "событий")}`
+                            : "",
+                          selectedRealCount ? `${selectedRealCount} задач` : "",
+                          selectedRepeatCount
+                            ? `${selectedRepeatCount} ${pluralRu(selectedRepeatCount, "повтор", "повтора", "повторов")}`
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || "Нет событий и задач в этот день"}
+                      </p>
+                    </div>
+                    {shiftSummary}
+                    <DayNoteEditor
+                      dateKey={selectedKey}
+                      note={selectedNote}
+                      onChanged={handleNoteChanged}
+                    />
+                    {selectedEntries.length > 0 ? (
+                      <ul className="space-y-3">
+                        {selectedEntries.map((entry) =>
+                          entry.virtual ? (
+                            <CalendarOccurrenceRow
+                              key={`${entry.todo.id}-${entry.dateKey}`}
+                              todo={entry.todo}
+                            />
+                          ) : (
+                            <TodoItem
+                              key={entry.todo.id}
+                              todo={entry.todo}
+                              onUpdated={handleTodoUpdated}
+                              onDeleted={handleTodoDeleted}
+                            />
+                          ),
+                        )}
+                      </ul>
+                    ) : null}
+                  </section>
                 </>
               ) : (
               <>
