@@ -167,6 +167,10 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | telegram_username | string 64 | |
 | linked_at | datetime, NULL | |
 | update_offset | bigint | offset getUpdates этого бота |
+| pending_step | string 16 | черновик: `title` / `date` (задача), `etitle` / `edate` (встреча), `ntitle` / `ndate` (заметка), иначе пусто |
+| pending_title | string 255 | название новой задачи в визарде |
+| pending_body | text | описание из следующих строк |
+| pending_month | date, NULL | месяц сетки «Выбрать день» |
 | updated_at | datetime | |
 
 ## telegram_deliveries

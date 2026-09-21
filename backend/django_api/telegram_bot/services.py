@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import re
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
@@ -10,17 +10,34 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from todos.models import Event, Status, Todo
+from todos.models import DayNote, Event, Status, Todo
 
 from .client import (
     TelegramAPIError,
     answer_callback,
     call_telegram,
-    done_keyboard,
+    edit_message,
     fetch_bot_identity,
     send_message,
 )
 from .constants import ALLOWED_TIMEZONES
+from .keyboards import (
+    BTN_NEW,
+    BTN_NEW_EVENT,
+    BTN_NEW_NOTE,
+    BTN_OVERDUE,
+    BTN_TODAY,
+    BTN_TOMORROW,
+    MENU_BUTTONS,
+    date_choice_keyboard,
+    done_keyboard,
+    menu_keyboard,
+    month_keyboard,
+    parse_iso_day,
+    remove_keyboard,
+    shift_month,
+    todos_done_keyboard,
+)
 from .models import TelegramBot, TelegramDelivery
 
 logger = logging.getLogger(__name__)
@@ -28,6 +45,15 @@ logger = logging.getLogger(__name__)
 START_RE = re.compile(r"^/start(?:@\S+)?(?:\s+\S+)?\s*$", re.IGNORECASE)
 COMMAND_RE = re.compile(r"^/(\w+)(?:@\S+)?(?:\s|$)", re.IGNORECASE)
 TOKEN_RE = re.compile(r"^\d{5,}:[A-Za-z0-9_-]{20,}$")
+PENDING_TITLE = "title"
+PENDING_DATE = "date"
+PENDING_EVENT_TITLE = "etitle"
+PENDING_EVENT_DATE = "edate"
+PENDING_NOTE_TITLE = "ntitle"
+PENDING_NOTE_DATE = "ndate"
+TITLE_STEPS = frozenset({PENDING_TITLE, PENDING_EVENT_TITLE, PENDING_NOTE_TITLE})
+DATE_STEPS = frozenset({PENDING_DATE, PENDING_EVENT_DATE, PENDING_NOTE_DATE})
+NOTE_MAX = 2000
 MONTHS_RU = (
     "января",
     "февраля",
@@ -45,13 +71,20 @@ MONTHS_RU = (
 HELP_TEXT = (
     "Haloday — личный планер.\n\n"
     "Напишите задачу — она появится на сегодня.\n"
-    "/today — задачи и события дня\n"
+    "«Новая задача» — сначала выбрать дату на календаре.\n"
+    "«Новое событие» — встреча на весь день, тоже с датой.\n"
+    "«Новая заметка» — текст заметки дня и дата.\n"
+    "Кнопки внизу: Сегодня, Завтра, Просрочено.\n"
     "/stop — отвязать этот чат"
 )
 BUSY_HINT = "Этот бот уже привязан к другому чату."
 START_HINT = (
     "Напишите /start в личном чате с ботом, чтобы получать задачи сюда."
 )
+ASK_TITLE = "Напишите название задачи."
+ASK_EVENT_TITLE = "Напишите название события."
+ASK_NOTE_TEXT = "Напишите текст заметки."
+ASK_DATE_HINT = "Выберите дату кнопками ниже или нажмите Сегодня, чтобы отменить."
 
 
 def hash_bot_token(raw: str) -> str:
@@ -170,13 +203,65 @@ def overdue_todos(user, day, bot: TelegramBot | None = None):
 
 
 def format_today(user, bot: TelegramBot | None = None) -> str:
+    text, _todos = plan_today(user, bot)
+    return text
+
+
+def plan_today(user, bot: TelegramBot | None = None):
     bot = bot or getattr(user, "telegram_bot", None)
     day = local_today(bot)
-    title = f"Сегодня, {_format_day(day)}"
+    return build_day_plan(
+        user,
+        bot,
+        day,
+        heading=f"Сегодня, {_format_day(day)}",
+        with_overdue=True,
+        empty="На сегодня ничего не запланировано.",
+    )
+
+
+def plan_tomorrow(user, bot: TelegramBot | None = None):
+    bot = bot or getattr(user, "telegram_bot", None)
+    day = local_today(bot) + timedelta(days=1)
+    return build_day_plan(
+        user,
+        bot,
+        day,
+        heading=f"Завтра, {_format_day(day)}",
+        with_overdue=False,
+        empty="На завтра ничего не запланировано.",
+    )
+
+
+def plan_overdue(user, bot: TelegramBot | None = None):
+    bot = bot or getattr(user, "telegram_bot", None)
+    overdue = overdue_todos(user, local_today(bot), bot)
+    if not overdue:
+        return "Просроченных задач нет.", []
+    text = "Просрочено:\n" + "\n".join(_todo_line(todo, bot) for todo in overdue)
+    return text, overdue
+
+
+def note_for_day(user, day):
+    return DayNote.objects.filter(user=user, date=day).first()
+
+
+def build_day_plan(
+    user,
+    bot: TelegramBot | None,
+    day,
+    *,
+    heading: str,
+    with_overdue: bool,
+    empty: str,
+):
     todos = todos_for_day(user, day, bot)
     events = events_for_day(user, day, bot)
-    overdue = overdue_todos(user, day, bot)
-    blocks = [title]
+    overdue = overdue_todos(user, day, bot) if with_overdue else []
+    note = note_for_day(user, day)
+    blocks = [heading]
+    if note:
+        blocks.append("Заметка:\n" + note.text)
     if todos:
         blocks.append("Задачи:\n" + "\n".join(_todo_line(t, bot) for t in todos))
     if events:
@@ -184,8 +269,130 @@ def format_today(user, bot: TelegramBot | None = None) -> str:
     if overdue:
         blocks.append("Просрочено:\n" + "\n".join(_todo_line(t, bot) for t in overdue))
     if len(blocks) == 1:
-        blocks.append("На сегодня ничего не запланировано.")
-    return "\n\n".join(blocks)
+        blocks.append(empty)
+    return "\n\n".join(blocks), _unique_todos(todos, overdue)
+
+
+def _unique_todos(*groups):
+    seen: set[int] = set()
+    result = []
+    for group in groups:
+        for todo in group:
+            if todo.id in seen:
+                continue
+            seen.add(todo.id)
+            result.append(todo)
+    return result
+
+
+def human_day(day, bot: TelegramBot | None = None) -> str:
+    today = local_today(bot)
+    if day == today:
+        return "сегодня"
+    if day == today + timedelta(days=1):
+        return "завтра"
+    return _format_day(day)
+
+
+def event_at_on(day, bot: TelegramBot | None):
+    start, _ = day_bounds(day, bot)
+    return start.replace(hour=9, minute=0)
+
+
+def pending_fields():
+    return [
+        "pending_step",
+        "pending_title",
+        "pending_body",
+        "pending_month",
+        "updated_at",
+    ]
+
+
+def clear_pending(bot: TelegramBot) -> None:
+    if (
+        not bot.pending_step
+        and not bot.pending_title
+        and not bot.pending_body
+        and bot.pending_month is None
+    ):
+        return
+    bot.pending_step = ""
+    bot.pending_title = ""
+    bot.pending_body = ""
+    bot.pending_month = None
+    bot.save(update_fields=pending_fields())
+
+
+def push_message(
+    bot: TelegramBot,
+    text: str,
+    reply_markup: dict | None = None,
+    chat_id: int | None = None,
+):
+    return send_message(
+        bot.token,
+        bot.chat_id if chat_id is None else chat_id,
+        text,
+        reply_markup=reply_markup,
+    )
+
+
+def send_plan(bot: TelegramBot, text: str, todos) -> None:
+    markup = todos_done_keyboard(todos) or menu_keyboard()
+    push_message(bot, text, markup)
+
+
+def send_today(bot: TelegramBot) -> None:
+    text, todos = plan_today(bot.user, bot)
+    send_plan(bot, text, todos)
+
+
+def send_tomorrow(bot: TelegramBot) -> None:
+    text, todos = plan_tomorrow(bot.user, bot)
+    send_plan(bot, text, todos)
+
+
+def send_overdue(bot: TelegramBot) -> None:
+    text, todos = plan_overdue(bot.user, bot)
+    send_plan(bot, text, todos)
+
+
+def start_wizard(bot: TelegramBot, kind: str) -> None:
+    steps = {
+        "event": PENDING_EVENT_TITLE,
+        "note": PENDING_NOTE_TITLE,
+        "todo": PENDING_TITLE,
+    }
+    prompts = {
+        "event": ASK_EVENT_TITLE,
+        "note": ASK_NOTE_TEXT,
+        "todo": ASK_TITLE,
+    }
+    bot.pending_step = steps[kind]
+    bot.pending_title = ""
+    bot.pending_body = ""
+    bot.pending_month = None
+    bot.save(update_fields=pending_fields())
+    push_message(bot, prompts[kind], menu_keyboard())
+
+
+def ask_date(bot: TelegramBot, kind: str) -> None:
+    dates = {
+        "event": PENDING_EVENT_DATE,
+        "note": PENDING_NOTE_DATE,
+        "todo": PENDING_DATE,
+    }
+    bot.pending_step = dates[kind]
+    bot.pending_month = None
+    bot.save(update_fields=pending_fields())
+    if kind == "event":
+        text = f"Когда событие «{bot.pending_title}»?"
+    elif kind == "note":
+        text = "На какой день сохранить заметку?"
+    else:
+        text = f"Когда «{bot.pending_title}» на календаре?"
+    push_message(bot, text, date_choice_keyboard())
 
 
 def save_user_bot(
@@ -234,6 +441,10 @@ def save_user_bot(
             bot.telegram_username = ""
             bot.linked_at = None
             bot.update_offset = 0
+            bot.pending_step = ""
+            bot.pending_title = ""
+            bot.pending_body = ""
+            bot.pending_month = None
         bot.token = token
         bot.token_hash = digest
         bot.bot_id = bot_id
@@ -254,12 +465,20 @@ def clear_chat(bot: TelegramBot) -> int | None:
     bot.telegram_user_id = None
     bot.telegram_username = ""
     bot.linked_at = None
+    bot.pending_step = ""
+    bot.pending_title = ""
+    bot.pending_body = ""
+    bot.pending_month = None
     bot.save(
         update_fields=[
             "chat_id",
             "telegram_user_id",
             "telegram_username",
             "linked_at",
+            "pending_step",
+            "pending_title",
+            "pending_body",
+            "pending_month",
             "updated_at",
         ]
     )
@@ -313,12 +532,20 @@ def bind_chat(bot: TelegramBot, chat_id: int, telegram_user_id: int, username: s
         bot.telegram_user_id = telegram_user_id
         bot.telegram_username = username
         bot.linked_at = timezone.now()
+        bot.pending_step = ""
+        bot.pending_title = ""
+        bot.pending_body = ""
+        bot.pending_month = None
         bot.save(
             update_fields=[
                 "chat_id",
                 "telegram_user_id",
                 "telegram_username",
                 "linked_at",
+                "pending_step",
+                "pending_title",
+                "pending_body",
+                "pending_month",
                 "updated_at",
             ]
         )
@@ -359,15 +586,16 @@ def handle_update(bot: TelegramBot, update: dict) -> None:
     if START_RE.match(text):
         if bot.chat_id is None:
             bind_chat(bot, chat_id, telegram_user_id, username)
-            send_message(
-                bot.token,
-                chat_id,
+            push_message(
+                bot,
                 "Готово. Этот чат привязан к вашему аккаунту Haloday.\n\n" + HELP_TEXT,
+                menu_keyboard(),
             )
-            send_message(bot.token, chat_id, format_today(bot.user, bot))
+            send_today(bot)
             return
         if bot.chat_id == chat_id:
-            send_message(bot.token, chat_id, HELP_TEXT)
+            clear_pending(bot)
+            push_message(bot, HELP_TEXT, menu_keyboard())
             return
         send_message(bot.token, chat_id, BUSY_HINT)
         return
@@ -379,56 +607,196 @@ def handle_update(bot: TelegramBot, update: dict) -> None:
         send_message(bot.token, chat_id, BUSY_HINT)
         return
 
+    if text in MENU_BUTTONS:
+        handle_menu(bot, text)
+        return
+
     command = COMMAND_RE.match(text)
     if command:
         name = command.group(1).lower()
         if name in {"today", "t"}:
-            send_message(bot.token, chat_id, format_today(bot.user, bot))
+            clear_pending(bot)
+            send_today(bot)
         elif name in {"help", "start"}:
-            send_message(bot.token, chat_id, HELP_TEXT)
+            push_message(bot, HELP_TEXT, menu_keyboard())
         elif name in {"stop", "unlink"}:
+            token = bot.token
             clear_chat(bot)
-            send_message(bot.token, chat_id, "Чат отвязан. Задачи сюда больше не приходят.")
+            send_message(
+                token,
+                chat_id,
+                "Чат отвязан. Задачи сюда больше не приходят.",
+                reply_markup=remove_keyboard(),
+            )
         else:
-            send_message(bot.token, chat_id, HELP_TEXT)
+            push_message(bot, HELP_TEXT, menu_keyboard())
+        return
+
+    if bot.pending_step in TITLE_STEPS:
+        accept_wizard_title(bot, text)
+        return
+    if bot.pending_step in DATE_STEPS:
+        push_message(bot, ASK_DATE_HINT, date_choice_keyboard())
         return
 
     create_todo_from_text(bot, text)
 
 
-def create_todo_from_text(bot: TelegramBot, text: str) -> Todo:
+def handle_menu(bot: TelegramBot, text: str) -> None:
+    if text == BTN_NEW:
+        start_wizard(bot, "todo")
+        return
+    if text == BTN_NEW_EVENT:
+        start_wizard(bot, "event")
+        return
+    if text == BTN_NEW_NOTE:
+        start_wizard(bot, "note")
+        return
+    clear_pending(bot)
+    if text == BTN_TODAY:
+        send_today(bot)
+    elif text == BTN_TOMORROW:
+        send_tomorrow(bot)
+    elif text == BTN_OVERDUE:
+        send_overdue(bot)
+
+
+def accept_wizard_title(bot: TelegramBot, text: str) -> None:
+    if bot.pending_step == PENDING_NOTE_TITLE:
+        note_text = text.strip()[:NOTE_MAX]
+        if not note_text:
+            push_message(bot, ASK_NOTE_TEXT, menu_keyboard())
+            return
+        bot.pending_title = note_text[:255]
+        bot.pending_body = note_text
+        ask_date(bot, "note")
+        return
+    kind = "event" if bot.pending_step == PENDING_EVENT_TITLE else "todo"
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    title = (lines[0] if lines else "")[:255]
+    if not title:
+        prompt = ASK_EVENT_TITLE if kind == "event" else ASK_TITLE
+        push_message(bot, prompt, menu_keyboard())
+        return
+    bot.pending_title = title
+    bot.pending_body = "\n".join(lines[1:])[:NOTE_MAX]
+    ask_date(bot, kind)
+
+
+def split_title_body(text: str) -> tuple[str, str]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     title = (lines[0] if lines else "Задача")[:255]
     description = "\n".join(lines[1:])[:2000]
-    start, _ = day_bounds(local_today(bot), bot)
-    event_at = start.replace(hour=9, minute=0)
+    return title, description
+
+
+def create_todo_on_day(
+    bot: TelegramBot,
+    title: str,
+    description: str,
+    day: date,
+) -> Todo:
     todo = Todo.objects.create(
         user=bot.user,
-        title=title,
+        title=title or "Задача",
         description=description,
-        event_date=event_at,
+        event_date=event_at_on(day, bot),
     )
-    send_message(
-        bot.token,
-        bot.chat_id,
-        f"Задача «{todo.title}» на сегодня.",
-        reply_markup=done_keyboard(todo.id),
+    clear_pending(bot)
+    push_message(
+        bot,
+        f"Задача «{todo.title}» на {human_day(day, bot)}.",
+        done_keyboard(todo.id),
     )
     return todo
 
 
+def create_event_on_day(
+    bot: TelegramBot,
+    title: str,
+    description: str,
+    day: date,
+) -> Event:
+    start, _ = day_bounds(day, bot)
+    event = Event.objects.create(
+        user=bot.user,
+        title=title or "Событие",
+        description=description,
+        start_at=start,
+        all_day=True,
+    )
+    clear_pending(bot)
+    push_message(
+        bot,
+        f"Событие «{event.title}» на {human_day(day, bot)}, весь день.",
+        menu_keyboard(),
+    )
+    return event
+
+
+def create_note_on_day(bot: TelegramBot, text: str, day: date) -> DayNote:
+    note_text = (text or "").strip()[:NOTE_MAX] or "Заметка"
+    existing = DayNote.objects.filter(user=bot.user, date=day).first()
+    if existing:
+        merged = f"{existing.text.rstrip()}\n\n{note_text}".strip()[:NOTE_MAX]
+        existing.text = merged
+        existing.save(update_fields=["text", "updated_at"])
+        note = existing
+        suffix = ", дописана к уже существующей"
+    else:
+        note = DayNote.objects.create(user=bot.user, date=day, text=note_text)
+        suffix = ""
+    clear_pending(bot)
+    push_message(
+        bot,
+        f"Заметка на {human_day(day, bot)}{suffix}.",
+        menu_keyboard(),
+    )
+    return note
+
+
+def finish_wizard_on_day(bot: TelegramBot, day: date) -> None:
+    title = bot.pending_title
+    body = bot.pending_body
+    if bot.pending_step == PENDING_NOTE_DATE:
+        create_note_on_day(bot, body or title, day)
+        return
+    if bot.pending_step == PENDING_EVENT_DATE:
+        create_event_on_day(bot, title, body, day)
+        return
+    create_todo_on_day(bot, title, body, day)
+
+
+def create_todo_from_text(bot: TelegramBot, text: str) -> Todo:
+    title, description = split_title_body(text)
+    return create_todo_on_day(bot, title, description, local_today(bot))
+
+
 def handle_callback(bot: TelegramBot, callback: dict) -> None:
-    data = callback.get("data") or ""
+    data = str(callback.get("data") or "")
     callback_id = str(callback.get("id") or "")
     message = callback.get("message") or {}
     chat = message.get("chat") or {}
     chat_id = int(chat.get("id") or 0)
-    if not data.startswith("d:") or not chat_id:
+    message_id = int(message.get("message_id") or 0)
+    if not chat_id:
         answer_callback(bot.token, callback_id)
         return
     if bot.chat_id != chat_id:
         answer_callback(bot.token, callback_id, "Чат не привязан")
         return
+    if data.startswith("d:"):
+        complete_todo_callback(bot, callback_id, chat_id, data)
+        return
+    if data.startswith("k:"):
+        handle_date_callback(bot, callback_id, chat_id, message_id, data[2:])
+        return
+    answer_callback(bot.token, callback_id)
+
+
+def complete_todo_callback(
+    bot: TelegramBot, callback_id: str, chat_id: int, data: str
+) -> None:
     try:
         todo_id = int(data.split(":", 1)[1])
     except ValueError:
@@ -446,6 +814,63 @@ def handle_callback(bot: TelegramBot, callback: dict) -> None:
     todo.save(update_fields=["status", "completed_at", "updated_at"])
     answer_callback(bot.token, callback_id, "Готово")
     send_message(bot.token, chat_id, f"«{todo.title}» отмечена выполненной.")
+
+
+def handle_date_callback(
+    bot: TelegramBot,
+    callback_id: str,
+    chat_id: int,
+    message_id: int,
+    payload: str,
+) -> None:
+    if payload in {"", "~"}:
+        answer_callback(bot.token, callback_id)
+        return
+    if bot.pending_step not in DATE_STEPS or not bot.pending_title:
+        answer_callback(bot.token, callback_id, "Сначала название")
+        return
+    today = local_today(bot)
+    if payload == "t":
+        answer_callback(bot.token, callback_id, "Сегодня")
+        finish_wizard_on_day(bot, today)
+        return
+    if payload == "m":
+        answer_callback(bot.token, callback_id, "Завтра")
+        finish_wizard_on_day(bot, today + timedelta(days=1))
+        return
+    if payload == "c":
+        answer_callback(bot.token, callback_id)
+        show_calendar(bot, chat_id, message_id, today.replace(day=1))
+        return
+    if payload == "<":
+        answer_callback(bot.token, callback_id)
+        current = bot.pending_month or today.replace(day=1)
+        show_calendar(bot, chat_id, message_id, shift_month(current, -1))
+        return
+    if payload == ">":
+        answer_callback(bot.token, callback_id)
+        current = bot.pending_month or today.replace(day=1)
+        show_calendar(bot, chat_id, message_id, shift_month(current, 1))
+        return
+    picked = parse_iso_day(payload)
+    if picked is None:
+        answer_callback(bot.token, callback_id)
+        return
+    answer_callback(bot.token, callback_id, human_day(picked, bot))
+    finish_wizard_on_day(bot, picked)
+
+
+def show_calendar(
+    bot: TelegramBot, chat_id: int, message_id: int, month: date
+) -> None:
+    first = month.replace(day=1)
+    bot.pending_month = first
+    bot.save(update_fields=["pending_month", "updated_at"])
+    text = f"Выберите день для «{bot.pending_title}»."
+    markup = month_keyboard(first, local_today(bot))
+    edited = edit_message(bot.token, chat_id, message_id, text, markup)
+    if edited is None:
+        send_message(bot.token, chat_id, text, reply_markup=markup)
 
 
 def _claim_delivery(user, kind: str, object_id: int, period_key: str) -> bool:
@@ -532,7 +957,7 @@ def send_morning_digests() -> int:
         day_key = now.date().isoformat()
         if not _claim_delivery(bot.user, TelegramDelivery.KIND_DIGEST, 0, day_key):
             continue
-        send_message(bot.token, bot.chat_id, format_today(bot.user, bot))
+        send_today(bot)
         sent += 1
     return sent
 

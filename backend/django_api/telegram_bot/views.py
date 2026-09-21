@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, inline_serializer
 
 from .client import send_message
+from .keyboards import remove_keyboard
 from .models import TelegramBot
 from .services import (
     delete_user_bot,
@@ -73,7 +74,12 @@ class TelegramBotView(APIView):
         if bot:
             token, chat_id = bot.token, bot.chat_id
             delete_user_bot(request.user)
-            send_message(token, chat_id, "Бот отключён в настройках Haloday.")
+            send_message(
+                token,
+                chat_id,
+                "Бот отключён в настройках Haloday.",
+                reply_markup=remove_keyboard(),
+            )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -84,6 +90,11 @@ class TelegramUnlinkView(APIView):
     def post(self, request):
         bot, chat_id = unlink_user_chat(request.user)
         if bot and chat_id is not None:
-            send_message(bot.token, chat_id, "Чат отвязан в настройках Haloday.")
+            send_message(
+                bot.token,
+                chat_id,
+                "Чат отвязан в настройках Haloday.",
+                reply_markup=remove_keyboard(),
+            )
         bot = TelegramBot.objects.filter(user=request.user).first()
         return Response(status_payload(bot))

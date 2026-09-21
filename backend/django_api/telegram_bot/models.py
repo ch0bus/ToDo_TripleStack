@@ -31,6 +31,10 @@ class TelegramBot(models.Model):
     telegram_username = models.CharField(max_length=64, blank=True)
     linked_at = models.DateTimeField(null=True, blank=True)
     update_offset = models.BigIntegerField(default=0)
+    pending_step = models.CharField(max_length=16, blank=True, default="")
+    pending_title = models.CharField(max_length=255, blank=True, default="")
+    pending_body = models.TextField(blank=True, default="")
+    pending_month = models.DateField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

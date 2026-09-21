@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from telegram_bot.models import TelegramBot, TelegramDelivery
 from telegram_bot.services import format_today, handle_update, hash_bot_token, run_tick
-from todos.models import Event, Status, Todo
+from todos.models import DayNote, Event, Status, Todo
 
 User = get_user_model()
 
@@ -207,6 +207,13 @@ class TelegramIsolationTests(APITestCase):
         )
         text = format_today(self.alice, self.alice_bot)
         self.assertNotIn("Чужое", text)
+        DayNote.objects.create(
+            user=self.bob,
+            date=local_today(self.alice_bot),
+            text="Чужая заметка",
+        )
+        text = format_today(self.alice, self.alice_bot)
+        self.assertNotIn("Чужая заметка", text)
 
 
 class TelegramTickTests(APITestCase):
@@ -259,3 +266,172 @@ class TelegramTickTests(APITestCase):
         result = run_tick()
         self.assertEqual(result["due"], 0)
         send.assert_not_called()
+
+
+class TelegramMenuTests(APITestCase):
+    def setUp(self):
+        self.alice = User.objects.create_user(
+            username="alice",
+            email="alice@example.com",
+            password="password123",
+        )
+        self.bob = User.objects.create_user(
+            username="bob",
+            email="bob@example.com",
+            password="password123",
+        )
+        self.alice_bot = add_bot(self.alice, ALICE_TOKEN, chat_id=111)
+        add_bot(self.bob, BOB_TOKEN, chat_id=222)
+
+    def _message(self, text: str, chat_id: int = 111):
+        return {
+            "message": {
+                "text": text,
+                "chat": {"id": chat_id, "type": "private"},
+                "from": {"id": chat_id, "username": "alice_tg"},
+            }
+        }
+
+    def _callback(self, data: str, chat_id: int = 111):
+        return {
+            "callback_query": {
+                "id": "cb1",
+                "data": data,
+                "message": {
+                    "message_id": 42,
+                    "chat": {"id": chat_id, "type": "private"},
+                },
+            }
+        }
+
+    @patch("telegram_bot.services.send_message")
+    def test_today_list_has_done_buttons(self, send):
+        send.return_value = {}
+        from telegram_bot.keyboards import BTN_TODAY
+        from telegram_bot.services import day_bounds, local_today
+
+        start, _ = day_bounds(local_today(self.alice_bot), self.alice_bot)
+        todo = Todo.objects.create(
+            user=self.alice,
+            title="Молоко",
+            event_date=start.replace(hour=9),
+        )
+        handle_update(self.alice_bot, self._message(BTN_TODAY))
+        markup = send.call_args.kwargs.get("reply_markup")
+        self.assertEqual(
+            markup["inline_keyboard"][0][0]["callback_data"], f"d:{todo.id}"
+        )
+
+    @patch("telegram_bot.services.answer_callback")
+    @patch("telegram_bot.services.send_message")
+    def test_wizard_creates_todo_on_chosen_day(self, send, _answer):
+        send.return_value = {}
+        from datetime import date as date_cls
+
+        from telegram_bot.keyboards import BTN_NEW
+        from telegram_bot.services import event_at_on
+
+        handle_update(self.alice_bot, self._message(BTN_NEW))
+        handle_update(self.alice_bot, self._message("Купить хлеб"))
+        self.assertFalse(Todo.objects.filter(user=self.alice).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "date")
+        handle_update(self.alice_bot, self._callback("k:2026-12-25"))
+        todo = Todo.objects.get(user=self.alice, title="Купить хлеб")
+        self.assertEqual(
+            todo.event_date, event_at_on(date_cls(2026, 12, 25), self.alice_bot)
+        )
+        self.assertFalse(Todo.objects.filter(user=self.bob).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "")
+
+    @patch("telegram_bot.services.answer_callback")
+    @patch("telegram_bot.services.send_message")
+    def test_wizard_creates_all_day_event_on_chosen_day(self, send, _answer):
+        send.return_value = {}
+        from datetime import date as date_cls
+
+        from telegram_bot.keyboards import BTN_NEW_EVENT
+        from telegram_bot.services import day_bounds
+
+        handle_update(self.alice_bot, self._message(BTN_NEW_EVENT))
+        handle_update(self.alice_bot, self._message("День рождения"))
+        self.assertFalse(Event.objects.filter(user=self.alice).exists())
+        self.assertFalse(Todo.objects.filter(user=self.alice).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "edate")
+        handle_update(self.alice_bot, self._callback("k:2026-12-25"))
+        event = Event.objects.get(user=self.alice, title="День рождения")
+        start, _ = day_bounds(date_cls(2026, 12, 25), self.alice_bot)
+        self.assertEqual(event.start_at, start)
+        self.assertTrue(event.all_day)
+        self.assertFalse(Event.objects.filter(user=self.bob).exists())
+        self.assertFalse(Todo.objects.filter(user=self.alice).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "")
+
+    @patch("telegram_bot.services.answer_callback")
+    @patch("telegram_bot.services.send_message")
+    def test_wizard_creates_day_note_on_chosen_day(self, send, _answer):
+        send.return_value = {}
+        from datetime import date as date_cls
+
+        from telegram_bot.keyboards import BTN_NEW_NOTE
+
+        handle_update(self.alice_bot, self._message(BTN_NEW_NOTE))
+        handle_update(self.alice_bot, self._message("Смена графика"))
+        self.assertFalse(DayNote.objects.filter(user=self.alice).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "ndate")
+        handle_update(self.alice_bot, self._callback("k:2026-12-25"))
+        note = DayNote.objects.get(user=self.alice, date=date_cls(2026, 12, 25))
+        self.assertEqual(note.text, "Смена графика")
+        self.assertFalse(DayNote.objects.filter(user=self.bob).exists())
+        self.assertFalse(Todo.objects.filter(user=self.alice).exists())
+        self.assertFalse(Event.objects.filter(user=self.alice).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "")
+
+    @patch("telegram_bot.services.answer_callback")
+    @patch("telegram_bot.services.send_message")
+    def test_wizard_appends_existing_day_note(self, send, _answer):
+        send.return_value = {}
+        from datetime import date as date_cls
+
+        from telegram_bot.keyboards import BTN_NEW_NOTE
+
+        day = date_cls(2026, 12, 25)
+        DayNote.objects.create(user=self.alice, date=day, text="Уже было")
+        handle_update(self.alice_bot, self._message(BTN_NEW_NOTE))
+        handle_update(self.alice_bot, self._message("Ещё строка"))
+        handle_update(self.alice_bot, self._callback("k:2026-12-25"))
+        note = DayNote.objects.get(user=self.alice, date=day)
+        self.assertEqual(note.text, "Уже было\n\nЕщё строка")
+
+    @patch("telegram_bot.services.send_message")
+    def test_menu_today_cancels_wizard(self, send):
+        send.return_value = {}
+        from telegram_bot.keyboards import BTN_NEW, BTN_TODAY
+
+        handle_update(self.alice_bot, self._message(BTN_NEW))
+        handle_update(self.alice_bot, self._message("Черновик"))
+        handle_update(self.alice_bot, self._message(BTN_TODAY))
+        self.assertFalse(Todo.objects.filter(user=self.alice).exists())
+        self.alice_bot.refresh_from_db()
+        self.assertEqual(self.alice_bot.pending_step, "")
+
+    @patch("telegram_bot.services.send_message")
+    def test_due_reminder_includes_done_button(self, send):
+        send.return_value = {}
+        due = timezone.now() + timedelta(minutes=10)
+        todo = Todo.objects.create(user=self.alice, title="Сдать отчёт", due_date=due)
+        run_tick()
+        reminder = next(
+            call
+            for call in send.call_args_list
+            if len(call.args) > 2 and "Срок" in str(call.args[2])
+        )
+        markup = reminder.kwargs.get("reply_markup")
+        self.assertEqual(
+            markup["inline_keyboard"][0][0]["callback_data"], f"d:{todo.id}"
+        )

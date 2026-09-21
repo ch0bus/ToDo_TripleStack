@@ -74,6 +74,29 @@ def send_message(
         return None
 
 
+def edit_message(
+    token: str,
+    chat_id: int | None,
+    message_id: int | None,
+    text: str,
+    reply_markup: dict | None = None,
+) -> dict | None:
+    if not token or chat_id is None or not message_id:
+        return None
+    payload: dict = {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "text": text,
+        "disable_web_page_preview": True,
+    }
+    if reply_markup is not None:
+        payload["reply_markup"] = reply_markup
+    try:
+        return call_telegram(token, "editMessageText", payload)
+    except TelegramAPIError:
+        return None
+
+
 def answer_callback(token: str, callback_id: str, text: str = "") -> None:
     if not token or not callback_id:
         return
@@ -85,9 +108,3 @@ def answer_callback(token: str, callback_id: str, text: str = "") -> None:
         )
     except TelegramAPIError:
         return
-
-
-def done_keyboard(todo_id: int) -> dict:
-    return {
-        "inline_keyboard": [[{"text": "Готово", "callback_data": f"d:{todo_id}"}]],
-    }
