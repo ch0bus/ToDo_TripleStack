@@ -83,6 +83,36 @@ export function formatDueDateShort(value: string): string {
   });
 }
 
+/** Время без полуночи: «18:00», иначе пусто. */
+export function formatClock(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  if (date.getHours() === 0 && date.getMinutes() === 0) return "";
+  return formatTimeShort(value);
+}
+
+/** Короткая дата колонки «когда»: «19 сен». */
+export function formatDateCompact(value: string | Date): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** Относительный день: сегодня / завтра / через N / дата. */
+export function formatRelativeDay(date: Date, now = new Date()): string {
+  const diff = Math.round(
+    (startOfLocalDay(date) - startOfLocalDay(now)) / 86_400_000,
+  );
+  if (diff === 0) return "сегодня";
+  if (diff === 1) return "завтра";
+  if (diff < 0) return formatDateCompact(date);
+  return `через ${diff} ${pluralRu(diff, "день", "дня", "дней")}`;
+}
+
 /** Время события: «18:00». */
 export function formatTimeShort(value: string): string {
   const date = new Date(value);

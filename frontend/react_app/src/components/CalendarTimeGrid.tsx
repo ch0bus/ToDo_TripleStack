@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { EventIcon } from "@/components/EventIcon";
 import { toDateKey, type CalendarEntry } from "@/lib/calendar";
 import {
   GRID_HOURS,
@@ -158,13 +159,14 @@ export function CalendarTimeGrid({
                         key={`${entry.event.id}-${entry.occurrenceStartKey}`}
                         to={eventPath(entry.event.id)}
                         state={{ from }}
-                        className="truncate rounded px-1.5 py-0.5 text-[11px]"
+                        className="flex min-w-0 items-center gap-1 truncate rounded px-1.5 py-0.5 text-[11px]"
                         style={{
                           backgroundColor: entry.event.color,
                           color: contrastText(entry.event.color),
                         }}
                       >
-                        {entry.event.title}
+                        <EventIcon className="h-3 w-3 shrink-0" />
+                        <span className="min-w-0 truncate">{entry.event.title}</span>
                       </Link>
                     ))}
                     {allDayTodos.map((entry) => (
@@ -240,8 +242,13 @@ export function CalendarTimeGrid({
                           color: contrastText(block.color),
                         }}
                       >
-                        <span className="line-clamp-2 font-medium">
-                          {block.title}
+                        <span className="flex min-w-0 items-start gap-1">
+                          {block.kind === "event" ? (
+                            <EventIcon className="mt-px h-3 w-3 shrink-0" />
+                          ) : null}
+                          <span className="line-clamp-2 font-medium">
+                            {block.title}
+                          </span>
                         </span>
                       </Link>
                     );

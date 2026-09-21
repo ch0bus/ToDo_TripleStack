@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { TodoItem } from "@/components/TodoItem";
 import { cardClass } from "@/lib/uiClasses";
+import type { TileWhenMode } from "@/lib/tileWhen";
 
 export interface TodoRow {
   id: number;
@@ -25,6 +26,7 @@ interface TodoListProps {
   emptyAction?: ReactNode;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
+  whenMode?: TileWhenMode;
 }
 
 export function TodoList({
@@ -34,6 +36,7 @@ export function TodoList({
   emptyAction,
   onUpdated,
   onDeleted,
+  whenMode = "list",
 }: TodoListProps) {
   if (loading) {
     return <p className="text-sm text-app-muted">Загрузка задач...</p>;
@@ -51,13 +54,14 @@ export function TodoList({
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="space-y-2">
       {todos.map((todo) => (
         <TodoItem
           key={todo.id}
           todo={todo}
           onUpdated={onUpdated}
           onDeleted={onDeleted}
+          whenMode={whenMode}
         />
       ))}
     </ul>

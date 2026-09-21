@@ -928,6 +928,7 @@ export function CalendarPage() {
                     todos={periodTodos}
                     onUpdated={handleTodoUpdated}
                     onDeleted={handleTodoDeleted}
+                    whenMode={calendarView === "day" ? "day" : "list"}
                   />
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">

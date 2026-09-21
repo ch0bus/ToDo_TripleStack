@@ -15,6 +15,7 @@ export type TimedBlock = {
   startMin: number;
   endMin: number;
   color: string;
+  kind: "event" | "todo";
   sort: number;
 };
 
@@ -80,6 +81,7 @@ export function eventMinutesOnDay(entry: EventEntry, dateKey: string): TimedBloc
     startMin,
     endMin,
     color: entry.event.color,
+    kind: "event",
     sort: entry.event.id,
   };
 }
@@ -157,6 +159,7 @@ export function timedTodoBlocksForDay(
       startMin: clip.startMin,
       endMin: clip.endMin,
       color: overdue ? "#ef4444" : "var(--app-accent)",
+      kind: "todo",
       sort: entry.todo.id,
     });
   }

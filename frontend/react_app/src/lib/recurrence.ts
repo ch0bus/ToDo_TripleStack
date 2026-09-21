@@ -13,6 +13,12 @@ export function getRecurrenceLabel(value: string): string {
   );
 }
 
+/** Подпись повтора на плитке: всегда есть, в том числе «без повтора». */
+export function getRecurrenceFact(value: string | undefined): string {
+  if (value && value !== "never") return getRecurrenceLabel(value).toLowerCase();
+  return "без повтора";
+}
+
 export function isRecurring(value: string | undefined): value is RecurrenceValue {
   return value === "daily" || value === "weekly" || value === "monthly";
 }

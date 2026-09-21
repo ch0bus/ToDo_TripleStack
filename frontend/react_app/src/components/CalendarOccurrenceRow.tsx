@@ -1,7 +1,7 @@
-import { Link } from "react-router-dom";
-
+import { EntityTile } from "@/components/EntityTile";
 import type { TodoRow } from "@/components/TodoList";
-import { getRecurrenceLabel } from "@/lib/recurrence";
+import { getRecurrenceFact } from "@/lib/recurrence";
+import { todoTileWhen } from "@/lib/tileWhen";
 import { getPriorityBorderClass, getPriorityStripeClass } from "@/lib/utils";
 
 function RepeatIcon() {
@@ -14,7 +14,7 @@ function RepeatIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="h-4 w-4 shrink-0"
+      className="h-4 w-4 shrink-0 text-app-subtle"
       aria-hidden
     >
       <path d="M17 1v4h-4" />
@@ -26,34 +26,28 @@ function RepeatIcon() {
 }
 
 export function CalendarOccurrenceRow({ todo }: { todo: TodoRow }) {
-  const stripe = getPriorityStripeClass(todo.priority);
-  const repeatLabel = getRecurrenceLabel(todo.recurrence ?? "never").toLowerCase();
+  const { when, whenSub, status, overdue } = todoTileWhen(todo, "day");
+  const facts =
+    todo.recurrence && todo.recurrence !== "never"
+      ? getRecurrenceFact(todo.recurrence)
+      : "повтор";
+  const tags = (todo.tags ?? []).map((tag) => tag.tag_name);
 
   return (
-    <li
-      className={
-        "flex rounded-lg border border-dashed bg-app-surface/70 " +
-        getPriorityBorderClass(todo.priority)
-      }
-    >
-      <div
-        className={"w-1 shrink-0 self-stretch rounded-l-lg opacity-60 " + stripe}
-        aria-hidden
-      />
-      <div className="flex min-w-0 flex-1 items-center gap-2 px-2 py-2 sm:px-3">
-        <span className="text-app-subtle" title="Повтор задачи">
-          <RepeatIcon />
-        </span>
-        <div className="min-w-0 flex-1">
-          <Link
-            to={`/todos/${todo.id}`}
-            className="block truncate text-[15px] font-medium text-app-muted hover:text-app-accent"
-          >
-            {todo.title}
-          </Link>
-          <p className="text-[12px] text-app-subtle">Повтор · {repeatLabel}</p>
-        </div>
-      </div>
-    </li>
+    <EntityTile
+      className={getPriorityBorderClass(todo.priority) + " border-dashed"}
+      stripeClassName={getPriorityStripeClass(todo.priority) + " opacity-60"}
+      overdue={overdue}
+      dimmed
+      mark={<RepeatIcon />}
+      title={todo.title}
+      titleTo={`/todos/${todo.id}`}
+      titleMuted
+      when={when}
+      whenSub={whenSub}
+      status={status}
+      facts={facts}
+      tags={tags}
+    />
   );
 }

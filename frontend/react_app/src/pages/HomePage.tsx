@@ -30,6 +30,7 @@ import {
   type CalendarEvent,
 } from "@/lib/events";
 import { locationFrom, newTodoPath } from "@/lib/nav";
+import type { TileWhenMode } from "@/lib/tileWhen";
 import {
   groupInboxTodos,
   hasActiveFilters,
@@ -79,6 +80,7 @@ function InboxSection({
   count,
   onUpdated,
   onDeleted,
+  whenMode = "list",
 }: {
   id: string;
   title: string;
@@ -89,6 +91,7 @@ function InboxSection({
   count?: number;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
+  whenMode?: TileWhenMode;
 }) {
   return (
     <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
@@ -107,6 +110,7 @@ function InboxSection({
           todos={todos}
           onUpdated={onUpdated}
           onDeleted={onDeleted}
+          whenMode={whenMode}
         />
       ) : empty ? (
         <p className="text-sm text-app-subtle">{empty}</p>
@@ -444,6 +448,7 @@ export function HomePage() {
                 title={formatInboxDayTitle(selectedDate, today)}
                 todos={dayTodos}
                 count={dayTodos.length + dayEvents.length}
+                whenMode="day"
                 empty={
                   dayEvents.length > 0
                     ? ""

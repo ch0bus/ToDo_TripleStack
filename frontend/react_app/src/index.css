@@ -260,9 +260,61 @@ html[data-theme="dark"] .bg-app-modal {
 .priority-frame-low:hover {
   border-color: var(--priority-frame-low-hover);
 }
-.todo-tile-overdue {
-  box-shadow: inset 6px 0 0 var(--app-danger);
+.entity-tile {
+  height: 86px;
 }
+.todo-tile-overdue {
+  border-color: var(--app-danger);
+}
+.entity-tile-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.75rem minmax(0, 1fr);
+  column-gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  align-items: stretch;
+}
+.entity-tile-left,
+.entity-tile-right {
+  display: grid;
+  grid-template-rows: 20px 18px 22px;
+  column-gap: 0.625rem;
+  row-gap: 0.25rem;
+  min-width: 0;
+  align-items: center;
+}
+.entity-tile-left {
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  grid-template-areas:
+    "mark title"
+    ". facts"
+    ". tags";
+}
+.entity-tile-right {
+  grid-template-columns: minmax(0, 1fr) 1.75rem;
+  grid-template-areas:
+    "when menu"
+    "due ."
+    ". .";
+  justify-items: end;
+}
+.entity-tile-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 2px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1rem;
+}
+.entity-tile-mark { grid-area: mark; }
+.entity-tile-title { grid-area: title; }
+.entity-tile-facts { grid-area: facts; }
+.entity-tile-tags { grid-area: tags; }
+.entity-tile-when { grid-area: when; }
+.entity-tile-menu { grid-area: menu; }
+.entity-tile-due { grid-area: due; }
 .calendar-day-note {
   box-shadow: inset 0 0 0 2px var(--calendar-note-frame);
 }

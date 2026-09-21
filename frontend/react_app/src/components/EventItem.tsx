@@ -1,15 +1,15 @@
-import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { EventIcon } from "@/components/EventIcon";
+import { EntityTile, MoreIcon } from "@/components/EntityTile";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import {
-  formatEventEntryWhen,
-  type EventEntry,
-} from "@/lib/events";
+import { type EventEntry } from "@/lib/events";
 import { eventPath, locationFrom } from "@/lib/nav";
-import { getRecurrenceLabel } from "@/lib/recurrence";
+import { getRecurrenceFact } from "@/lib/recurrence";
+import { eventTileWhen } from "@/lib/tileWhen";
 
 interface EventItemProps {
   entry: EventEntry;
@@ -17,36 +17,39 @@ interface EventItemProps {
   showDate?: boolean;
 }
 
-function EventIcon({ color }: { color: string }) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="mt-0.5 h-5 w-5 shrink-0"
-      style={{ color }}
-      aria-hidden
-    >
-      <path d="M7 4.5h7.2c.7 0 1.3.6 1.3 1.3v14.2L11.2 17l-4.3 3V5.8c0-.7.6-1.3 1.3-1.3Z" />
-    </svg>
-  );
-}
-
 export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps) {
   const { event, virtual } = entry;
   const location = useLocation();
   const { pushToast } = useToast();
+  const menuId = useId();
+  const menuRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const when = formatEventEntryWhen(entry, showDate);
-  const repeat =
-    event.recurrence && event.recurrence !== "never"
-      ? getRecurrenceLabel(event.recurrence).toLowerCase()
-      : "";
+  const { when, whenSub, status } = eventTileWhen(entry, showDate ? "list" : "day");
+  const facts = virtual
+    ? event.recurrence && event.recurrence !== "never"
+      ? getRecurrenceFact(event.recurrence)
+      : "повтор"
+    : getRecurrenceFact(event.recurrence);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   async function handleDelete() {
     try {
@@ -65,41 +68,56 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
   }
 
   return (
-    <li>
-      <div className="flex min-w-0 overflow-hidden rounded-lg border border-app bg-app-surface">
-        <span
-          className="w-1 shrink-0 self-stretch"
-          style={{ backgroundColor: event.color }}
-          aria-hidden
-        />
-        <div className="flex min-w-0 flex-1 items-start gap-2 px-2 py-2 sm:gap-2.5 sm:px-3">
-          <Link
-            to={eventPath(event.id)}
-            state={{ from: locationFrom(location) }}
-            className="flex min-w-0 flex-1 items-start gap-2 overflow-hidden text-left hover:opacity-90"
-          >
-            <EventIcon color={event.color} />
-            <div className="min-w-0 flex-1 overflow-hidden pt-px">
-              <p className="truncate text-[15px] font-medium leading-snug text-app">
-                {event.title}
-              </p>
-              <p className="mt-0.5 truncate text-[12px] leading-relaxed text-app-subtle">
-                {[when, virtual ? "повтор" : "", repeat]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-            </div>
-          </Link>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setConfirmOpen(true)}
-            className="shrink-0 rounded-md px-2 py-1 text-xs text-[var(--app-danger)] hover:bg-red-500/10 disabled:opacity-50"
-          >
-            Удалить
-          </button>
-        </div>
-      </div>
+    <>
+      <EntityTile
+        className={"border-app" + (busy ? " opacity-80" : "") + (menuOpen ? " z-20" : "")}
+        stripeStyle={{ backgroundColor: event.color }}
+        dimmed={virtual}
+        mark={<EventIcon color={event.color} />}
+        title={event.title}
+        titleTo={eventPath(event.id)}
+        titleState={{ from: locationFrom(location) }}
+        when={when}
+        whenSub={whenSub}
+        status={status}
+        facts={facts}
+        menu={
+          <div ref={menuRef} className="relative">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setMenuOpen((open) => !open)}
+              className="rounded-md p-0.5 text-app-subtle opacity-70 hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 disabled:opacity-40"
+              aria-label="Действия с событием"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
+            >
+              <MoreIcon />
+            </button>
+            {menuOpen && (
+              <div
+                id={menuId}
+                role="menu"
+                className="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-lg border border-app bg-app-modal py-1 shadow-app"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={busy}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setConfirmOpen(true);
+                  }}
+                  className="w-full px-3 py-1.5 text-left text-sm text-[var(--app-danger)] hover:bg-[var(--app-danger-bg)]"
+                >
+                  Удалить
+                </button>
+              </div>
+            )}
+          </div>
+        }
+      />
       <ConfirmDialog
         open={confirmOpen}
         title="Удалить событие?"
@@ -108,6 +126,6 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
         onConfirm={() => void handleDelete()}
         onCancel={() => setConfirmOpen(false)}
       />
-    </li>
+    </>
   );
 }

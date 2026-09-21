@@ -90,7 +90,7 @@ export function CalendarSelectedDay({
         />
       ) : null}
       {showTodos && selectedEntries.length > 0 ? (
-        <ul className="space-y-3">
+        <ul className="space-y-2">
           {selectedEntries.map((entry) =>
             entry.virtual ? (
               <CalendarOccurrenceRow
@@ -103,6 +103,7 @@ export function CalendarSelectedDay({
                 todo={entry.todo}
                 onUpdated={onTodoUpdated}
                 onDeleted={onTodoDeleted}
+                whenMode="day"
               />
             ),
           )}

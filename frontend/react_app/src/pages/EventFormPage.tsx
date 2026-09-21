@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EventForm } from "@/components/EventForm";
+import { EventIcon } from "@/components/EventIcon";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import { defaultDueAtDay, parseDateKey } from "@/lib/calendar";
@@ -92,7 +93,11 @@ export function EventFormPage() {
       ) : editing && !event ? null : (
         <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
           <div className="min-w-0 px-4 py-4 sm:px-5 sm:py-5">
-            <h1 className="mb-4 text-xl font-semibold text-app sm:text-2xl">
+            <h1 className="mb-4 flex items-center gap-2 text-xl font-semibold text-app sm:text-2xl">
+              <EventIcon
+                className="h-5 w-5 shrink-0"
+                color={event?.color}
+              />
               {editing ? "Событие" : "Новое событие"}
             </h1>
             <EventForm

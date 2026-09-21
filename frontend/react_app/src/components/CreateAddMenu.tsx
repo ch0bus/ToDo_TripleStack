@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { EventIcon } from "@/components/EventIcon";
 import { dayNotePath } from "@/lib/dayNotes";
 import { locationFrom, newEventPath, newTodoPath } from "@/lib/nav";
 
@@ -33,24 +34,6 @@ function TaskGlyph() {
       aria-hidden
     >
       <circle cx="12" cy="12" r="8.25" />
-    </svg>
-  );
-}
-
-function EventGlyph() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden
-    >
-      <path d="M7 4.5h7.2c.7 0 1.3.6 1.3 1.3v14.2L11.2 17l-4.3 3V5.8c0-.7.6-1.3 1.3-1.3Z" />
     </svg>
   );
 }
@@ -97,7 +80,7 @@ export function CreateAddMenu({
       to: newEventPath(day),
       label: "Событие",
       hint: "Встреча или день в календаре",
-      icon: <EventGlyph />,
+      icon: <EventIcon />,
     },
     {
       to: dayNotePath(day),
