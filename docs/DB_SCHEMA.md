@@ -149,6 +149,39 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | text | text 2000 | заметка к дню |
 | updated_at | datetime | |
 
+## telegram_bots
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users, unique | один бот на аккаунт |
+| token | string 128 | токен BotFather, в API не отдаётся |
+| token_hash | string 64, unique | SHA-256 токена |
+| bot_id | bigint | из getMe |
+| bot_username | string 64 | без `@` |
+| timezone | string 64 | пояс дайджеста и «сегодня» |
+| digest_hour | int 0–23 | час утренней сводки |
+| remind_minutes | int 5–1440 | за сколько минут напомнить |
+| chat_id | bigint, NULL, unique | личный чат после /start |
+| telegram_user_id | bigint, NULL | |
+| telegram_username | string 64 | |
+| linked_at | datetime, NULL | |
+| update_offset | bigint | offset getUpdates этого бота |
+| updated_at | datetime | |
+
+## telegram_deliveries
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| user_id | FK → users | |
+| kind | string | digest, due, event |
+| object_id | int | 0 для дайджеста, иначе id задачи/события |
+| period_key | string | локальная дата YYYY-MM-DD |
+| sent_at | datetime | |
+
+Уникально: `(user, kind, object_id, period_key)`.
+
 ## Связи
 
 ```text
@@ -163,6 +196,8 @@ ShiftLayer 1 ── 1 ShiftPattern ── * ShiftPatternSlot
 ShiftLayer 1 ── * ShiftDayOverride
 User 1 ── * Event
 User 1 ── * DayNote
+User 1 ── 1 TelegramBot
+User 1 ── * TelegramDelivery
 ```
 
 ## Правила доступа
@@ -172,3 +207,4 @@ User 1 ── * DayNote
 - Подзадачи только через todo владельца.
 - Системные теги (`user_id` NULL) видны всем; создать/удалить может ограничение реализации.
 - Календарь не шарится: каждый видит свои сроки, события, повторы, смены и заметки дней.
+- Telegram: свой бот (токен в настройках); сообщения только в привязанный личный `chat_id`; выборки задач — по `user_id` этой записи. Токен в JSON не отдаётся.

@@ -1,9 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+import { PropertyField } from "@/components/FormFields";
+import { QuickUnlockSettings } from "@/components/QuickUnlockSettings";
+import { SettingsSection } from "@/components/SettingsSection";
 import { SettingsSkeleton } from "@/components/skeletons/SettingsSkeleton";
 import { TagsSettingsSection } from "@/components/TagsSettingsSection";
-import { QuickUnlockSettings } from "@/components/QuickUnlockSettings";
+import { TelegramSettings } from "@/components/TelegramSettings";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
@@ -14,13 +17,43 @@ import {
   setApiBaseOverride,
 } from "@/lib/settings";
 import type { ThemeMode } from "@/lib/theme";
-import { btnPrimary, btnSecondary, cardClass, inputClass } from "@/lib/uiClasses";
+import {
+  btnDanger,
+  btnPrimary,
+  btnSecondary,
+  cardClass,
+  inputClass,
+} from "@/lib/uiClasses";
 
 interface Profile {
   id: number;
   username: string;
   email: string;
   phone_number: string | null;
+}
+
+const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: "system", label: "Как в системе" },
+  { value: "light", label: "Светлая" },
+  { value: "dark", label: "Тёмная" },
+];
+
+function Chevron() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4 shrink-0 text-app-subtle"
+      aria-hidden
+    >
+      <path d="M9 6l6 6-6 6" />
+    </svg>
+  );
 }
 
 export function SettingsPage() {
@@ -31,11 +64,15 @@ export function SettingsPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [apiUrl, setApiUrl] = useState(() => getApiBaseOverride());
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingApi, setSavingApi] = useState(false);
   const [error, setError] = useState("");
+
+  const showDeveloper =
+    import.meta.env.DEV || Boolean(getApiBaseOverride()) || Boolean(apiUrl);
 
   useEffect(() => {
     async function load() {
@@ -55,7 +92,7 @@ export function SettingsPage() {
         setLoading(false);
       }
     }
-    load();
+    void load();
   }, []);
 
   async function handleProfileSubmit(e: FormEvent) {
@@ -85,6 +122,7 @@ export function SettingsPage() {
       const updated = (await res.json()) as Profile;
       setProfile(updated);
       setPassword("");
+      setShowPassword(false);
       pushToast("Профиль сохранён", "success");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Ошибка сохранения";
@@ -99,17 +137,14 @@ export function SettingsPage() {
     e.preventDefault();
     setSavingApi(true);
     setApiBaseOverride(apiUrl);
-    pushToast(
-      "URL API сохранён. Обновите страницу, если запросы ведут себя странно.",
-      "success",
-    );
+    pushToast("Адрес API сохранён. Обновите страницу, если запросы идут не туда.", "success");
     setSavingApi(false);
   }
 
   function handleApiReset() {
     setApiUrl("");
     setApiBaseOverride("");
-    pushToast("Сброшено на значение по умолчанию.", "info");
+    pushToast("Сброшено на значение по умолчанию", "info");
   }
 
   function handleLogout() {
@@ -119,169 +154,218 @@ export function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-lg px-4 py-8">
-        <h1 className="mb-6 text-2xl font-semibold text-app">Настройки</h1>
+      <div className="mx-auto max-w-2xl px-4 py-6 md:py-8">
         <SettingsSkeleton />
       </div>
     );
   }
 
-  const themeOptions: { value: ThemeMode; label: string }[] = [
-    { value: "system", label: "Как в системе" },
-    { value: "light", label: "Светлая" },
-    { value: "dark", label: "Тёмная" },
-  ];
+  const initial = (profile?.username ?? "?").slice(0, 1).toUpperCase();
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-app">Настройки</h1>
-        <Link to="/" className="text-sm text-app-accent hover:underline">
-          ← Входящие
-        </Link>
-      </div>
+    <div className="mx-auto max-w-2xl px-4 py-6 md:py-8">
+      <header className="mb-8 flex items-center gap-4">
+        <div
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[var(--app-accent-soft)] text-lg font-semibold text-app-accent"
+          aria-hidden
+        >
+          {initial}
+        </div>
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold text-app">Настройки</h1>
+          {profile ? (
+            <p className="truncate text-sm text-app-muted">{profile.username}</p>
+          ) : null}
+        </div>
+      </header>
 
       {error && (
-        <div className="mb-4 rounded-md border border-red-700 bg-red-900/40 px-3 py-2 text-sm text-red-200">
+        <div className="chip-danger mb-6 rounded-md border px-3 py-2 text-sm">
           {error}
         </div>
       )}
 
-      <section className={"mb-8 p-5 " + cardClass}>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-app-muted">
-          Оформление
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {themeOptions.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => {
-                setThemeMode(opt.value);
-                pushToast(`Тема: ${opt.label.toLowerCase()}`, "info");
-              }}
-              className={
-                "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors " +
-                (themeMode === opt.value
-                  ? "border-[var(--app-accent)] bg-[var(--app-accent)]/15 text-app-accent"
-                  : "border-app text-app-muted hover:text-app")
-              }
+      <div className="space-y-8">
+        <SettingsSection title="Аккаунт">
+          <form onSubmit={handleProfileSubmit} className="space-y-4">
+            <PropertyField label="Почта" htmlFor="settings-email">
+              <input
+                id="settings-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                className={inputClass}
+              />
+            </PropertyField>
+            <PropertyField label="Телефон" htmlFor="settings-phone">
+              <input
+                id="settings-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+7…"
+                autoComplete="tel"
+                className={inputClass}
+              />
+            </PropertyField>
+            {showPassword ? (
+              <PropertyField label="Новый пароль" htmlFor="settings-password">
+                <input
+                  id="settings-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  autoComplete="new-password"
+                  className={inputClass}
+                />
+              </PropertyField>
+            ) : null}
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="submit" disabled={savingProfile} className={btnPrimary}>
+                {savingProfile ? "Сохранение…" : "Сохранить"}
+              </button>
+              <button
+                type="button"
+                className="text-sm text-app-muted hover:text-app"
+                onClick={() => {
+                  setShowPassword((open) => !open);
+                  if (showPassword) setPassword("");
+                }}
+              >
+                {showPassword ? "Не менять пароль" : "Сменить пароль"}
+              </button>
+            </div>
+          </form>
+        </SettingsSection>
+
+        <SettingsSection title="Оформление">
+          <div
+            role="radiogroup"
+            aria-label="Тема"
+            className="flex rounded-lg bg-app-surface-muted p-1"
+          >
+            {THEME_OPTIONS.map((opt) => {
+              const selected = themeMode === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setThemeMode(opt.value)}
+                  className={
+                    "flex-1 rounded-md px-3 py-1.5 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] " +
+                    (selected
+                      ? "bg-app-surface font-medium text-app shadow-sm"
+                      : "text-app-muted hover:text-app")
+                  }
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </SettingsSection>
+
+        {profile ? (
+          <SettingsSection
+            title="Быстрый вход"
+            description="PIN и биометрия только на этом устройстве. На новом телефоне их нужно включить снова."
+          >
+            <QuickUnlockSettings username={profile.username} />
+          </SettingsSection>
+        ) : null}
+
+        <SettingsSection
+          title="Telegram"
+          description="Свой бот из BotFather: токен, пояс и напоминания."
+        >
+          <TelegramSettings />
+        </SettingsSection>
+
+        <SettingsSection
+          title="Теги"
+          description="Системные теги можно скрыть из меню и форм — на задачах они останутся."
+        >
+          <TagsSettingsSection />
+        </SettingsSection>
+
+        <section className="space-y-3">
+          <h2 className="px-0.5 text-sm font-semibold text-app">Планер</h2>
+          <Link
+            to="/settings/shifts"
+            state={{ from: "/settings" }}
+            className={
+              "flex items-center justify-between gap-3 px-5 py-4 transition-colors hover:bg-app-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] " +
+              cardClass
+            }
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-app">Смены</p>
+              <p className="text-sm text-app-muted">
+                Типы, слои и шаблон цикла
+              </p>
+            </div>
+            <Chevron />
+          </Link>
+        </section>
+
+        {showDeveloper ? (
+          <details className={"group " + cardClass}>
+            <summary className="cursor-pointer list-none px-5 py-4 text-sm text-app-muted marker:content-none [&::-webkit-details-marker]:hidden">
+              <span className="flex items-center justify-between gap-3">
+                Для разработчиков
+                <span className="text-app-subtle transition-transform group-open:rotate-90">
+                  <Chevron />
+                </span>
+              </span>
+            </summary>
+            <form
+              onSubmit={handleApiSave}
+              className="space-y-3 border-t border-app px-5 py-4"
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </section>
+              <PropertyField label="Адрес API" htmlFor="settings-api-url">
+                <p className="mb-2 text-xs text-app-subtle">
+                  Сейчас: {defaultApiBaseHint()}
+                </p>
+                <input
+                  id="settings-api-url"
+                  type="url"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="http://127.0.0.1:8000/api"
+                  className={inputClass}
+                />
+              </PropertyField>
+              <div className="flex flex-wrap gap-2">
+                <button type="submit" disabled={savingApi} className={btnSecondary}>
+                  Сохранить
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApiReset}
+                  className={btnSecondary}
+                >
+                  Сбросить
+                </button>
+              </div>
+            </form>
+          </details>
+        ) : null}
 
-      <section className={"mb-8 p-5 " + cardClass}>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-app-muted">
-          Профиль
-        </h2>
-        {profile && (
+        <section className={"p-5 " + cardClass}>
+          <h2 className="mb-1 text-sm font-semibold text-app">Выход</h2>
           <p className="mb-4 text-sm text-app-muted">
-            Логин:{" "}
-            <span className="font-medium text-app">{profile.username}</span>
+            Сессия на этом устройстве закроется. Быстрый вход сохранится.
           </p>
-        )}
-        <form onSubmit={handleProfileSubmit} className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-app-muted">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-app-muted">Телефон</label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+7..."
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-app-muted">
-              Новый пароль (необязательно)
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              minLength={8}
-              autoComplete="new-password"
-              className={inputClass}
-            />
-          </div>
-          <button type="submit" disabled={savingProfile} className={btnPrimary}>
-            {savingProfile ? "Сохранение..." : "Сохранить профиль"}
+          <button type="button" onClick={handleLogout} className={btnDanger}>
+            Выйти из аккаунта
           </button>
-        </form>
-      </section>
-
-      <TagsSettingsSection />
-
-      {profile ? <QuickUnlockSettings username={profile.username} /> : null}
-
-      <section className={"mb-8 p-5 " + cardClass}>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
-          Смены
-        </h2>
-        <p className="mb-3 text-sm text-app-muted">
-          Типы смен, слои и шаблон цикла.
-        </p>
-        <Link
-          to="/settings/shifts"
-          state={{ from: "/settings" }}
-          className="text-sm text-app-accent hover:underline"
-        >
-          Настройки смен
-        </Link>
-      </section>
-
-      <section className={"mb-8 p-5 " + cardClass}>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
-          Подключение к API
-        </h2>
-        <p className="mb-4 text-xs text-app-subtle">
-          По умолчанию: {defaultApiBaseHint()}. Укажите свой URL для FastAPI/Flask
-          или прямого доступа к Django.
-        </p>
-        <form onSubmit={handleApiSave} className="space-y-3">
-          <input
-            type="url"
-            value={apiUrl}
-            onChange={(e) => setApiUrl(e.target.value)}
-            placeholder="http://127.0.0.1:8000/api"
-            className={inputClass}
-          />
-          <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={savingApi} className={btnSecondary}>
-              Сохранить URL
-            </button>
-            <button type="button" onClick={handleApiReset} className={btnSecondary}>
-              Сбросить
-            </button>
-          </div>
-        </form>
-      </section>
-
-      <section className={"p-5 " + cardClass}>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-app-muted">
-          Сессия
-        </h2>
-        <button
-          type="button"
-          onClick={handleLogout}
-          className="rounded-md border border-red-800 px-4 py-2 text-sm text-red-300 hover:bg-red-950/40"
-        >
-          Выйти из аккаунта
-        </button>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }

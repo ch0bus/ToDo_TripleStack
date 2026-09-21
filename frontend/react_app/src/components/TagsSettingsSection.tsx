@@ -11,10 +11,19 @@ import {
   useHiddenSystemTags,
   type TagOption,
 } from "@/lib/tags";
-import { cardClass } from "@/lib/uiClasses";
 
 function kindLabel(kind: string): string {
   return TAG_KIND_OPTIONS.find((o) => o.value === kind)?.label ?? kind;
+}
+
+function TagRowsSkeleton() {
+  return (
+    <div className="animate-pulse space-y-2" aria-hidden>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="h-9 rounded-md bg-app-surface-muted" />
+      ))}
+    </div>
+  );
 }
 
 export function TagsSettingsSection() {
@@ -35,7 +44,7 @@ export function TagsSettingsSection() {
   }, []);
 
   useEffect(() => {
-    loadTags();
+    void loadTags();
   }, [loadTags]);
 
   const systemTags = tags.filter((t) => t.is_system);
@@ -82,90 +91,77 @@ export function TagsSettingsSection() {
     }
   }
 
+  if (loading) {
+    return <TagRowsSkeleton />;
+  }
+
   return (
-    <section className={"mb-8 p-5 " + cardClass}>
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-app-muted">
-        Теги
-      </h2>
-      <p className="mb-4 text-xs text-app-subtle">
-        Системные теги общие для всех. Ненужные можно скрыть по одному — в
-        меню и формах их не будет, на задачах они останутся. Свои теги
-        создаются и удаляются здесь.
-      </p>
-
-      {loading ? (
-        <p className="text-sm text-app-muted">Загрузка тегов...</p>
-      ) : (
-        <>
-          <div className="mb-4">
-            <h3 className="mb-2 text-xs font-medium text-app-muted">Системные</h3>
-            {systemTags.length === 0 ? (
-              <p className="text-xs text-app-subtle">Нет данных</p>
-            ) : (
-              <ul className="space-y-1 text-sm text-app">
-                {systemTags.map((tag) => {
-                  const hiddenInUi = isHiddenSystemTag(tag.id, hidden);
-                  return (
-                    <li
-                      key={tag.id}
-                      className={
-                        "flex items-center justify-between gap-2 rounded-md bg-app-surface-muted px-3 py-1.5 " +
-                        (hiddenInUi ? "opacity-60" : "")
-                      }
-                    >
-                      <span className="min-w-0">
-                        {tag.tag_name}
-                        <span className="ml-2 text-xs text-app-subtle">
-                          {kindLabel(tag.kind)}
-                        </span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => toggleSystemTagHidden(tag)}
-                        className="shrink-0 text-xs text-app-accent hover:underline"
-                      >
-                        {hiddenInUi ? "Показать" : "Скрыть"}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-
-          <div className="mb-4">
-            <h3 className="mb-2 text-xs font-medium text-app-muted">Мои теги</h3>
-            {userTags.length === 0 ? (
-              <p className="text-xs text-app-subtle">Пока нет личных тегов</p>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {userTags.map((tag) => (
-                  <li
-                    key={tag.id}
-                    className="flex items-center justify-between rounded-md bg-app-surface-muted px-3 py-1.5"
+    <div className="space-y-5">
+      <div>
+        <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
+          Системные
+        </h3>
+        {systemTags.length === 0 ? (
+          <p className="text-sm text-app-subtle">Пока нет системных тегов</p>
+        ) : (
+          <ul className="space-y-1">
+            {systemTags.map((tag) => {
+              const hiddenInUi = isHiddenSystemTag(tag.id, hidden);
+              return (
+                <li
+                  key={tag.id}
+                  className={
+                    "flex items-center justify-between gap-2 rounded-md bg-app-surface-muted px-3 py-2 text-app " +
+                    (hiddenInUi ? "opacity-60" : "")
+                  }
+                >
+                  <span className="min-w-0">
+                    <span className="text-sm">{tag.tag_name}</span>
+                    <span className="ml-2 text-xs text-app-subtle">
+                      {kindLabel(tag.kind)}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => toggleSystemTagHidden(tag)}
+                    className="shrink-0 rounded-md px-2 py-1 text-xs text-app-muted hover:bg-app-surface hover:text-app"
                   >
-                    <span className="text-app">{tag.tag_name}</span>
-                    <button
-                      type="button"
-                      onClick={() => setDeleteTarget(tag)}
-                      className="text-xs text-[var(--app-danger)] hover:underline"
-                    >
-                      Удалить
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+                    {hiddenInUi ? "Показать" : "Скрыть"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
-          <div className="border-t border-app pt-4">
-            <h3 className="mb-3 text-xs font-medium text-app-muted">
-              Новый тег
-            </h3>
-            <TagCreateForm onCreated={handleCreated} />
-          </div>
-        </>
-      )}
+      <div>
+        <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
+          Мои
+        </h3>
+        {userTags.length === 0 ? (
+          <p className="mb-3 text-sm text-app-subtle">Пока нет личных тегов</p>
+        ) : (
+          <ul className="mb-3 space-y-1">
+            {userTags.map((tag) => (
+              <li
+                key={tag.id}
+                className="flex items-center justify-between gap-2 rounded-md bg-app-surface-muted px-3 py-2 text-sm text-app"
+              >
+                <span>{tag.tag_name}</span>
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(tag)}
+                  className="shrink-0 rounded-md px-2 py-1 text-xs text-[var(--app-danger)] hover:bg-[var(--app-danger-bg)]"
+                >
+                  Удалить
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <TagCreateForm onCreated={handleCreated} />
+      </div>
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -180,6 +176,6 @@ export function TagsSettingsSection() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
-    </section>
+    </div>
   );
 }

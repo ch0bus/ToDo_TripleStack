@@ -54,3 +54,11 @@ docker compose up -d --build
 База SQLite в томе `todoapp_todo_data`, при пересборке не стирается.
 
 `docker compose down` запускайте только из `/opt/todoapp` — гасится только этот стек.
+
+## Telegram
+
+Пользователь сам создаёт бота в BotFather и вставляет токен в Настройки.
+Общего токена в `.env` нет. Контейнер `telegram` опрашивает сохранённые боты
+(`getUpdates`) и шлёт сводки. После выкладки: `docker compose logs -f telegram`.
+
+Полная инструкция: [`TELEGRAM.md`](TELEGRAM.md).

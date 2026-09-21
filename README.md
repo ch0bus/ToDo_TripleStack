@@ -21,8 +21,10 @@
 - Создание задачи, события и заметки — селектор «+ Добавить»; правка на отдельных страницах, не в модалках
 - Профиль: настройки, смена пароля, тема (светлая / тёмная / система), выборочное скрытие системных тегов
 - Быстрый вход: PIN (4–6 цифр) и опционально лицо / отпечаток на этом устройстве; не заменяет JWT, только локальный замок после пароля
+- Telegram: свой бот из BotFather в настройках (токен, пояс, сводка); личный чат; [инструкция](docs/TELEGRAM.md)
 
 Подробности контракта и таблиц: [`docs/API_SPEC.md`](docs/API_SPEC.md), [`docs/DB_SCHEMA.md`](docs/DB_SCHEMA.md).  
+Бот Telegram: [`docs/TELEGRAM.md`](docs/TELEGRAM.md).  
 [`docs/ToDoApp.txt`](docs/ToDoApp.txt) — исходный бэклог-визия, не описание текущей реализации.
 
 ## Структура
@@ -37,6 +39,7 @@ ToDoApp/                    # репозиторий; продукт — Haloday
     API_SPEC.md
     DB_SCHEMA.md
     DEPLOY.md
+    TELEGRAM.md
     ToDoApp.txt
 ```
 
@@ -60,6 +63,14 @@ python manage.py runserver
 ```
 
 API: `http://127.0.0.1:8000/api/`
+
+Для Telegram нужен ещё воркер (токен бота задаёт пользователь в настройках, не `.env`):
+
+```bash
+python manage.py telegram_worker --loop
+```
+
+Инструкция: [`docs/TELEGRAM.md`](docs/TELEGRAM.md).
 
 ### Frontend
 

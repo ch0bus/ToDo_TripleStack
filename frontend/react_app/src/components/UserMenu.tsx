@@ -105,7 +105,7 @@ export function UserMenu() {
             onClick={() => setOpen(false)}
             className="block px-3 py-1.5 text-sm text-app hover:bg-app-surface-muted"
           >
-            Настройки профиля
+            Настройки
           </Link>
           <div className="my-1 border-t border-app" />
           <button

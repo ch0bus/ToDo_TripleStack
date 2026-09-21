@@ -10,7 +10,8 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 COPY backend/django_api/ /app/
 COPY deploy/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && mkdir -p /app/data /app/staticfiles
+COPY deploy/entrypoint-telegram.sh /entrypoint-telegram.sh
+RUN chmod +x /entrypoint.sh /entrypoint-telegram.sh && mkdir -p /app/data /app/staticfiles
 
 EXPOSE 8000
 

@@ -15,6 +15,9 @@ export const btnSecondary =
 export const btnDangerGhost =
   "shrink-0 rounded-md px-2 py-1 text-xs text-[var(--app-danger)] hover:bg-red-500/10 disabled:opacity-50";
 
+export const btnDanger =
+  "rounded-md border border-[var(--app-danger-border)] bg-[var(--app-danger-bg)] px-4 py-2 text-sm font-medium text-[var(--app-danger-text)] hover:opacity-90";
+
 export const cardClass =
   "rounded-xl border border-app bg-app-surface shadow-app";
 

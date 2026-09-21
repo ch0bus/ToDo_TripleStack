@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     'todos',
+    'telegram_bot',
 ]
 
 MIDDLEWARE = [
@@ -103,6 +104,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.environ.get("DJANGO_DB_PATH", str(BASE_DIR / "db.sqlite3")),
+        'OPTIONS': {'timeout': 20},
     }
 }
 
@@ -205,3 +207,21 @@ SPECTACULAR_SETTINGS = {
         'persistAuthData': True,  # Сохраняет токен в браузере
     },
 }
+
+TELEGRAM_TZ = os.environ.get("TELEGRAM_TZ", "Europe/Moscow").strip() or "Europe/Moscow"
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
+
+
+TELEGRAM_DIGEST_HOUR = max(0, min(23, _env_int("TELEGRAM_DIGEST_HOUR", 8)))
+TELEGRAM_REMIND_MINUTES = max(5, min(24 * 60, _env_int("TELEGRAM_REMIND_MINUTES", 30)))
+
+

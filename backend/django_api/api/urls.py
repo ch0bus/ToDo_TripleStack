@@ -18,6 +18,7 @@ from .views import (
     DayNoteDetailView,
     EventViewSet,
 )
+from telegram_bot.views import TelegramBotView, TelegramUnlinkView
 
 router = DefaultRouter()
 router.register(r"todos", TodoViewSet, basename="todo")
@@ -43,6 +44,9 @@ urlpatterns = [
     path("auth/login/", TokenObtainPairView.as_view(), name="auth-login"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="auth-token-refresh"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+
+    path("telegram/", TelegramBotView.as_view(), name="telegram-bot"),
+    path("telegram/unlink/", TelegramUnlinkView.as_view(), name="telegram-unlink"),
 
     path(
         "todos/<int:todo_pk>/subtasks/",
