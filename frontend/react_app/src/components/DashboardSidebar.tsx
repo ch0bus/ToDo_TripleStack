@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import { useHideSystemTags, type TagOption } from "@/lib/tags";
+import { isHiddenSystemTag, useHiddenSystemTags, type TagOption } from "@/lib/tags";
 import { cardClass } from "@/lib/uiClasses";
 
 interface DashboardSidebarProps {
@@ -53,13 +53,15 @@ export function DashboardSidebar({
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [hideSystem] = useHideSystemTags();
+  const { hidden } = useHiddenSystemTags();
   const onInbox = location.pathname === "/";
 
   const activeTag = searchParams.get("tag") ?? "";
 
   const systemTags = tags.filter(
-    (t) => t.is_system && (!hideSystem || String(t.id) === activeTag),
+    (t) =>
+      t.is_system &&
+      (!isHiddenSystemTag(t.id, hidden) || String(t.id) === activeTag),
   );
   const userTags = tags.filter((t) => !t.is_system);
 

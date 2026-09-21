@@ -4,7 +4,13 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { TagCreateForm } from "@/components/TagCreateForm";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import { TAG_KIND_OPTIONS, useHideSystemTags, type TagOption } from "@/lib/tags";
+import {
+  TAG_KIND_OPTIONS,
+  hiddenIdsForSystemTags,
+  isHiddenSystemTag,
+  useHiddenSystemTags,
+  type TagOption,
+} from "@/lib/tags";
 import { cardClass } from "@/lib/uiClasses";
 
 function kindLabel(kind: string): string {
@@ -13,7 +19,7 @@ function kindLabel(kind: string): string {
 
 export function TagsSettingsSection() {
   const { pushToast } = useToast();
-  const [hideSystem, setHideSystem] = useHideSystemTags();
+  const { hidden, setHiddenIds } = useHiddenSystemTags();
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<TagOption | null>(null);
@@ -34,6 +40,20 @@ export function TagsSettingsSection() {
 
   const systemTags = tags.filter((t) => t.is_system);
   const userTags = tags.filter((t) => !t.is_system);
+
+  useEffect(() => {
+    if (!hidden.hideAll) return;
+    const ids = tags.filter((tag) => tag.is_system).map((tag) => tag.id);
+    if (!ids.length) return;
+    setHiddenIds(ids);
+  }, [hidden.hideAll, tags, setHiddenIds]);
+
+  function toggleSystemTagHidden(tag: TagOption) {
+    const current = new Set(hiddenIdsForSystemTags(systemTags, hidden));
+    if (current.has(tag.id)) current.delete(tag.id);
+    else current.add(tag.id);
+    setHiddenIds(current);
+  }
 
   function handleCreated(tag: TagOption) {
     setTags((prev) =>
@@ -68,8 +88,9 @@ export function TagsSettingsSection() {
         Теги
       </h2>
       <p className="mb-4 text-xs text-app-subtle">
-        Системные теги общие для всех. Их можно скрыть в фильтрах и формах —
-        на задачах они останутся. Свои теги создаются и удаляются здесь.
+        Системные теги общие для всех. Ненужные можно скрыть по одному — в
+        меню и формах их не будет, на задачах они останутся. Свои теги
+        создаются и удаляются здесь.
       </p>
 
       {loading ? (
@@ -78,49 +99,36 @@ export function TagsSettingsSection() {
         <>
           <div className="mb-4">
             <h3 className="mb-2 text-xs font-medium text-app-muted">Системные</h3>
-            <label className="mb-3 flex items-start gap-2 text-sm text-app">
-              <input
-                type="checkbox"
-                checked={hideSystem}
-                onChange={(e) => {
-                  const next = e.target.checked;
-                  setHideSystem(next);
-                  pushToast(
-                    next
-                      ? "Системные теги скрыты в меню и формах"
-                      : "Системные теги снова видны",
-                    "info",
-                  );
-                }}
-                className="mt-0.5 rounded border-app"
-              />
-              <span>
-                Скрыть в меню и формах
-                <span className="mt-0.5 block text-xs text-app-subtle">
-                  Список ниже остаётся. Уже назначенные теги на задачах не
-                  снимаются.
-                </span>
-              </span>
-            </label>
             {systemTags.length === 0 ? (
               <p className="text-xs text-app-subtle">Нет данных</p>
             ) : (
-              <ul
-                className={
-                  "space-y-1 text-sm text-app " + (hideSystem ? "opacity-60" : "")
-                }
-              >
-                {systemTags.map((tag) => (
-                  <li
-                    key={tag.id}
-                    className="flex justify-between rounded-md bg-app-surface-muted px-3 py-1.5"
-                  >
-                    <span>{tag.tag_name}</span>
-                    <span className="text-xs text-app-subtle">
-                      {kindLabel(tag.kind)}
-                    </span>
-                  </li>
-                ))}
+              <ul className="space-y-1 text-sm text-app">
+                {systemTags.map((tag) => {
+                  const hiddenInUi = isHiddenSystemTag(tag.id, hidden);
+                  return (
+                    <li
+                      key={tag.id}
+                      className={
+                        "flex items-center justify-between gap-2 rounded-md bg-app-surface-muted px-3 py-1.5 " +
+                        (hiddenInUi ? "opacity-60" : "")
+                      }
+                    >
+                      <span className="min-w-0">
+                        {tag.tag_name}
+                        <span className="ml-2 text-xs text-app-subtle">
+                          {kindLabel(tag.kind)}
+                        </span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleSystemTagHidden(tag)}
+                        className="shrink-0 text-xs text-app-accent hover:underline"
+                      >
+                        {hiddenInUi ? "Показать" : "Скрыть"}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
