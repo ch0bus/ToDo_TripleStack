@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { CreateAddMenu } from "@/components/CreateAddMenu";
@@ -7,6 +7,7 @@ import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { EventList } from "@/components/EventList";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { FilterBar } from "@/components/FilterBar";
+import { LoadingBar } from "@/components/LoadingBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { SortBar } from "@/components/SortBar";
 import { StatsCards } from "@/components/StatsCards";
@@ -122,6 +123,8 @@ export function HomePage() {
   const [todos, setTodos] = useState<TodoRow[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const loadedOnce = useRef(false);
   const [error, setError] = useState("");
   const [dayNote, setDayNote] = useState<DayNote | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -143,25 +146,26 @@ export function HomePage() {
   const tag = searchParams.get("tag") ?? undefined;
   const search = searchParams.get("search") ?? undefined;
 
-  const refreshDashboard = useCallback(async () => {
+  const fetchDashboard = useCallback(async () => {
     const todosPath = buildTodosQuery({
       status,
       priority,
       tag,
       search,
     });
-    const [statsRes, todosRes] = await Promise.all([
+    const [statsRes, todosRes, eventsRes] = await Promise.all([
       apiFetch("/todos/stats/"),
       apiFetch(todosPath),
+      apiFetch("/events/"),
     ]);
-    if (statsRes.ok) {
-      setStats((await statsRes.json()) as TodoStats);
-    }
-    if (todosRes.ok) {
-      setTodos((await todosRes.json()) as TodoRow[]);
-    } else {
-      throw new Error("Failed to load todos");
-    }
+    if (!todosRes.ok) throw new Error("Failed to load todos");
+    return {
+      stats: statsRes.ok ? ((await statsRes.json()) as TodoStats) : null,
+      todos: (await todosRes.json()) as TodoRow[],
+      events: eventsRes.ok
+        ? ((await eventsRes.json()) as CalendarEvent[])
+        : null,
+    };
   }, [status, priority, tag, search]);
 
   useEffect(() => {
@@ -203,38 +207,47 @@ export function HomePage() {
   }, [hasToken, selectedKey, location.pathname]);
 
   useEffect(() => {
-    if (!hasToken) return;
-    let cancelled = false;
-    async function loadEvents() {
-      const res = await apiFetch("/events/");
-      if (!res.ok || cancelled) return;
-      const data = (await res.json()) as CalendarEvent[];
-      if (!cancelled) setEvents(data);
+    if (!hasToken) {
+      setLoading(false);
+      return;
     }
-    void loadEvents();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasToken, location.pathname]);
 
-  useEffect(() => {
-    if (!hasToken) return;
-
+    let cancelled = false;
+    let barTimer = 0;
     async function load() {
       try {
-        setLoading(true);
         setError("");
-        await refreshDashboard();
+        if (loadedOnce.current) {
+          barTimer = window.setTimeout(() => {
+            if (!cancelled) setRefreshing(true);
+          }, 150);
+        } else {
+          setLoading(true);
+        }
+        const data = await fetchDashboard();
+        if (cancelled) return;
+        if (data.stats) setStats(data.stats);
+        setTodos(data.todos);
+        if (data.events) setEvents(data.events);
+        loadedOnce.current = true;
       } catch (e) {
         console.error(e);
-        setError("Не удалось загрузить задачи");
+        if (!cancelled) setError("Не удалось загрузить задачи");
       } finally {
-        setLoading(false);
+        window.clearTimeout(barTimer);
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
-    load();
-  }, [hasToken, refreshDashboard, location.pathname]);
+    void load();
+    return () => {
+      cancelled = true;
+      window.clearTimeout(barTimer);
+    };
+  }, [hasToken, fetchDashboard, location.pathname]);
 
   useEffect(() => {
     setSearchInput(search ?? "");
@@ -306,7 +319,10 @@ export function HomePage() {
       prev.map((t) => (t.id === updated.id ? updated : t)),
     );
     try {
-      await refreshDashboard();
+      const data = await fetchDashboard();
+      if (data.stats) setStats(data.stats);
+      setTodos(data.todos);
+      if (data.events) setEvents(data.events);
     } catch {
       /* ignore */
     }
@@ -315,7 +331,10 @@ export function HomePage() {
   async function handleTodoDeleted(id: number) {
     setTodos((prev) => prev.filter((t) => t.id !== id));
     try {
-      await refreshDashboard();
+      const data = await fetchDashboard();
+      if (data.stats) setStats(data.stats);
+      setTodos(data.todos);
+      if (data.events) setEvents(data.events);
     } catch {
       /* ignore */
     }
@@ -358,6 +377,7 @@ export function HomePage() {
         </div>
 
         <div className="min-w-0 space-y-4">
+          <div className="relative">
           {loading ? (
             <div className="grid grid-cols-4 gap-1 sm:gap-3" aria-hidden>
               {Array.from({ length: 4 }).map((_, i) => (
@@ -375,6 +395,10 @@ export function HomePage() {
               overdue={stats.overdue}
             />
           )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-full">
+            <LoadingBar active={refreshing} />
+          </div>
+          </div>
           {loading ? (
             <InboxSkeleton />
           ) : (
@@ -408,7 +432,13 @@ export function HomePage() {
             onSelect={selectDay}
           />
 
-          <div className="space-y-8">
+          <div
+            className={
+              "space-y-8 transition-opacity " +
+              (refreshing ? "pointer-events-none opacity-50" : "")
+            }
+            aria-busy={refreshing}
+          >
               <InboxSection
                 id="inbox-today"
                 title={formatInboxDayTitle(selectedDate, today)}

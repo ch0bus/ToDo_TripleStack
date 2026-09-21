@@ -52,6 +52,18 @@ export function toMonthKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
+export function monthBounds(month: Date): { from: string; to: string } {
+  return {
+    from: `${toMonthKey(month)}-01`,
+    to: toDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0)),
+  };
+}
+
+export function yearBounds(month: Date): { from: string; to: string } {
+  const year = month.getFullYear();
+  return { from: `${year}-01-01`, to: `${year}-12-31` };
+}
+
 export function parseMonthKey(key: string): Date | null {
   const match = /^(\d{4})-(\d{2})$/.exec(key);
   if (!match) return null;
@@ -226,16 +238,6 @@ export function uniqueTodosInRange(
     }
   }
   return list;
-}
-
-/** Уникальные задачи, которые попадают на дни выбранного месяца (срок или повтор). */
-export function uniqueTodosInMonth(
-  cells: CalendarCell[],
-  byDay: Map<string, CalendarEntry[]>,
-): TodoRow[] {
-  const inMonth = cells.filter((cell) => cell.inMonth);
-  if (!inMonth.length) return [];
-  return uniqueTodosInRange(byDay, inMonth[0].key, inMonth[inMonth.length - 1].key);
 }
 
 export function formatMonthTitle(date: Date): string {

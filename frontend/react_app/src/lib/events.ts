@@ -1,4 +1,4 @@
-import { dueDateKey, parseDateKey, toDateKey, type CalendarCell } from "@/lib/calendar";
+import { dueDateKey, parseDateKey, toDateKey } from "@/lib/calendar";
 import { isRecurring, nextDueDate, type RecurrenceValue } from "@/lib/recurrence";
 
 export const DEFAULT_EVENT_COLOR = "#e11d48";
@@ -149,16 +149,6 @@ export function uniqueEventsInRange(
     }
   }
   return list;
-}
-
-/** Уникальные события месяца: одна строка на событие, первое вхождение в месяце. */
-export function uniqueEventsInMonth(
-  cells: CalendarCell[],
-  byDay: Map<string, EventEntry[]>,
-): EventEntry[] {
-  const inMonth = cells.filter((cell) => cell.inMonth);
-  if (!inMonth.length) return [];
-  return uniqueEventsInRange(byDay, inMonth[0].key, inMonth[inMonth.length - 1].key);
 }
 
 export const EVENT_SORTS = ["start", "new", "title"] as const;

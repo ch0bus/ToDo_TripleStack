@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
+import { ChoiceChip } from "@/components/FormFields";
 import { PriorityMark, StatusCycleIcon } from "@/components/TodoMarks";
 import {
   PRIORITY_SELECT_OPTIONS,
@@ -22,32 +23,6 @@ function FilterIcon() {
     >
       <path d="M4 5h16l-6.5 8v5l-3 1.5v-6.5L4 5z" />
     </svg>
-  );
-}
-
-function ChoiceChip({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={
-        "inline-flex items-center rounded-md px-2 py-1.5 text-xs transition-colors " +
-        (selected
-          ? "bg-app-surface-muted text-app"
-          : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
-      }
-    >
-      {children}
-    </button>
   );
 }
 

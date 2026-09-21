@@ -127,7 +127,7 @@ class TodoSerializer(serializers.ModelSerializer):
     subtasks_summary = serializers.SerializerMethodField()
     tag_ids = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=Tag.objects.all(),
+        queryset=Tag.objects.none(),
         source="tags",
         write_only=True,
         required=False,
@@ -189,6 +189,17 @@ class TodoSerializer(serializers.ModelSerializer):
                 "help_text": "Когда статус стал «Готово»; сбрасывается при другом статусе",
             },
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        queryset = Tag.visible_to(user)
+        field = self.fields["tag_ids"]
+        field.queryset = queryset
+        child = getattr(field, "child_relation", None)
+        if child is not None:
+            child.queryset = queryset
 
     def get_subtasks_summary(self, obj):
         total = getattr(obj, "subtasks_total", None)

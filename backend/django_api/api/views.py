@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.db.models import Count, Q
@@ -33,6 +33,7 @@ from todos.models import (
     Tag,
     Subtask,
     Status,
+    Recurrence,
     ShiftCalendar,
     ShiftKind,
     ShiftLayer,
@@ -50,6 +51,89 @@ from todos.shift_utils import (
 )
 
 User = get_user_model()
+
+CALENDAR_RANGE_MAX_DAYS = 366
+
+CALENDAR_RANGE_PARAMETERS = [
+    OpenApiParameter(
+        name="from",
+        description=(
+            "Начало окна календаря (YYYY-MM-DD). Только вместе с to. "
+            "Задачи: якорь event_date или due_date, повторы в окне created_at…якорь, "
+            "плюс задачи без даты. События: пересечение start_at…end_at или повтор от start_at."
+        ),
+        required=False,
+        type=OpenApiTypes.DATE,
+    ),
+    OpenApiParameter(
+        name="to",
+        description="Конец окна календаря (YYYY-MM-DD). Вместе с from, не больше 366 дней.",
+        required=False,
+        type=OpenApiTypes.DATE,
+    ),
+]
+
+
+def _parse_query_date(value: str | None, field: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationError({field: "Ожидается дата YYYY-MM-DD."})
+
+
+def _optional_date_range(params) -> tuple[date | None, date | None]:
+    raw_from = params.get("from")
+    raw_to = params.get("to")
+    if not raw_from and not raw_to:
+        return None, None
+    if not raw_from or not raw_to:
+        raise ValidationError(
+            {"detail": "Нужны оба параметра from и to (YYYY-MM-DD)."}
+        )
+    start = _parse_query_date(raw_from, "from")
+    end = _parse_query_date(raw_to, "to")
+    if start is None or end is None:
+        raise ValidationError(
+            {"detail": "Нужны оба параметра from и to (YYYY-MM-DD)."}
+        )
+    if end < start:
+        raise ValidationError({"detail": "to не раньше from."})
+    if (end - start).days > CALENDAR_RANGE_MAX_DAYS:
+        raise ValidationError({"detail": "Диапазон не больше 366 дней."})
+    return start, end
+
+
+def _filter_todos_for_calendar(qs, start: date, end: date):
+    """Задачи, которые могут стоять в окне, плюс без даты (блок «Без даты»)."""
+    pad_start = start - timedelta(days=1)
+    pad_end = end + timedelta(days=1)
+    undated = Q(event_date__isnull=True, due_date__isnull=True)
+    has_event = Q(event_date__isnull=False)
+    due_only = Q(event_date__isnull=True, due_date__isnull=False)
+    once = (has_event & Q(event_date__date__gte=pad_start, event_date__date__lte=pad_end)) | (
+        due_only & Q(due_date__date__gte=pad_start, due_date__date__lte=pad_end)
+    )
+    recurring = ~Q(recurrence=Recurrence.NEVER)
+    window = recurring & Q(created_at__date__lte=pad_end) & (
+        (has_event & Q(event_date__date__gte=pad_start))
+        | (due_only & Q(due_date__date__gte=pad_start))
+    )
+    return qs.filter(undated | once | window)
+
+
+def _filter_events_for_calendar(qs, start: date, end: date):
+    """Разовые события, пересекающие окно, и повторы, начавшиеся не позже to."""
+    pad_start = start - timedelta(days=1)
+    pad_end = end + timedelta(days=1)
+    never = Q(recurrence=Recurrence.NEVER)
+    one_shot = never & Q(start_at__date__lte=pad_end) & (
+        Q(end_at__date__gte=pad_start)
+        | Q(end_at__isnull=True, start_at__date__gte=pad_start)
+    )
+    repeating = ~never & Q(start_at__date__lte=pad_end)
+    return qs.filter(one_shot | repeating)
 
 
 class RegisterView(generics.CreateAPIView):
@@ -183,6 +267,11 @@ class TodoViewSet(viewsets.ModelViewSet):
                 Q(title__icontains=search) | Q(description__icontains=search)
             )
 
+        if getattr(self, "action", None) == "list":
+            range_from, range_to = _optional_date_range(params)
+            if range_from and range_to:
+                qs = _filter_todos_for_calendar(qs, range_from, range_to)
+
         # distinct() после annotate/join с тегами сбрасывает Meta.ordering.
         return qs.distinct().order_by("-created_at")
 
@@ -192,24 +281,21 @@ class TodoViewSet(viewsets.ModelViewSet):
     )
     @action(detail=False, methods=["get"])
     def stats(self, request):
-        qs = Todo.objects.filter(user=request.user)
         now = timezone.now()
-        return Response(
-            {
-                "total": qs.count(),
-                "done": qs.filter(status=Status.DONE).count(),
-                "in_progress": qs.filter(status=Status.IN_PROGRESS).count(),
-                "overdue": qs.filter(due_date__lt=now)
-                .exclude(status=Status.DONE)
-                .count(),
-            }
+        data = Todo.objects.filter(user=request.user).aggregate(
+            total=Count("id"),
+            done=Count("id", filter=Q(status=Status.DONE)),
+            in_progress=Count("id", filter=Q(status=Status.IN_PROGRESS)),
+            overdue=Count("id", filter=Q(due_date__lt=now) & ~Q(status=Status.DONE)),
         )
+        return Response(data)
 
     @extend_schema(
         summary="Получить все задачи пользователя",
         description=(
             "Возвращает список всех задач текущего пользователя с поддержкой фильтрации по "
-            "status, priority, tag, due_from, due_to и текстового поиска по title/description."
+            "status, priority, tag, due_from, due_to, from/to (окно календаря) "
+            "и текстового поиска по title/description."
         ),
         parameters=[
             OpenApiParameter(
@@ -260,6 +346,7 @@ class TodoViewSet(viewsets.ModelViewSet):
                 required=False,
                 type=OpenApiTypes.BOOL,
             ),
+            *CALENDAR_RANGE_PARAMETERS,
         ],
     )
     def list(self, request, *args, **kwargs):
@@ -321,10 +408,10 @@ class TagViewSet(viewsets.ModelViewSet):
 
     serializer_class = TagSerializer
     permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ["get", "post", "delete", "head", "options"]
 
     def get_queryset(self):
-        user = self.request.user
-        return Tag.objects.filter(Q(user__isnull=True) | Q(user=user)).order_by("tag_name")
+        return Tag.visible_to(self.request.user).order_by("tag_name")
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -398,15 +485,6 @@ class SubtaskViewSet(viewsets.ModelViewSet):
     @extend_schema(summary="Удалить подзадачу")
     def destroy(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)
-
-
-def _parse_query_date(value: str | None, field: str) -> date | None:
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(value)
-    except ValueError:
-        raise ValidationError({field: "Ожидается дата YYYY-MM-DD."})
 
 
 def _calendar_from_request(request, required=False) -> ShiftCalendar:
@@ -594,7 +672,19 @@ class EventViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        return Event.objects.filter(user=self.request.user)
+        qs = Event.objects.filter(user=self.request.user)
+        if getattr(self, "action", None) == "list":
+            range_from, range_to = _optional_date_range(self.request.query_params)
+            if range_from and range_to:
+                qs = _filter_events_for_calendar(qs, range_from, range_to)
+        return qs
+
+    @extend_schema(
+        summary="Список событий",
+        parameters=CALENDAR_RANGE_PARAMETERS,
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class DayNotesView(APIView):

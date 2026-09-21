@@ -3,6 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.db.models import Q
 
 
 class Recurrence(models.TextChoices):
@@ -65,6 +66,13 @@ class Tag(models.Model):
 
     def __str__(self):
         return f"{self.tag_name}"
+
+    @classmethod
+    def visible_to(cls, user):
+        """Системные теги и личные теги пользователя."""
+        if user is None or not getattr(user, "is_authenticated", False):
+            return cls.objects.filter(user__isnull=True)
+        return cls.objects.filter(Q(user__isnull=True) | Q(user_id=user.pk))
 
 
 class Todo(models.Model):

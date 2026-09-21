@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { TodayHalo } from "@/components/CalendarNoteMarks";
-import { CalendarOccurrenceRow } from "@/components/CalendarOccurrenceRow";
+import { CalendarSelectedDay } from "@/components/CalendarSelectedDay";
 import { CalendarTimeGrid } from "@/components/CalendarTimeGrid";
 import { CalendarViewSwitch } from "@/components/CalendarViewSwitch";
 import { CalendarYearGrid } from "@/components/CalendarYearGrid";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
-import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { EventFilterBar } from "@/components/EventFilterBar";
 import { EventList } from "@/components/EventList";
+import { LoadingBar } from "@/components/LoadingBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthDayBars, collectDayBars } from "@/components/MonthDayBars";
 import { MonthShiftFill } from "@/components/MonthShiftFill";
@@ -19,7 +19,6 @@ import { ShiftCalendarPicker } from "@/components/ShiftCalendarPicker";
 import { ShiftDaySummary } from "@/components/ShiftDaySummary";
 import { ShiftPaintBar } from "@/components/ShiftPaintBar";
 import { SortBar } from "@/components/SortBar";
-import { TodoItem } from "@/components/TodoItem";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { apiFetch } from "@/lib/api";
@@ -36,6 +35,7 @@ import {
   formatWeekRangeTitle,
   formatYearTitle,
   groupTodosForMonth,
+  monthBounds,
   parseCalendarView,
   parseDateKey,
   parseMonthKey,
@@ -48,6 +48,7 @@ import {
   toDateKey,
   toMonthKey,
   weekDates,
+  yearBounds,
 } from "@/lib/calendar";
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
@@ -75,7 +76,6 @@ import {
 import { shiftSettingsPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
 import { parseTodoSort, sortTodos } from "@/lib/todoSort";
-import { pluralRu } from "@/lib/utils";
 
 const PERIOD_SCOPE: Record<CalendarView, string> = {
   day: "дня",
@@ -101,7 +101,6 @@ const PERIOD_EVENTS_EMPTY: Record<CalendarView, string> = {
 function CalendarSkeleton() {
   return (
     <div className="animate-pulse space-y-4" aria-hidden>
-      <div className="h-8 w-48 rounded bg-app-border" />
       <div className="grid grid-cols-7 gap-1">
         {Array.from({ length: 35 }).map((_, i) => (
           <div key={i} className="h-16 rounded-lg bg-app-border/60 sm:h-20" />
@@ -119,6 +118,8 @@ export function CalendarPage() {
   const [todos, setTodos] = useState<TodoRow[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const loadedOnce = useRef(false);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -161,8 +162,8 @@ export function CalendarPage() {
   const weekDays = useMemo(() => weekDates(weekStart), [weekStart]);
   const rangeFrom = cells[0]?.key;
   const rangeTo = cells[cells.length - 1]?.key;
-  const yearFrom = `${month.getFullYear()}-01-01`;
-  const yearTo = `${month.getFullYear()}-12-31`;
+  const { from: yearFrom, to: yearTo } = yearBounds(month);
+  const { from: monthFrom, to: monthTo } = monthBounds(month);
   const weekFrom = toDateKey(weekStart);
   const weekTo = toDateKey(weekDays[6] ?? weekStart);
   const dayKey = toDateKey(selectedDay);
@@ -201,7 +202,7 @@ export function CalendarPage() {
         ? weekFrom
         : calendarView === "day"
           ? dayKey
-          : `${toMonthKey(month)}-01`;
+          : monthFrom;
   const listTo =
     calendarView === "year"
       ? yearTo
@@ -209,7 +210,7 @@ export function CalendarPage() {
         ? weekTo
         : calendarView === "day"
           ? dayKey
-          : toDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
+          : monthTo;
   const periodCaption =
     calendarView === "year"
       ? formatYearTitle(month)
@@ -254,8 +255,6 @@ export function CalendarPage() {
     () => uniqueEventEntries(eventsByDay.get(selectedKey) ?? []),
     [eventsByDay, selectedKey],
   );
-  const selectedRealCount = selectedEntries.filter((entry) => !entry.virtual).length;
-  const selectedRepeatCount = selectedEntries.length - selectedRealCount;
   const shiftsByDay = useMemo(
     () => shiftMarksByDate(shiftDays, shiftLayers),
     [shiftDays, shiftLayers],
@@ -270,8 +269,6 @@ export function CalendarPage() {
       shiftKinds.filter((kind) => (activeLayer ? kind.layer_id === activeLayer.id : false)),
     [shiftKinds, activeLayer],
   );
-  const monthFrom = `${toMonthKey(month)}-01`;
-  const monthTo = toDateKey(new Date(month.getFullYear(), month.getMonth() + 1, 0));
   const monthLayerTotals = useMemo(
     () =>
       shiftLayers.map((layer) => ({
@@ -336,17 +333,25 @@ export function CalendarPage() {
     if (res.ok) setDayNotes((await res.json()) as DayNote[]);
   }, [queryFrom, queryTo]);
 
-  const load = useCallback(async () => {
-    const [todosRes, tagsRes, eventsRes] = await Promise.all([
-      apiFetch("/todos/"),
-      apiFetch("/tags/"),
-      apiFetch("/events/"),
+  const loadTags = useCallback(async () => {
+    const res = await apiFetch("/tags/");
+    if (res.ok) setTags((await res.json()) as TagOption[]);
+  }, []);
+
+  const fetchPeriod = useCallback(async () => {
+    if (!queryFrom || !queryTo) return null;
+    const range = `from=${queryFrom}&to=${queryTo}`;
+    const [todosRes, eventsRes] = await Promise.all([
+      apiFetch(`/todos/?${range}`),
+      apiFetch(`/events/?${range}`),
     ]);
     if (!todosRes.ok) throw new Error("Failed to load todos");
-    setTodos((await todosRes.json()) as TodoRow[]);
-    if (tagsRes.ok) setTags((await tagsRes.json()) as TagOption[]);
-    if (eventsRes.ok) setEvents((await eventsRes.json()) as CalendarEvent[]);
-  }, []);
+    const nextTodos = (await todosRes.json()) as TodoRow[];
+    const nextEvents = eventsRes.ok
+      ? ((await eventsRes.json()) as CalendarEvent[])
+      : [];
+    return { todos: nextTodos, events: nextEvents };
+  }, [queryFrom, queryTo]);
 
   useEffect(() => {
     registerFiltersToggle(() => setSidebarOpen(true));
@@ -354,24 +359,44 @@ export function CalendarPage() {
   }, [registerFiltersToggle]);
 
   useEffect(() => {
+    void loadTags();
+  }, [loadTags]);
+
+  useEffect(() => {
     let cancelled = false;
+    let barTimer = 0;
     async function run() {
       try {
-        setLoading(true);
         setError("");
-        await load();
+        if (loadedOnce.current) {
+          barTimer = window.setTimeout(() => {
+            if (!cancelled) setRefreshing(true);
+          }, 150);
+        } else {
+          setLoading(true);
+        }
+        const data = await fetchPeriod();
+        if (cancelled || !data) return;
+        setTodos(data.todos);
+        setEvents(data.events);
+        loadedOnce.current = true;
       } catch (e) {
         console.error(e);
         if (!cancelled) setError("Не удалось загрузить календарь");
       } finally {
-        if (!cancelled) setLoading(false);
+        window.clearTimeout(barTimer);
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
-    run();
+    void run();
     return () => {
       cancelled = true;
+      window.clearTimeout(barTimer);
     };
-  }, [load]);
+  }, [fetchPeriod]);
 
   useEffect(() => {
     void loadCalendars();
@@ -553,7 +578,11 @@ export function CalendarPage() {
   async function handleTodoUpdated(updated: TodoRow) {
     setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
     try {
-      await load();
+      const data = await fetchPeriod();
+      if (data) {
+        setTodos(data.todos);
+        setEvents(data.events);
+      }
     } catch {
       /* ignore */
     }
@@ -562,7 +591,11 @@ export function CalendarPage() {
   async function handleTodoDeleted(id: number) {
     setTodos((prev) => prev.filter((t) => t.id !== id));
     try {
-      await load();
+      const data = await fetchPeriod();
+      if (data) {
+        setTodos(data.todos);
+        setEvents(data.events);
+      }
     } catch {
       /* ignore */
     }
@@ -617,6 +650,19 @@ export function CalendarPage() {
     />
   );
 
+  const selectedDayPanel = {
+    selectedDay,
+    selectedKey,
+    selectedNote,
+    selectedEntries,
+    selectedEventEntries,
+    shiftSummary,
+    onNoteChanged: handleNoteChanged,
+    onTodoUpdated: handleTodoUpdated,
+    onTodoDeleted: handleTodoDeleted,
+    onEventDeleted: handleEventDeleted,
+  };
+
   const pickerLabel =
     calendarView === "day"
       ? formatDayTitle(selectedDay)
@@ -661,11 +707,7 @@ export function CalendarPage() {
         </div>
 
         <div className="min-w-0 space-y-6">
-          {loading ? (
-            <CalendarSkeleton />
-          ) : (
-            <>
-              <div className="flex flex-col gap-2">
+              <div className="relative flex flex-col gap-2">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                 <ShiftCalendarPicker
                   className="min-w-0 w-full md:w-auto md:flex-none"
@@ -710,8 +752,21 @@ export function CalendarPage() {
                     →
                   </button>
               </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-full">
+                <LoadingBar active={loading || refreshing} />
+              </div>
               </div>
 
+              {loading ? (
+                <CalendarSkeleton />
+              ) : (
+              <div
+                className={
+                  "space-y-6 transition-opacity " +
+                  (refreshing ? "pointer-events-none opacity-50" : "")
+                }
+                aria-busy={refreshing}
+              >
               {calendarView === "year" ? (
                 <>
                 <CalendarYearGrid
@@ -725,19 +780,13 @@ export function CalendarPage() {
                   onSelectMonth={handleYearMonth}
                   onSelectDay={(date) => void handleDayClick(date)}
                 />
-                <section className="space-y-3">
-                  <h2 className="text-lg font-semibold capitalize text-app">
-                    {formatDayTitle(selectedDay)}
-                  </h2>
-                  {shiftSummary}
-                  {selectedEventEntries.length > 0 && (
-                    <EventList
-                      className="pt-2"
-                      entries={selectedEventEntries}
-                      onDeleted={handleEventDeleted}
-                    />
-                  )}
-                </section>
+                <CalendarSelectedDay
+                  {...selectedDayPanel}
+                  showNote={false}
+                  showTodos={false}
+                  showCounts={false}
+                  eventListClassName="pt-2"
+                />
                 </>
               ) : calendarView === "day" || calendarView === "week" ? (
                 <>
@@ -752,51 +801,10 @@ export function CalendarPage() {
                     shiftLayers={shiftLayers}
                     onSelectDay={selectDay}
                   />
-                  <section className="min-w-0 space-y-3">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <h2 className="text-lg font-semibold capitalize text-app">
-                        {formatDayTitle(selectedDay)}
-                      </h2>
-                      <p className="text-sm text-app-subtle">
-                        {[
-                          selectedEventEntries.length
-                            ? `${selectedEventEntries.length} ${pluralRu(selectedEventEntries.length, "событие", "события", "событий")}`
-                            : "",
-                          selectedRealCount ? `${selectedRealCount} задач` : "",
-                          selectedRepeatCount
-                            ? `${selectedRepeatCount} ${pluralRu(selectedRepeatCount, "повтор", "повтора", "повторов")}`
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || "Нет событий и задач в этот день"}
-                      </p>
-                    </div>
-                    {shiftSummary}
-                    <DayNoteEditor
-                      dateKey={selectedKey}
-                      note={selectedNote}
-                      onChanged={handleNoteChanged}
-                    />
-                    {selectedEntries.length > 0 ? (
-                      <ul className="space-y-3">
-                        {selectedEntries.map((entry) =>
-                          entry.virtual ? (
-                            <CalendarOccurrenceRow
-                              key={`${entry.todo.id}-${entry.dateKey}`}
-                              todo={entry.todo}
-                            />
-                          ) : (
-                            <TodoItem
-                              key={entry.todo.id}
-                              todo={entry.todo}
-                              onUpdated={handleTodoUpdated}
-                              onDeleted={handleTodoDeleted}
-                            />
-                          ),
-                        )}
-                      </ul>
-                    ) : null}
-                  </section>
+                  <CalendarSelectedDay
+                    {...selectedDayPanel}
+                    showEvents={false}
+                  />
                 </>
               ) : (
               <>
@@ -883,61 +891,7 @@ export function CalendarPage() {
               )}
 
               {calendarView === "month" && (
-              <section className="min-w-0 space-y-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h2 className="text-lg font-semibold capitalize text-app">
-                    {formatDayTitle(selectedDay)}
-                  </h2>
-                  <p className="text-sm text-app-subtle">
-                    {[
-                      selectedEventEntries.length
-                        ? `${selectedEventEntries.length} ${pluralRu(selectedEventEntries.length, "событие", "события", "событий")}`
-                        : "",
-                      selectedRealCount ? `${selectedRealCount} задач` : "",
-                      selectedRepeatCount
-                        ? `${selectedRepeatCount} ${pluralRu(selectedRepeatCount, "повтор", "повтора", "повторов")}`
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "Нет событий и задач в этот день"}
-                  </p>
-                </div>
-                {shiftSummary}
-                <DayNoteEditor
-                  dateKey={selectedKey}
-                  note={selectedNote}
-                  onChanged={handleNoteChanged}
-                />
-                {selectedEventEntries.length > 0 && (
-                  <EventList
-                    entries={selectedEventEntries}
-                    onDeleted={handleEventDeleted}
-                  />
-                )}
-                {selectedEntries.length > 0 ? (
-                  <ul className="space-y-3">
-                    {selectedEntries.map((entry) =>
-                      entry.virtual ? (
-                        <CalendarOccurrenceRow
-                          key={`${entry.todo.id}-${entry.dateKey}`}
-                          todo={entry.todo}
-                        />
-                      ) : (
-                        <TodoItem
-                          key={entry.todo.id}
-                          todo={entry.todo}
-                          onUpdated={handleTodoUpdated}
-                          onDeleted={handleTodoDeleted}
-                        />
-                      ),
-                    )}
-                  </ul>
-                ) : selectedEventEntries.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
-                    На этот день ничего не запланировано.
-                  </p>
-                ) : null}
-              </section>
+                <CalendarSelectedDay {...selectedDayPanel} showEmpty />
               )}
 
               <section className="space-y-3">
@@ -1015,8 +969,8 @@ export function CalendarPage() {
                   </p>
                 )}
               </section>
-            </>
-          )}
+              </div>
+              )}
         </div>
       </div>
 

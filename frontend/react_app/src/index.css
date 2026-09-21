@@ -273,3 +273,17 @@ html[data-theme="dark"] .bg-app-modal {
 .btn-primary:hover:not(:disabled) {
   background-color: var(--app-accent-hover);
 }
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+.loading-bar-indeterminate {
+  width: 32%;
+  animation: loading-bar 1.05s ease-in-out infinite;
+}

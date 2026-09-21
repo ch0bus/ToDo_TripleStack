@@ -1,6 +1,7 @@
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, type FormEvent } from "react";
 
 import { DateTimeField } from "@/components/DateTimeField";
+import { PropertyField } from "@/components/FormFields";
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
@@ -18,28 +19,6 @@ interface EventFormProps {
   event?: CalendarEvent | null;
   defaultStart?: string;
   onSaved?: (event: CalendarEvent) => void;
-}
-
-function PropertyField({
-  label,
-  htmlFor,
-  children,
-}: {
-  label: string;
-  htmlFor?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-1">
-      <label
-        htmlFor={htmlFor}
-        className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle"
-      >
-        {label}
-      </label>
-      <div className="min-w-0">{children}</div>
-    </div>
-  );
 }
 
 export function EventForm({
