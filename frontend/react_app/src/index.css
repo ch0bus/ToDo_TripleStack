@@ -273,13 +273,14 @@ html[data-theme="dark"] .bg-app-modal {
   grid-template-areas:
     "mark title title when menu"
     ". facts . due ."
-    ". tags tags status .";
+    ". tags tags status status";
   column-gap: 0.625rem;
   row-gap: 0.25rem;
   padding: 0.5rem 0.625rem;
   align-items: center;
 }
 .entity-tile-status {
+  grid-area: status;
   overflow: hidden;
   text-align: right;
   font-size: 0.75rem;
