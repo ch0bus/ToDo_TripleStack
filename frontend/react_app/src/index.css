@@ -272,8 +272,8 @@ html[data-theme="dark"] .bg-app-modal {
   grid-template-rows: 20px 18px 22px;
   grid-template-areas:
     "mark title title when menu"
-    ". facts status due ."
-    ". tags tags . .";
+    ". facts status . ."
+    ". tags tags due .";
   column-gap: 0.625rem;
   row-gap: 0.25rem;
   padding: 0.5rem 0.625rem;
