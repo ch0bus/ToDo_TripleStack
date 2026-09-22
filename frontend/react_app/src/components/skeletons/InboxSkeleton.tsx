@@ -16,7 +16,7 @@ export function InboxSkeleton() {
             <div className="entity-tile-grid min-w-0 flex-1">
               <div className="entity-tile-mark h-4 w-4 justify-self-center rounded-full bg-app-border" />
               <div className="entity-tile-title h-4 rounded bg-app-border" />
-              <div className="entity-tile-status h-3 w-16 justify-self-center rounded bg-app-border" />
+              <div className="entity-tile-status h-3 w-16 justify-self-end rounded bg-app-border" />
               <div className="entity-tile-when h-3 w-12 justify-self-end rounded bg-app-border" />
               <div className="entity-tile-menu" />
               <div className="entity-tile-facts h-2.5 w-24 rounded bg-app-border" />

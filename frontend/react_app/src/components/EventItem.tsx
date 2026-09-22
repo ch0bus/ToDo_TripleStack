@@ -26,7 +26,7 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const { when, whenSub, status } = eventTileWhen(entry, showDate ? "list" : "day");
+  const { when, whenSub, status, statusShort } = eventTileWhen(entry, showDate ? "list" : "day");
   const facts = virtual
     ? event.recurrence && event.recurrence !== "never"
       ? getRecurrenceFact(event.recurrence)
@@ -80,6 +80,7 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
         when={when}
         whenSub={whenSub}
         status={status}
+        statusShort={statusShort}
         facts={facts}
         menu={
           <div ref={menuRef} className="relative">

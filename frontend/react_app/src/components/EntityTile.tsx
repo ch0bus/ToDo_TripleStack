@@ -32,6 +32,7 @@ export function EntityTile({
   when,
   whenSub,
   status,
+  statusShort,
   facts,
   tags,
   menu,
@@ -50,6 +51,7 @@ export function EntityTile({
   when: string;
   whenSub?: string;
   status?: string;
+  statusShort?: string;
   facts?: string;
   tags?: string[];
   menu?: ReactNode;
@@ -94,19 +96,34 @@ export function EntityTile({
           }
           title={status}
         >
-          {status || "\u00a0"}
+          {status ? (
+            <>
+              <span className="entity-tile-status-full">{status}</span>
+              <span className="entity-tile-status-short">
+                {statusShort || status}
+              </span>
+            </>
+          ) : (
+            "\u00a0"
+          )}
         </div>
         <div
-          className="entity-tile-when truncate text-right text-xs leading-4 text-app-subtle"
+          className="entity-tile-when min-w-0 truncate text-right text-xs leading-4 text-app-subtle"
           title={[when, whenSub].filter(Boolean).join(" · ")}
         >
           {when || "\u00a0"}
         </div>
         <div className="entity-tile-menu flex items-center justify-end">{menu}</div>
-        <p className="entity-tile-facts min-w-0 truncate text-[11px] leading-[18px] text-app-subtle">
+        <p
+          className="entity-tile-facts min-w-0 truncate text-[11px] leading-[18px] text-app-subtle"
+          title={facts}
+        >
           {facts || "\u00a0"}
         </p>
-        <p className="entity-tile-due truncate text-right text-[11px] leading-[14px] text-app-subtle">
+        <p
+          className="entity-tile-due min-w-0 truncate text-right text-[11px] leading-[14px] text-app-subtle"
+          title={whenSub}
+        >
           {whenSub || "\u00a0"}
         </p>
         <div className="entity-tile-tags flex h-[22px] min-w-0 items-center gap-1 overflow-hidden">

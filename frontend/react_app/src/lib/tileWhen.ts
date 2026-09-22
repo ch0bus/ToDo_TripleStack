@@ -15,6 +15,7 @@ export type TileWhen = {
   when: string;
   whenSub: string;
   status: string;
+  statusShort: string;
   overdue: boolean;
 };
 
@@ -31,8 +32,8 @@ function urgencyLabel(
     done: boolean;
     now?: Date;
   },
-): string {
-  if (done) return "";
+): { full: string; short: string } {
+  if (done) return { full: "", short: "" };
   const diff =
     value instanceof Date
       ? Math.round(
@@ -45,15 +46,24 @@ function urgencyLabel(
             86_400_000,
         )
       : getCalendarDayDiff(value, now);
-  if (diff === null) return "";
+  if (diff === null) return { full: "", short: "" };
   if (diff < 0) {
-    if (!allowOverdue) return "";
+    if (!allowOverdue) return { full: "", short: "" };
     const n = Math.abs(diff);
-    return `просрочено ${n} ${pluralRu(n, "день", "дня", "дней")}`;
+    return {
+      full: `просрочено ${n} ${pluralRu(n, "день", "дня", "дней")}`,
+      short: `просрочено ${n} дн.`,
+    };
   }
-  if (diff === 0) return skipToday ? "" : "сегодня";
-  if (diff === 1) return "завтра";
-  return `через ${diff} ${pluralRu(diff, "день", "дня", "дней")}`;
+  if (diff === 0) {
+    const text = skipToday ? "" : "сегодня";
+    return { full: text, short: text };
+  }
+  if (diff === 1) return { full: "завтра", short: "завтра" };
+  return {
+    full: `через ${diff} ${pluralRu(diff, "день", "дня", "дней")}`,
+    short: `через ${diff} дн.`,
+  };
 }
 
 function todoClock(iso: string | null | undefined): string {
@@ -71,25 +81,37 @@ export function todoTileWhen(todo: TodoRow, mode: TileWhenMode): TileWhen {
       ? `срок ${formatDateCompact(todo.due_date)}`
       : "";
   const anchor = todo.due_date || todo.event_date || null;
-  const status = anchor
+  const urgency = anchor
     ? urgencyLabel(anchor, {
         allowOverdue: !!todo.due_date,
         skipToday: mode === "day",
         done,
       })
-    : "";
-  return { when, whenSub, status, overdue };
+    : { full: "", short: "" };
+  return {
+    when,
+    whenSub,
+    status: urgency.full,
+    statusShort: urgency.short,
+    overdue,
+  };
 }
 
 export function eventTileWhen(entry: EventEntry, mode: TileWhenMode): TileWhen {
   const when = formatEventWhen(entry.event);
   const day = parseDateKey(entry.dateKey);
-  const status = day
+  const urgency = day
     ? urgencyLabel(day, {
         allowOverdue: false,
         skipToday: mode === "day",
         done: false,
       })
-    : "";
-  return { when, whenSub: "", status, overdue: false };
+    : { full: "", short: "" };
+  return {
+    when,
+    whenSub: "",
+    status: urgency.full,
+    statusShort: urgency.short,
+    overdue: false,
+  };
 }

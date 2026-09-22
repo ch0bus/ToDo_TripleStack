@@ -31,7 +31,7 @@ export function TodoItem({
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const { when, whenSub, status, overdue } = todoTileWhen(todo, whenMode);
+  const { when, whenSub, status, statusShort, overdue } = todoTileWhen(todo, whenMode);
   const isDone = todo.status === "done";
   const subTotal = todo.subtasks_summary?.total ?? 0;
   const subDone = todo.subtasks_summary?.done ?? 0;
@@ -175,6 +175,7 @@ export function TodoItem({
         when={when}
         whenSub={whenSub}
         status={status}
+        statusShort={statusShort}
         facts={facts}
         tags={tags}
         menu={

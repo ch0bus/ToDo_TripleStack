@@ -26,7 +26,7 @@ function RepeatIcon() {
 }
 
 export function CalendarOccurrenceRow({ todo }: { todo: TodoRow }) {
-  const { when, whenSub, status, overdue } = todoTileWhen(todo, "day");
+  const { when, whenSub, status, statusShort, overdue } = todoTileWhen(todo, "day");
   const facts =
     todo.recurrence && todo.recurrence !== "never"
       ? getRecurrenceFact(todo.recurrence)
@@ -46,6 +46,7 @@ export function CalendarOccurrenceRow({ todo }: { todo: TodoRow }) {
       when={when}
       whenSub={whenSub}
       status={status}
+      statusShort={statusShort}
       facts={facts}
       tags={tags}
     />
