@@ -272,8 +272,8 @@ html[data-theme="dark"] .bg-app-modal {
   grid-template-rows: 20px 18px 22px;
   grid-template-areas:
     "mark title title when menu"
-    ". facts status . ."
-    ". tags tags due .";
+    ". facts . due ."
+    ". tags tags status .";
   column-gap: 0.625rem;
   row-gap: 0.25rem;
   padding: 0.5rem 0.625rem;
@@ -281,11 +281,12 @@ html[data-theme="dark"] .bg-app-modal {
 }
 .entity-tile-status {
   overflow: hidden;
-  padding: 0 2px;
-  text-align: center;
+  text-align: right;
   font-size: 0.75rem;
   font-weight: 600;
   line-height: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .entity-tile-mark { grid-area: mark; }
 .entity-tile-title { grid-area: title; }
