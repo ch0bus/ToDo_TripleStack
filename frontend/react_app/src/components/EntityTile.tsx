@@ -69,39 +69,24 @@ export function EntityTile({
         aria-hidden
       />
       <div className="entity-tile-grid min-w-0 flex-1">
-        <div className="entity-tile-left">
-          <div className="entity-tile-mark flex items-center justify-center">
-            {mark}
-          </div>
-          <Link
-            to={titleTo}
-            state={titleState}
-            title={title}
-            className={
-              "entity-tile-title min-w-0 truncate text-[15px] font-medium leading-5 hover:text-app-accent " +
-              (done
-                ? "text-app-subtle line-through"
-                : titleMuted
-                  ? "text-app-muted"
-                  : "text-app")
-            }
-          >
-            {title}
-          </Link>
-          <p className="entity-tile-facts min-w-0 truncate text-[11px] leading-[18px] text-app-subtle">
-            {facts || "\u00a0"}
-          </p>
-          <div className="entity-tile-tags flex h-[22px] min-w-0 items-center gap-1 overflow-hidden">
-            {(tags ?? []).map((tag) => (
-              <span
-                key={tag}
-                className="chip-default shrink-0 rounded-full border px-1.5 py-px text-[11px] leading-4"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
+        <div className="entity-tile-mark flex items-center justify-center">
+          {mark}
         </div>
+        <Link
+          to={titleTo}
+          state={titleState}
+          title={title}
+          className={
+            "entity-tile-title min-w-0 truncate text-[15px] font-medium leading-5 hover:text-app-accent " +
+            (done
+              ? "text-app-subtle line-through"
+              : titleMuted
+                ? "text-app-muted"
+                : "text-app")
+          }
+        >
+          {title}
+        </Link>
         <div
           className={
             "entity-tile-status " +
@@ -111,17 +96,28 @@ export function EntityTile({
         >
           {status || "\u00a0"}
         </div>
-        <div className="entity-tile-right">
-          <div
-            className="entity-tile-when truncate text-right text-xs leading-4 text-app-subtle"
-            title={[when, whenSub].filter(Boolean).join(" · ")}
-          >
-            {when || "\u00a0"}
-          </div>
-          <div className="entity-tile-menu flex items-center justify-end">{menu}</div>
-          <p className="entity-tile-due truncate text-right text-[11px] leading-[14px] text-app-subtle">
-            {whenSub || "\u00a0"}
-          </p>
+        <div
+          className="entity-tile-when truncate text-right text-xs leading-4 text-app-subtle"
+          title={[when, whenSub].filter(Boolean).join(" · ")}
+        >
+          {when || "\u00a0"}
+        </div>
+        <div className="entity-tile-menu flex items-center justify-end">{menu}</div>
+        <p className="entity-tile-facts min-w-0 truncate text-[11px] leading-[18px] text-app-subtle">
+          {facts || "\u00a0"}
+        </p>
+        <p className="entity-tile-due truncate text-right text-[11px] leading-[14px] text-app-subtle">
+          {whenSub || "\u00a0"}
+        </p>
+        <div className="entity-tile-tags flex h-[22px] min-w-0 items-center gap-1 overflow-hidden">
+          {(tags ?? []).map((tag) => (
+            <span
+              key={tag}
+              className="chip-default shrink-0 rounded-full border px-1.5 py-px text-[11px] leading-4"
+            >
+              {tag}
+            </span>
+          ))}
         </div>
       </div>
     </li>

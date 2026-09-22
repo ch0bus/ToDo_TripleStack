@@ -268,39 +268,18 @@ html[data-theme="dark"] .bg-app-modal {
 }
 .entity-tile-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 5.75rem minmax(0, 1fr);
-  column-gap: 0.5rem;
-  padding: 0.5rem 0.625rem;
-  align-items: stretch;
-}
-.entity-tile-left,
-.entity-tile-right {
-  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) 5.75rem 6.25rem 1.75rem;
   grid-template-rows: 20px 18px 22px;
+  grid-template-areas:
+    "mark title title when menu"
+    ". facts status due ."
+    ". tags tags . .";
   column-gap: 0.625rem;
   row-gap: 0.25rem;
-  min-width: 0;
+  padding: 0.5rem 0.625rem;
   align-items: center;
-}
-.entity-tile-left {
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  grid-template-areas:
-    "mark title"
-    ". facts"
-    ". tags";
-}
-.entity-tile-right {
-  grid-template-columns: minmax(0, 1fr) 1.75rem;
-  grid-template-areas:
-    "when menu"
-    "due ."
-    ". .";
-  justify-items: end;
 }
 .entity-tile-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   padding: 0 2px;
   text-align: center;
