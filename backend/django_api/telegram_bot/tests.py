@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from telegram_bot.models import TelegramBot, TelegramDelivery
 from telegram_bot.services import format_today, handle_update, hash_bot_token, run_tick
-from todos.models import DayNote, Event, Status, Todo
+from todos.models import DayNote, Event, EventAttendance, Status, Todo
 
 User = get_user_model()
 
@@ -242,8 +242,12 @@ class TelegramTickTests(APITestCase):
         )
 
     @patch("telegram_bot.services.send_message")
-    def test_event_reminder_skips_all_day(self, send):
+    def test_timed_window_skips_all_day_event(self, send):
         send.return_value = {}
+        from telegram_bot.services import local_now
+
+        self.bot.digest_hour = (local_now(self.bot).hour + 5) % 24
+        self.bot.save(update_fields=["digest_hour"])
         Event.objects.create(
             user=self.user,
             title="Праздник",
@@ -252,6 +256,37 @@ class TelegramTickTests(APITestCase):
         )
         result = run_tick()
         self.assertEqual(result["events"], 0)
+
+    @patch("telegram_bot.services.send_message")
+    def test_all_day_event_reminds_at_digest_hour(self, send):
+        send.return_value = {}
+        from telegram_bot.services import day_bounds, local_now
+
+        now = local_now(self.bot)
+        self.bot.digest_hour = now.hour
+        self.bot.save(update_fields=["digest_hour"])
+        start, _ = day_bounds(now.date(), self.bot)
+        event = Event.objects.create(
+            user=self.user,
+            title="Праздник",
+            start_at=start,
+            all_day=True,
+        )
+        first = run_tick()
+        second = run_tick()
+        self.assertEqual(first["events"], 1)
+        self.assertEqual(second["events"], 0)
+        reminder = next(
+            call
+            for call in send.call_args_list
+            if len(call.args) > 2 and "весь день" in str(call.args[2])
+        )
+        self.assertIn("Праздник", reminder.args[2])
+        markup = reminder.kwargs.get("reply_markup")
+        self.assertEqual(
+            markup["inline_keyboard"][0][0]["callback_data"],
+            f"e:{event.id}:{now.date().isoformat()}",
+        )
 
     @patch("telegram_bot.services.send_message")
     def test_no_reminders_without_chat(self, send):
@@ -434,4 +469,50 @@ class TelegramMenuTests(APITestCase):
         markup = reminder.kwargs.get("reply_markup")
         self.assertEqual(
             markup["inline_keyboard"][0][0]["callback_data"], f"d:{todo.id}"
+        )
+
+    @patch("telegram_bot.services.answer_callback")
+    @patch("telegram_bot.services.send_message")
+    def test_event_attendance_callback_is_not_todo_done(self, send, answer):
+        send.return_value = {}
+        from telegram_bot.services import day_bounds, local_today
+
+        start, _ = day_bounds(local_today(self.alice_bot), self.alice_bot)
+        event = Event.objects.create(
+            user=self.alice,
+            title="Стоматолог",
+            start_at=start.replace(hour=10),
+            end_at=start.replace(hour=11),
+        )
+        day = start.date()
+        handle_update(self.alice_bot, self._callback(f"e:{event.id}:{day.isoformat()}"))
+        self.assertTrue(
+            EventAttendance.objects.filter(
+                event=event, occurrence_date=day
+            ).exists()
+        )
+        self.assertFalse(Event.objects.filter(user=self.bob).exists())
+        answer.assert_called()
+        self.assertEqual(answer.call_args.args[2], "Отмечено")
+
+    @patch("telegram_bot.services.send_message")
+    def test_overdue_lists_missed_event_with_attend_button(self, send):
+        send.return_value = {}
+        from telegram_bot.keyboards import BTN_OVERDUE
+
+        event = Event.objects.create(
+            user=self.alice,
+            title="Митинг",
+            start_at=timezone.now() - timedelta(days=2),
+            end_at=timezone.now() - timedelta(days=2) + timedelta(hours=1),
+        )
+        handle_update(self.alice_bot, self._message(BTN_OVERDUE))
+        text = send.call_args.args[2]
+        self.assertIn("Пропущено", text)
+        self.assertIn("Митинг", text)
+        markup = send.call_args.kwargs.get("reply_markup")
+        self.assertTrue(
+            markup["inline_keyboard"][0][0]["callback_data"].startswith(
+                f"e:{event.id}:"
+            )
         )

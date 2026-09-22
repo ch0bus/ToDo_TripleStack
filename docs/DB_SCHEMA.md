@@ -66,7 +66,18 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | created_at | datetime | auto |
 | updated_at | datetime | auto |
 
-Индекс: `(user, start_at)`.
+Индекс: `(user, start_at)`. Без статуса Todo: посещение хранится в `event_attendances`.
+
+## event_attendances
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| event_id | FK → events | CASCADE |
+| occurrence_date | date | локальный день начала вхождения |
+| attended_at | datetime | когда отметили |
+
+Уникально: `(event, occurrence_date)`. Не путать со статусом задачи.
 
 ## subtasks
 
@@ -199,6 +210,7 @@ ShiftLayer 1 ── * ShiftKind
 ShiftLayer 1 ── 1 ShiftPattern ── * ShiftPatternSlot
 ShiftLayer 1 ── * ShiftDayOverride
 User 1 ── * Event
+Event 1 ── * EventAttendance
 User 1 ── * DayNote
 User 1 ── 1 TelegramBot
 User 1 ── * TelegramDelivery

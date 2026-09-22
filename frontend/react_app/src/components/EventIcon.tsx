@@ -1,8 +1,10 @@
 export function EventIcon({
   color,
+  attended = false,
   className = "h-4 w-4 shrink-0",
 }: {
   color?: string;
+  attended?: boolean;
   className?: string;
 }) {
   return (
@@ -19,6 +21,7 @@ export function EventIcon({
     >
       <rect x="4" y="6" width="16" height="14" rx="2" />
       <path d="M8 3.5v4M16 3.5v4M4 11h16" />
+      {attended ? <path d="M8.5 15.2 11 17.6 16.2 12" /> : null}
     </svg>
   );
 }

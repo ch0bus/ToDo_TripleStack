@@ -10,7 +10,8 @@ from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
-from todos.models import DayNote, Event, Status, Todo
+from todos.event_occurrence import missed_event_marks
+from todos.models import DayNote, Event, EventAttendance, Status, Todo
 
 from .client import (
     TelegramAPIError,
@@ -34,9 +35,9 @@ from .keyboards import (
     menu_keyboard,
     month_keyboard,
     parse_iso_day,
+    plan_actions_keyboard,
     remove_keyboard,
     shift_month,
-    todos_done_keyboard,
 )
 from .models import TelegramBot, TelegramDelivery
 
@@ -187,10 +188,36 @@ def todos_for_day(user, day, bot: TelegramBot | None = None):
 def events_for_day(user, day, bot: TelegramBot | None = None):
     start, end = day_bounds(day, bot)
     return list(
-        Event.objects.filter(user=user, start_at__gte=start, start_at__lt=end).order_by(
-            "start_at", "id"
-        )
+        Event.objects.filter(user=user, start_at__gte=start, start_at__lt=end)
+        .prefetch_related("attendances")
+        .order_by("start_at", "id")
     )
+
+
+def _attended_on(event: Event, day) -> bool:
+    return any(row.occurrence_date == day for row in event.attendances.all())
+
+
+def day_event_marks(events, day):
+    return [(event, day) for event in events if not _attended_on(event, day)]
+
+
+def user_missed_event_marks(user, bot: TelegramBot | None):
+    events = Event.objects.filter(user=user).prefetch_related("attendances")
+    return missed_event_marks(events, local_now(bot), bot_tz(bot))
+
+
+def _merge_event_marks(*groups):
+    seen: set[tuple[int, date]] = set()
+    result = []
+    for group in groups:
+        for event, day in group:
+            key = (event.id, day)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append((event, day))
+    return result
 
 
 def overdue_todos(user, day, bot: TelegramBot | None = None):
@@ -203,7 +230,7 @@ def overdue_todos(user, day, bot: TelegramBot | None = None):
 
 
 def format_today(user, bot: TelegramBot | None = None) -> str:
-    text, _todos = plan_today(user, bot)
+    text, _todos, _marks = plan_today(user, bot)
     return text
 
 
@@ -236,10 +263,19 @@ def plan_tomorrow(user, bot: TelegramBot | None = None):
 def plan_overdue(user, bot: TelegramBot | None = None):
     bot = bot or getattr(user, "telegram_bot", None)
     overdue = overdue_todos(user, local_today(bot), bot)
-    if not overdue:
-        return "Просроченных задач нет.", []
-    text = "Просрочено:\n" + "\n".join(_todo_line(todo, bot) for todo in overdue)
-    return text, overdue
+    missed = user_missed_event_marks(user, bot)
+    if not overdue and not missed:
+        return "Просроченных задач и пропущенных событий нет.", [], []
+    blocks = []
+    if overdue:
+        blocks.append(
+            "Просрочено:\n" + "\n".join(_todo_line(todo, bot) for todo in overdue)
+        )
+    if missed:
+        blocks.append(
+            "Пропущено:\n" + "\n".join(_event_line(event, bot) for event, _ in missed)
+        )
+    return "\n\n".join(blocks), overdue, missed
 
 
 def note_for_day(user, day):
@@ -258,6 +294,7 @@ def build_day_plan(
     todos = todos_for_day(user, day, bot)
     events = events_for_day(user, day, bot)
     overdue = overdue_todos(user, day, bot) if with_overdue else []
+    missed = user_missed_event_marks(user, bot) if with_overdue else []
     note = note_for_day(user, day)
     blocks = [heading]
     if note:
@@ -268,9 +305,14 @@ def build_day_plan(
         blocks.append("События:\n" + "\n".join(_event_line(e, bot) for e in events))
     if overdue:
         blocks.append("Просрочено:\n" + "\n".join(_todo_line(t, bot) for t in overdue))
+    if missed:
+        blocks.append(
+            "Пропущено:\n" + "\n".join(_event_line(event, bot) for event, _ in missed)
+        )
     if len(blocks) == 1:
         blocks.append(empty)
-    return "\n\n".join(blocks), _unique_todos(todos, overdue)
+    marks = _merge_event_marks(day_event_marks(events, day), missed)
+    return "\n\n".join(blocks), _unique_todos(todos, overdue), marks
 
 
 def _unique_todos(*groups):
@@ -338,24 +380,24 @@ def push_message(
     )
 
 
-def send_plan(bot: TelegramBot, text: str, todos) -> None:
-    markup = todos_done_keyboard(todos) or menu_keyboard()
+def send_plan(bot: TelegramBot, text: str, todos, event_marks=None) -> None:
+    markup = plan_actions_keyboard(todos, event_marks) or menu_keyboard()
     push_message(bot, text, markup)
 
 
 def send_today(bot: TelegramBot) -> None:
-    text, todos = plan_today(bot.user, bot)
-    send_plan(bot, text, todos)
+    text, todos, marks = plan_today(bot.user, bot)
+    send_plan(bot, text, todos, marks)
 
 
 def send_tomorrow(bot: TelegramBot) -> None:
-    text, todos = plan_tomorrow(bot.user, bot)
-    send_plan(bot, text, todos)
+    text, todos, marks = plan_tomorrow(bot.user, bot)
+    send_plan(bot, text, todos, marks)
 
 
 def send_overdue(bot: TelegramBot) -> None:
-    text, todos = plan_overdue(bot.user, bot)
-    send_plan(bot, text, todos)
+    text, todos, marks = plan_overdue(bot.user, bot)
+    send_plan(bot, text, todos, marks)
 
 
 def start_wizard(bot: TelegramBot, kind: str) -> None:
@@ -788,6 +830,9 @@ def handle_callback(bot: TelegramBot, callback: dict) -> None:
     if data.startswith("d:"):
         complete_todo_callback(bot, callback_id, chat_id, data)
         return
+    if data.startswith("e:"):
+        attend_event_callback(bot, callback_id, chat_id, data)
+        return
     if data.startswith("k:"):
         handle_date_callback(bot, callback_id, chat_id, message_id, data[2:])
         return
@@ -814,6 +859,35 @@ def complete_todo_callback(
     todo.save(update_fields=["status", "completed_at", "updated_at"])
     answer_callback(bot.token, callback_id, "Готово")
     send_message(bot.token, chat_id, f"«{todo.title}» отмечена выполненной.")
+
+
+def attend_event_callback(
+    bot: TelegramBot, callback_id: str, chat_id: int, data: str
+) -> None:
+    rest = data[2:]
+    event_id_s, sep, day_s = rest.partition(":")
+    day = parse_iso_day(day_s)
+    if not sep or day is None:
+        answer_callback(bot.token, callback_id, "Некорректная кнопка")
+        return
+    try:
+        event_id = int(event_id_s)
+    except ValueError:
+        answer_callback(bot.token, callback_id, "Некорректная кнопка")
+        return
+    event = Event.objects.filter(id=event_id, user=bot.user).first()
+    if event is None:
+        answer_callback(bot.token, callback_id, "Нет такого события")
+        return
+    _, created = EventAttendance.objects.get_or_create(
+        event=event,
+        occurrence_date=day,
+    )
+    if not created:
+        answer_callback(bot.token, callback_id, "Уже отмечено")
+        return
+    answer_callback(bot.token, callback_id, "Отмечено")
+    send_message(bot.token, chat_id, f"«{event.title}» отмечено как посещённое.")
 
 
 def handle_date_callback(
@@ -923,28 +997,63 @@ def send_event_reminders() -> int:
     sent = 0
     bots = TelegramBot.objects.exclude(chat_id=None).select_related("user")
     for bot in bots:
-        remind = timedelta(minutes=bot.remind_minutes)
-        window_start = now - timedelta(minutes=5)
-        window_end = now + remind
-        events = Event.objects.filter(
-            user=bot.user,
-            all_day=False,
-            start_at__gte=window_start,
-            start_at__lte=window_end,
+        sent += _send_timed_event_reminders(bot, now)
+        sent += _send_all_day_event_reminders(bot)
+    return sent
+
+
+def _send_timed_event_reminders(bot: TelegramBot, now) -> int:
+    remind = timedelta(minutes=bot.remind_minutes)
+    window_start = now - timedelta(minutes=5)
+    window_end = now + remind
+    events = Event.objects.filter(
+        user=bot.user,
+        all_day=False,
+        start_at__gte=window_start,
+        start_at__lte=window_end,
+    )
+    sent = 0
+    for event in events:
+        period = event.start_at.astimezone(bot_tz(bot)).date().isoformat()
+        if not _claim_delivery(
+            bot.user, TelegramDelivery.KIND_EVENT, event.id, period
+        ):
+            continue
+        stamp = _format_time(event.start_at, bot) or "скоро"
+        send_message(
+            bot.token,
+            bot.chat_id,
+            f"Событие «{event.title}» в {stamp}.",
         )
-        for event in events:
-            period = event.start_at.astimezone(bot_tz(bot)).date().isoformat()
-            if not _claim_delivery(
-                bot.user, TelegramDelivery.KIND_EVENT, event.id, period
-            ):
-                continue
-            stamp = _format_time(event.start_at, bot) or "скоро"
-            send_message(
-                bot.token,
-                bot.chat_id,
-                f"Событие «{event.title}» в {stamp}.",
-            )
-            sent += 1
+        sent += 1
+    return sent
+
+
+def _send_all_day_event_reminders(bot: TelegramBot) -> int:
+    local = local_now(bot)
+    if local.hour != bot.digest_hour:
+        return 0
+    day = local.date()
+    start, end = day_bounds(day, bot)
+    events = Event.objects.filter(
+        user=bot.user,
+        all_day=True,
+        start_at__gte=start,
+        start_at__lt=end,
+    )
+    sent = 0
+    for event in events:
+        if not _claim_delivery(
+            bot.user, TelegramDelivery.KIND_EVENT, event.id, day.isoformat()
+        ):
+            continue
+        send_message(
+            bot.token,
+            bot.chat_id,
+            f"Сегодня «{event.title}», весь день.",
+            reply_markup=plan_actions_keyboard([], [(event, day)]),
+        )
+        sent += 1
     return sent
 
 

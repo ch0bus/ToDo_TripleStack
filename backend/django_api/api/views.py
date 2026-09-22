@@ -27,6 +27,7 @@ from .serializers import (
     ShiftDaySerializer,
     DayNoteSerializer,
     EventSerializer,
+    EventAttendanceWriteSerializer,
 )
 from todos.models import (
     Todo,
@@ -41,6 +42,7 @@ from todos.models import (
     ShiftDayOverride,
     DayNote,
     Event,
+    EventAttendance,
 )
 from todos.shift_utils import (
     ensure_default_calendar,
@@ -672,7 +674,9 @@ class EventViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        qs = Event.objects.filter(user=self.request.user)
+        qs = Event.objects.filter(user=self.request.user).prefetch_related(
+            "attendances"
+        )
         if getattr(self, "action", None) == "list":
             range_from, range_to = _optional_date_range(self.request.query_params)
             if range_from and range_to:
@@ -685,6 +689,34 @@ class EventViewSet(viewsets.ModelViewSet):
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
+
+    @extend_schema(
+        summary="Отметить посещение вхождения",
+        request=EventAttendanceWriteSerializer,
+        responses={200: EventSerializer},
+    )
+    @action(detail=True, methods=["put"])
+    def attendance(self, request, pk=None):
+        event = self.get_object()
+        writer = EventAttendanceWriteSerializer(data=request.data)
+        writer.is_valid(raise_exception=True)
+        day = writer.validated_data["occurrence_date"]
+        if writer.validated_data["attended"]:
+            EventAttendance.objects.get_or_create(
+                event=event,
+                occurrence_date=day,
+            )
+        else:
+            EventAttendance.objects.filter(
+                event=event,
+                occurrence_date=day,
+            ).delete()
+        event = (
+            Event.objects.filter(pk=event.pk)
+            .prefetch_related("attendances")
+            .get()
+        )
+        return Response(EventSerializer(event, context={"request": request}).data)
 
 
 class DayNotesView(APIView):

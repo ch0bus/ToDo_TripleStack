@@ -7,7 +7,7 @@ import { TodoItem } from "@/components/TodoItem";
 import type { TodoRow } from "@/components/TodoList";
 import { formatDayTitle, type CalendarEntry } from "@/lib/calendar";
 import type { DayNote } from "@/lib/dayNotes";
-import type { EventEntry } from "@/lib/events";
+import type { CalendarEvent, EventEntry } from "@/lib/events";
 import { pluralRu } from "@/lib/utils";
 
 export function CalendarSelectedDay({
@@ -27,6 +27,7 @@ export function CalendarSelectedDay({
   onTodoUpdated,
   onTodoDeleted,
   onEventDeleted,
+  onEventUpdated,
 }: {
   selectedDay: Date;
   selectedKey: string;
@@ -43,6 +44,7 @@ export function CalendarSelectedDay({
   onNoteChanged: (note: DayNote | null) => void;
   onTodoUpdated: (todo: TodoRow) => void;
   onTodoDeleted: (id: number) => void;
+  onEventUpdated: (event: CalendarEvent) => void;
   onEventDeleted: (id: number) => void;
 }) {
   const realCount = selectedEntries.filter((entry) => !entry.virtual).length;
@@ -86,6 +88,7 @@ export function CalendarSelectedDay({
         <EventList
           className={eventListClassName}
           entries={selectedEventEntries}
+          onUpdated={onEventUpdated}
           onDeleted={onEventDeleted}
         />
       ) : null}

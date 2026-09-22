@@ -26,6 +26,7 @@ import {
 import type { DayNote } from "@/lib/dayNotes";
 import {
   groupEventsForRange,
+  lastMissedEventEntries,
   uniqueEventEntries,
   type CalendarEvent,
 } from "@/lib/events";
@@ -293,6 +294,7 @@ export function HomePage() {
     const byDay = groupEventsForRange(events, selectedKey, selectedKey);
     return uniqueEventEntries(byDay.get(selectedKey) ?? []);
   }, [events, selectedKey]);
+  const missedEvents = useMemo(() => lastMissedEventEntries(events), [events]);
   const weekStart = startOfWeek(selectedDate);
   const weekFrom = toDateKey(weekStart);
   const weekTo = toDateKey(addDays(weekStart, 6));
@@ -342,6 +344,12 @@ export function HomePage() {
     } catch {
       /* ignore */
     }
+  }
+
+  function handleEventUpdated(updated: CalendarEvent) {
+    setEvents((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item)),
+    );
   }
 
   function handleEventDeleted(id: number) {
@@ -396,7 +404,7 @@ export function HomePage() {
               total={stats.total}
               done={stats.done}
               inProgress={stats.in_progress}
-              overdue={stats.overdue}
+              overdue={stats.overdue + missedEvents.length}
             />
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-full">
@@ -466,6 +474,7 @@ export function HomePage() {
                     />
                     <EventList
                       entries={dayEvents}
+                      onUpdated={handleEventUpdated}
                       onDeleted={handleEventDeleted}
                     />
                   </>
@@ -473,7 +482,7 @@ export function HomePage() {
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
-              {todos.length === 0 && !filtersActive ? (
+              {todos.length === 0 && missedEvents.length === 0 && !filtersActive ? (
                 <Link
                   to={newTodoPath()}
                   state={{ from: locationFrom(location) }}
@@ -481,7 +490,7 @@ export function HomePage() {
                 >
                   Создать задачу
                 </Link>
-              ) : todos.length === 0 ? (
+              ) : todos.length === 0 && missedEvents.length === 0 ? (
                 <p className="text-sm text-app-subtle">
                   По выбранным фильтрам задач нет
                 </p>
@@ -491,7 +500,18 @@ export function HomePage() {
                 id="inbox-overdue"
                 title="Просрочено"
                 todos={grouped.overdue}
-                empty="Просроченных задач нет"
+                count={grouped.overdue.length + missedEvents.length}
+                empty={
+                  missedEvents.length > 0 ? "" : "Просроченных задач нет"
+                }
+                lead={
+                  <EventList
+                    entries={missedEvents}
+                    showDate
+                    onUpdated={handleEventUpdated}
+                    onDeleted={handleEventDeleted}
+                  />
+                }
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />

@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from todos.models import Event, Recurrence, Status, Tag, TagKind, Todo
+from todos.models import Event, EventAttendance, Recurrence, Status, Tag, TagKind, Todo
 
 User = get_user_model()
 
@@ -215,3 +215,88 @@ class CalendarRangeTests(APITestCase):
         Todo.objects.create(user=self.user, title="b", due_date=_dt(2026, 8, 1))
         ids = self._ids("/api/todos/")
         self.assertEqual(len(ids), 2)
+
+
+class EventAttendanceTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="att",
+            email="att@example.com",
+            password="password123",
+        )
+        self.other = User.objects.create_user(
+            username="other",
+            email="other@example.com",
+            password="password123",
+        )
+        self.client.force_authenticate(self.user)
+
+    def test_list_includes_attended_dates(self):
+        event = Event.objects.create(
+            user=self.user, title="Встреча", start_at=_dt(2026, 3, 15, 10)
+        )
+        EventAttendance.objects.create(
+            event=event, occurrence_date=event.start_at.date()
+        )
+        res = self.client.get("/api/events/")
+        self.assertEqual(res.status_code, 200)
+        row = next(item for item in res.data if item["id"] == event.id)
+        self.assertEqual(row["attended_dates"], ["2026-03-15"])
+
+    def test_put_attendance_toggles_occurrence(self):
+        event = Event.objects.create(
+            user=self.user, title="Встреча", start_at=_dt(2026, 3, 15, 10)
+        )
+        res = self.client.put(
+            f"/api/events/{event.id}/attendance/",
+            {"occurrence_date": "2026-03-15", "attended": True},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["attended_dates"], ["2026-03-15"])
+        self.assertTrue(
+            EventAttendance.objects.filter(
+                event=event, occurrence_date="2026-03-15"
+            ).exists()
+        )
+        res = self.client.put(
+            f"/api/events/{event.id}/attendance/",
+            {"occurrence_date": "2026-03-15", "attended": False},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["attended_dates"], [])
+
+    def test_cannot_mark_another_users_event(self):
+        event = Event.objects.create(
+            user=self.other, title="Чужое", start_at=_dt(2026, 3, 15, 10)
+        )
+        res = self.client.put(
+            f"/api/events/{event.id}/attendance/",
+            {"occurrence_date": "2026-03-15", "attended": True},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 404)
+        self.assertFalse(EventAttendance.objects.exists())
+
+    def test_recurring_last_missed_is_one_occurrence(self):
+        from datetime import timezone as tz
+        from zoneinfo import ZoneInfo
+
+        from todos.event_occurrence import last_missed_occurrence
+
+        event = Event.objects.create(
+            user=self.user,
+            title="Стендап",
+            start_at=_dt(2026, 3, 10, 10),
+            end_at=_dt(2026, 3, 10, 11),
+            recurrence=Recurrence.DAILY,
+        )
+        now = datetime(2026, 3, 15, 12, tzinfo=tz.utc)
+        missed = last_missed_occurrence(event, now, ZoneInfo("UTC"))
+        self.assertIsNotNone(missed)
+        self.assertEqual(missed[1].isoformat(), "2026-03-15")
+        EventAttendance.objects.create(event=event, occurrence_date=missed[1])
+        event = Event.objects.prefetch_related("attendances").get(pk=event.pk)
+        missed = last_missed_occurrence(event, now, ZoneInfo("UTC"))
+        self.assertEqual(missed[1].isoformat(), "2026-03-14")

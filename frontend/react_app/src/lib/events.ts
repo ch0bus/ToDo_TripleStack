@@ -21,6 +21,7 @@ export interface CalendarEvent {
   all_day: boolean;
   recurrence: RecurrenceValue | string;
   color: string;
+  attended_dates?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +31,7 @@ export type EventEntry = {
   dateKey: string;
   occurrenceStartKey: string;
   virtual: boolean;
+  attended: boolean;
 };
 
 function startOfLocalDay(date: Date): Date {
@@ -79,8 +81,112 @@ function paintOccurrence(
       dateKey: key,
       occurrenceStartKey,
       virtual,
+      attended: isEventOccurrenceAttended(event, occurrenceStartKey),
     });
   }
+}
+
+export function isEventOccurrenceAttended(
+  event: CalendarEvent,
+  occurrenceStartKey: string,
+): boolean {
+  return (event.attended_dates ?? []).includes(occurrenceStartKey);
+}
+
+function occurrenceStartAt(event: CalendarEvent, occurrenceStartKey: string): Date | null {
+  const origin = new Date(event.start_at);
+  if (Number.isNaN(origin.getTime())) return null;
+  const occ = parseDateKey(occurrenceStartKey);
+  if (!occ) return origin;
+  return new Date(
+    occ.getFullYear(),
+    occ.getMonth(),
+    occ.getDate(),
+    origin.getHours(),
+    origin.getMinutes(),
+    origin.getSeconds(),
+  );
+}
+
+export function occurrenceEndAt(
+  event: CalendarEvent,
+  occurrenceStart: Date,
+): Date {
+  if (event.all_day) {
+    return addDays(
+      new Date(
+        occurrenceStart.getFullYear(),
+        occurrenceStart.getMonth(),
+        occurrenceStart.getDate(),
+      ),
+      1,
+    );
+  }
+  if (event.end_at) {
+    const originStart = new Date(event.start_at);
+    const originEnd = new Date(event.end_at);
+    if (
+      !Number.isNaN(originStart.getTime()) &&
+      !Number.isNaN(originEnd.getTime()) &&
+      originEnd.getTime() > originStart.getTime()
+    ) {
+      return new Date(
+        occurrenceStart.getTime() + (originEnd.getTime() - originStart.getTime()),
+      );
+    }
+  }
+  return new Date(occurrenceStart.getTime() + 60 * 60 * 1000);
+}
+
+export function isEventOccurrenceMissed(
+  event: CalendarEvent,
+  occurrenceStartKey: string,
+  now = new Date(),
+): boolean {
+  if (isEventOccurrenceAttended(event, occurrenceStartKey)) return false;
+  const start = occurrenceStartAt(event, occurrenceStartKey);
+  if (!start) return false;
+  return occurrenceEndAt(event, start) <= now;
+}
+
+/** Последнее закончившееся вхождение без отметки — одно на серию. */
+export function lastMissedEventEntries(
+  events: CalendarEvent[],
+  now = new Date(),
+): EventEntry[] {
+  const list: EventEntry[] = [];
+  for (const event of events) {
+    const start = new Date(event.start_at);
+    if (Number.isNaN(start.getTime())) continue;
+    const originKey = dueDateKey(event.start_at);
+    if (!originKey) continue;
+    const attended = new Set(event.attended_dates ?? []);
+    let cursor = start;
+    let last: Date | null = null;
+    let guard = 0;
+    while (guard < 2400) {
+      if (occurrenceEndAt(event, cursor) > now) break;
+      const key = toDateKey(cursor);
+      if (!attended.has(key)) last = cursor;
+      if (!isRecurring(event.recurrence)) break;
+      cursor = nextDueDate(cursor, event.recurrence);
+      guard += 1;
+    }
+    if (!last) continue;
+    const occurrenceStartKey = toDateKey(last);
+    list.push({
+      event,
+      dateKey: occurrenceStartKey,
+      occurrenceStartKey,
+      virtual: occurrenceStartKey !== originKey,
+      attended: false,
+    });
+  }
+  return list.sort(
+    (a, b) =>
+      a.occurrenceStartKey.localeCompare(b.occurrenceStartKey) ||
+      a.event.id - b.event.id,
+  );
 }
 
 /** События и повторы на каждый день видимого окна. */

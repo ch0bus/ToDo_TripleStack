@@ -1,13 +1,15 @@
 import { EventItem } from "@/components/EventItem";
-import type { EventEntry } from "@/lib/events";
+import type { CalendarEvent, EventEntry } from "@/lib/events";
 
 export function EventList({
   entries,
+  onUpdated,
   onDeleted,
   showDate = false,
   className = "",
 }: {
   entries: EventEntry[];
+  onUpdated?: (event: CalendarEvent) => void;
   onDeleted: (id: number) => void;
   showDate?: boolean;
   className?: string;
@@ -19,6 +21,7 @@ export function EventList({
         <EventItem
           key={`${entry.event.id}-${entry.occurrenceStartKey}`}
           entry={entry}
+          onUpdated={onUpdated}
           onDeleted={onDeleted}
           showDate={showDate}
         />

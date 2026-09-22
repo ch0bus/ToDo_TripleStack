@@ -601,6 +601,12 @@ export function CalendarPage() {
     }
   }
 
+  function handleEventUpdated(updated: CalendarEvent) {
+    setEvents((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item)),
+    );
+  }
+
   function handleEventDeleted(id: number) {
     setEvents((prev) => prev.filter((item) => item.id !== id));
   }
@@ -660,6 +666,7 @@ export function CalendarPage() {
     onNoteChanged: handleNoteChanged,
     onTodoUpdated: handleTodoUpdated,
     onTodoDeleted: handleTodoDeleted,
+    onEventUpdated: handleEventUpdated,
     onEventDeleted: handleEventDeleted,
   };
 
@@ -959,6 +966,7 @@ export function CalendarPage() {
                 {periodEvents.length > 0 ? (
                   <EventList
                     entries={periodEvents}
+                    onUpdated={handleEventUpdated}
                     onDeleted={handleEventDeleted}
                     showDate={calendarView !== "day"}
                   />

@@ -17,6 +17,7 @@ export type TimedBlock = {
   color: string;
   kind: "event" | "todo";
   sort: number;
+  attended?: boolean;
 };
 
 export type LaidOutBlock = TimedBlock & {
@@ -83,6 +84,7 @@ export function eventMinutesOnDay(entry: EventEntry, dateKey: string): TimedBloc
     color: entry.event.color,
     kind: "event",
     sort: entry.event.id,
+    attended: entry.attended,
   };
 }
 

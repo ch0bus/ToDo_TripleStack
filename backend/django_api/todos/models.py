@@ -334,7 +334,10 @@ class ShiftDayOverride(models.Model):
 
 
 class Event(models.Model):
-    """Именованный факт во времени. Не задача: без статуса и просрочки."""
+    """Именованный факт во времени. Не задача: без статуса Todo.
+
+    Посещение и пропуск — по вхождению (EventAttendance), не поле Event.
+    """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -365,6 +368,29 @@ class Event(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.start_at})"
+
+
+class EventAttendance(models.Model):
+    """Отметка посещения одного вхождения события. Не статус Todo."""
+
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="attendances",
+    )
+    occurrence_date = models.DateField("Дата вхождения")
+    attended_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "occurrence_date"],
+                name="unique_event_occurrence_attendance",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.event_id} {self.occurrence_date}"
 
 
 class DayNote(models.Model):

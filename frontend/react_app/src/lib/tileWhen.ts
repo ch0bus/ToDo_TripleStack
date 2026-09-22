@@ -1,6 +1,11 @@
 import type { TodoRow } from "@/components/TodoList";
 import { parseDateKey } from "@/lib/calendar";
-import { formatEventWhen, type EventEntry } from "@/lib/events";
+import {
+  formatEventWhen,
+  isEventOccurrenceAttended,
+  isEventOccurrenceMissed,
+  type EventEntry,
+} from "@/lib/events";
 import {
   formatClock,
   formatDateCompact,
@@ -26,11 +31,13 @@ function urgencyLabel(
     skipToday,
     done,
     now = new Date(),
+    overdueWord = "просрочено",
   }: {
     allowOverdue: boolean;
     skipToday: boolean;
     done: boolean;
     now?: Date;
+    overdueWord?: "просрочено" | "пропущено";
   },
 ): { full: string; short: string } {
   if (done) return { full: "", short: "" };
@@ -51,11 +58,14 @@ function urgencyLabel(
     if (!allowOverdue) return { full: "", short: "" };
     const n = Math.abs(diff);
     return {
-      full: `просрочено ${n} ${pluralRu(n, "день", "дня", "дней")}`,
-      short: `просрочено ${n} дн.`,
+      full: `${overdueWord} ${n} ${pluralRu(n, "день", "дня", "дней")}`,
+      short: `${overdueWord} ${n} дн.`,
     };
   }
   if (diff === 0) {
+    if (allowOverdue && overdueWord === "пропущено") {
+      return { full: "пропущено", short: "пропущено" };
+    }
     const text = skipToday ? "" : "сегодня";
     return { full: text, short: text };
   }
@@ -99,19 +109,26 @@ export function todoTileWhen(todo: TodoRow, mode: TileWhenMode): TileWhen {
 
 export function eventTileWhen(entry: EventEntry, mode: TileWhenMode): TileWhen {
   const when = formatEventWhen(entry.event);
-  const day = parseDateKey(entry.dateKey);
+  const day = parseDateKey(entry.occurrenceStartKey) ?? parseDateKey(entry.dateKey);
+  const attended =
+    entry.attended ||
+    isEventOccurrenceAttended(entry.event, entry.occurrenceStartKey);
+  const missed = isEventOccurrenceMissed(entry.event, entry.occurrenceStartKey);
+  const whenSub =
+    mode === "list" && day ? formatDateCompact(day) : "";
   const urgency = day
     ? urgencyLabel(day, {
-        allowOverdue: false,
-        skipToday: mode === "day",
-        done: false,
+        allowOverdue: missed,
+        skipToday: mode === "day" && !missed,
+        done: attended,
+        overdueWord: missed ? "пропущено" : "просрочено",
       })
     : { full: "", short: "" };
   return {
     when,
-    whenSub: "",
+    whenSub,
     status: urgency.full,
     statusShort: urgency.short,
-    overdue: false,
+    overdue: missed,
   };
 }

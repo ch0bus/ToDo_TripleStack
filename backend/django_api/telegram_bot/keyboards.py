@@ -1,4 +1,4 @@
-"""Клавиатуры Telegram: меню, дата, Готово. Не путать задачу с Event."""
+"""Клавиатуры Telegram: меню, дата, Готово у задач, Был у событий."""
 
 from calendar import MONDAY, Calendar
 from datetime import date
@@ -55,11 +55,31 @@ def done_keyboard(todo_id: int) -> dict:
 
 
 def todos_done_keyboard(todos) -> dict | None:
+    return plan_actions_keyboard(todos)
+
+
+def plan_actions_keyboard(todos, event_marks=None) -> dict | None:
     rows = []
-    for todo in todos[:MAX_DONE_BUTTONS]:
+    remaining = MAX_DONE_BUTTONS
+    for todo in todos:
+        if remaining <= 0:
+            break
         rows.append(
             [{"text": _done_label(todo.title), "callback_data": f"d:{todo.id}"}]
         )
+        remaining -= 1
+    for event, day in event_marks or []:
+        if remaining <= 0:
+            break
+        rows.append(
+            [
+                {
+                    "text": _attend_label(event.title),
+                    "callback_data": f"e:{event.id}:{day.isoformat()}",
+                }
+            ]
+        )
+        remaining -= 1
     if not rows:
         return None
     return {"inline_keyboard": rows}
@@ -128,6 +148,15 @@ def _done_label(title: str) -> str:
     prefix = "Готово · "
     room = 64 - len(prefix)
     text = (title or "Задача").strip() or "Задача"
+    if len(text) <= room:
+        return prefix + text
+    return prefix + text[: max(room - 1, 1)] + "…"
+
+
+def _attend_label(title: str) -> str:
+    prefix = "Был · "
+    room = 64 - len(prefix)
+    text = (title or "Событие").strip() or "Событие"
     if len(text) <= room:
         return prefix + text
     return prefix + text[: max(room - 1, 1)] + "…"

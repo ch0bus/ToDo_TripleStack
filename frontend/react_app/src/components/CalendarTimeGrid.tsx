@@ -165,7 +165,10 @@ export function CalendarTimeGrid({
                           color: contrastText(entry.event.color),
                         }}
                       >
-                        <EventIcon className="h-3 w-3 shrink-0" />
+                        <EventIcon
+                          className="h-3 w-3 shrink-0"
+                          attended={entry.attended}
+                        />
                         <span className="min-w-0 truncate">{entry.event.title}</span>
                       </Link>
                     ))}
@@ -244,7 +247,10 @@ export function CalendarTimeGrid({
                       >
                         <span className="flex min-w-0 items-start gap-1">
                           {block.kind === "event" ? (
-                            <EventIcon className="mt-px h-3 w-3 shrink-0" />
+                            <EventIcon
+                              className="mt-px h-3 w-3 shrink-0"
+                              attended={block.attended}
+                            />
                           ) : null}
                           <span className="line-clamp-2 font-medium">
                             {block.title}

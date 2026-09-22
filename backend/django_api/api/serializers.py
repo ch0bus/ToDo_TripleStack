@@ -519,7 +519,14 @@ class ShiftDaySerializer(serializers.Serializer):
         return override
 
 
+class EventAttendanceWriteSerializer(serializers.Serializer):
+    occurrence_date = serializers.DateField()
+    attended = serializers.BooleanField()
+
+
 class EventSerializer(serializers.ModelSerializer):
+    attended_dates = serializers.SerializerMethodField()
+
     class Meta:
         model = Event
         fields = (
@@ -531,10 +538,11 @@ class EventSerializer(serializers.ModelSerializer):
             "all_day",
             "recurrence",
             "color",
+            "attended_dates",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "created_at", "updated_at")
+        read_only_fields = ("id", "attended_dates", "created_at", "updated_at")
         extra_kwargs = {
             "title": {"help_text": "Название события"},
             "description": {"help_text": "Описание — по желанию", "required": False},
@@ -554,6 +562,14 @@ class EventSerializer(serializers.ModelSerializer):
                 "required": False,
             },
         }
+
+    def get_attended_dates(self, obj):
+        attendances = getattr(obj, "attendances", None)
+        if attendances is None:
+            return []
+        return sorted(
+            row.occurrence_date.isoformat() for row in attendances.all()
+        )
 
     def validate_title(self, value):
         title = (value or "").strip()

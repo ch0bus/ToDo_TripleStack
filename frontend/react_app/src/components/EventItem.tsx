@@ -6,18 +6,28 @@ import { EventIcon } from "@/components/EventIcon";
 import { EntityTile, MoreIcon } from "@/components/EntityTile";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import { type EventEntry } from "@/lib/events";
+import {
+  isEventOccurrenceAttended,
+  type CalendarEvent,
+  type EventEntry,
+} from "@/lib/events";
 import { eventPath, locationFrom } from "@/lib/nav";
 import { getRecurrenceFact } from "@/lib/recurrence";
 import { eventTileWhen } from "@/lib/tileWhen";
 
 interface EventItemProps {
   entry: EventEntry;
+  onUpdated?: (event: CalendarEvent) => void;
   onDeleted: (id: number) => void;
   showDate?: boolean;
 }
 
-export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps) {
+export function EventItem({
+  entry,
+  onUpdated,
+  onDeleted,
+  showDate = false,
+}: EventItemProps) {
   const { event, virtual } = entry;
   const location = useLocation();
   const { pushToast } = useToast();
@@ -26,7 +36,12 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const { when, whenSub, status, statusShort } = eventTileWhen(entry, showDate ? "list" : "day");
+  const attended =
+    entry.attended || isEventOccurrenceAttended(event, entry.occurrenceStartKey);
+  const { when, whenSub, status, statusShort, overdue } = eventTileWhen(
+    entry,
+    showDate ? "list" : "day",
+  );
   const facts = virtual
     ? event.recurrence && event.recurrence !== "never"
       ? getRecurrenceFact(event.recurrence)
@@ -51,6 +66,28 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
     };
   }, [menuOpen]);
 
+  async function handleToggleAttendance() {
+    const next = !attended;
+    try {
+      setBusy(true);
+      const res = await apiFetch(`/events/${event.id}/attendance/`, {
+        method: "PUT",
+        body: JSON.stringify({
+          occurrence_date: entry.occurrenceStartKey,
+          attended: next,
+        }),
+      });
+      if (!res.ok) throw new Error("attendance failed");
+      const updated = (await res.json()) as CalendarEvent;
+      onUpdated?.(updated);
+    } catch (e) {
+      console.error(e);
+      pushToast("Не удалось отметить посещение", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleDelete() {
     try {
       setBusy(true);
@@ -72,8 +109,20 @@ export function EventItem({ entry, onDeleted, showDate = false }: EventItemProps
       <EntityTile
         className={"border-app" + (busy ? " opacity-80" : "") + (menuOpen ? " z-20" : "")}
         stripeStyle={{ backgroundColor: event.color }}
-        dimmed={virtual}
-        mark={<EventIcon color={event.color} />}
+        overdue={overdue}
+        dimmed={virtual && !attended}
+        mark={
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleToggleAttendance()}
+            className="rounded-md p-0.5 hover:bg-app-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] disabled:opacity-40"
+            aria-label={attended ? "Снять отметку посещения" : "Отметить посещение"}
+            aria-pressed={attended}
+          >
+            <EventIcon color={event.color} attended={attended} />
+          </button>
+        }
         title={event.title}
         titleTo={eventPath(event.id)}
         titleState={{ from: locationFrom(location) }}
