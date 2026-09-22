@@ -189,6 +189,37 @@ export function lastMissedEventEntries(
   );
 }
 
+/** Одна строка на событие: ближайшее вхождение от fromKey или исходная дата. */
+export function inboxEventEntries(
+  events: CalendarEvent[],
+  fromKey: string,
+): EventEntry[] {
+  const list: EventEntry[] = [];
+  for (const event of events) {
+    const start = new Date(event.start_at);
+    if (Number.isNaN(start.getTime())) continue;
+    const originKey = dueDateKey(event.start_at);
+    if (!originKey) continue;
+    let cursor = start;
+    if (isRecurring(event.recurrence)) {
+      let guard = 0;
+      while (guard < 2400 && toDateKey(cursor) < fromKey) {
+        cursor = nextDueDate(cursor, event.recurrence);
+        guard += 1;
+      }
+    }
+    const occurrenceStartKey = toDateKey(cursor);
+    list.push({
+      event,
+      dateKey: occurrenceStartKey,
+      occurrenceStartKey,
+      virtual: occurrenceStartKey !== originKey,
+      attended: isEventOccurrenceAttended(event, occurrenceStartKey),
+    });
+  }
+  return list;
+}
+
 /** События и повторы на каждый день видимого окна. */
 export function groupEventsForRange(
   events: CalendarEvent[],

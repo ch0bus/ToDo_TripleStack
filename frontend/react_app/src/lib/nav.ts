@@ -23,8 +23,8 @@ export function newEventPath(day?: string | null): string {
   return day ? `/events/new?day=${day}` : "/events/new";
 }
 
-export function eventPath(id: number): string {
-  return `/events/${id}`;
+export function eventPath(id: number, day?: string | null): string {
+  return day ? `/events/${id}?day=${day}` : `/events/${id}`;
 }
 
 export function shiftSettingsPath(calendarId?: number | null): string {

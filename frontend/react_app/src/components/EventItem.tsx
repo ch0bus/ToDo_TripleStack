@@ -120,11 +120,15 @@ export function EventItem({
             aria-label={attended ? "Снять отметку посещения" : "Отметить посещение"}
             aria-pressed={attended}
           >
-            <EventIcon color={event.color} attended={attended} />
+            <EventIcon
+              color={event.color}
+              attended={attended}
+              className="h-5 w-5 shrink-0"
+            />
           </button>
         }
         title={event.title}
-        titleTo={eventPath(event.id)}
+        titleTo={eventPath(event.id, entry.occurrenceStartKey)}
         titleState={{ from: locationFrom(location) }}
         when={when}
         whenSub={whenSub}

@@ -6,11 +6,15 @@ import { EventForm } from "@/components/EventForm";
 import { EventIcon } from "@/components/EventIcon";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
-import { defaultDueAtDay, parseDateKey } from "@/lib/calendar";
-import type { CalendarEvent } from "@/lib/events";
+import { defaultDueAtDay, dueDateKey, parseDateKey, toDateKey } from "@/lib/calendar";
+import {
+  isEventOccurrenceAttended,
+  type CalendarEvent,
+} from "@/lib/events";
 import { backFromState, backLabel } from "@/lib/nav";
+import { isRecurring } from "@/lib/recurrence";
 import { btnDangerGhost } from "@/lib/uiClasses";
-import { toDatetimeLocalValue } from "@/lib/utils";
+import { formatDateCompact, toDatetimeLocalValue } from "@/lib/utils";
 
 export function EventFormPage() {
   const { eventId } = useParams();
@@ -21,7 +25,8 @@ export function EventFormPage() {
   const [searchParams] = useSearchParams();
   const { pushToast } = useToast();
   const backTo = backFromState(location.state);
-  const day = parseDateKey(searchParams.get("day") ?? "") ?? new Date();
+  const queryDay = parseDateKey(searchParams.get("day") ?? "");
+  const day = queryDay ?? new Date();
   const defaultStart = toDatetimeLocalValue(defaultDueAtDay(day).toISOString());
 
   const [event, setEvent] = useState<CalendarEvent | null>(null);
@@ -29,6 +34,21 @@ export function EventFormPage() {
   const [error, setError] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const occurrenceKey = editing
+    ? queryDay
+      ? toDateKey(queryDay)
+      : event
+        ? dueDateKey(event.start_at)
+        : null
+    : null;
+  const attended =
+    !!event &&
+    !!occurrenceKey &&
+    isEventOccurrenceAttended(event, occurrenceKey);
+  const occurrenceLabel = occurrenceKey
+    ? formatDateCompact(parseDateKey(occurrenceKey) ?? occurrenceKey)
+    : "";
 
   useEffect(() => {
     if (!editing) return;
@@ -48,6 +68,28 @@ export function EventFormPage() {
     }
     void load();
   }, [editing, id]);
+
+  async function toggleAttendance() {
+    if (!id || !event || !occurrenceKey) return;
+    const next = !attended;
+    try {
+      setBusy(true);
+      const res = await apiFetch(`/events/${id}/attendance/`, {
+        method: "PUT",
+        body: JSON.stringify({
+          occurrence_date: occurrenceKey,
+          attended: next,
+        }),
+      });
+      if (!res.ok) throw new Error("attendance failed");
+      setEvent((await res.json()) as CalendarEvent);
+    } catch (e) {
+      console.error(e);
+      pushToast("Не удалось отметить посещение", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function remove() {
     if (!id) return;
@@ -94,10 +136,29 @@ export function EventFormPage() {
         <div className="overflow-hidden rounded-xl border border-app bg-app-surface">
           <div className="min-w-0 px-4 py-4 sm:px-5 sm:py-5">
             <h1 className="mb-4 flex items-center gap-2 text-xl font-semibold text-app sm:text-2xl">
-              <EventIcon
-                className="h-5 w-5 shrink-0"
-                color={event?.color}
-              />
+              {editing && event && occurrenceKey ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void toggleAttendance()}
+                  className="rounded-md p-0.5 hover:bg-app-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] disabled:opacity-40"
+                  aria-label={
+                    attended ? "Снять отметку посещения" : "Отметить посещение"
+                  }
+                  aria-pressed={attended}
+                >
+                  <EventIcon
+                    className="h-6 w-6 shrink-0"
+                    color={event.color}
+                    attended={attended}
+                  />
+                </button>
+              ) : (
+                <EventIcon
+                  className="h-5 w-5 shrink-0"
+                  color={event?.color}
+                />
+              )}
               {editing ? "Событие" : "Новое событие"}
             </h1>
             <EventForm
@@ -112,12 +173,33 @@ export function EventFormPage() {
                 navigate(backTo, { replace: true });
               }}
             />
+            {editing && event && occurrenceKey ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void toggleAttendance()}
+                className="mt-4 flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-sm text-app hover:bg-app-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)] disabled:opacity-40"
+                aria-pressed={attended}
+              >
+                <EventIcon
+                  className="h-5 w-5 shrink-0"
+                  color={event.color}
+                  attended={attended}
+                />
+                <span>
+                  {attended ? "Были" : "Не отмечено"}
+                  {isRecurring(event.recurrence) && occurrenceLabel
+                    ? ` · ${occurrenceLabel}`
+                    : ""}
+                </span>
+              </button>
+            ) : null}
             {editing && event && (
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => setConfirmOpen(true)}
-                className={btnDangerGhost + " mt-4"}
+                className={btnDangerGhost + " mt-2"}
               >
                 Удалить
               </button>

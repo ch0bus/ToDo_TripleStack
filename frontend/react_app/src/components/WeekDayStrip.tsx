@@ -12,6 +12,7 @@ interface WeekDayStripProps {
   selected: Date;
   today?: Date;
   busyDays?: ReadonlySet<string>;
+  noteDays?: ReadonlySet<string>;
   onSelect: (date: Date) => void;
 }
 
@@ -43,6 +44,7 @@ export function WeekDayStrip({
   selected,
   today = new Date(),
   busyDays,
+  noteDays,
   onSelect,
 }: WeekDayStripProps) {
   const weekStart = startOfWeek(selected);
@@ -89,6 +91,7 @@ export function WeekDayStrip({
           const isToday = key === todayKey;
           const isSelected = key === selectedKey;
           const busy = busyDays?.has(key) ?? false;
+          const hasNote = noteDays?.has(key) ?? false;
           return (
             <button
               key={key}
@@ -100,6 +103,7 @@ export function WeekDayStrip({
                 WEEKDAY_LABELS[index] +
                 " " +
                 date.getDate() +
+                (hasNote ? ", есть заметка" : "") +
                 (busy ? ", есть задачи или события" : "")
               }
               className={
@@ -128,7 +132,11 @@ export function WeekDayStrip({
               <span
                 className={
                   "h-1 w-1 rounded-full " +
-                  (busy ? "bg-[var(--app-accent)]" : "bg-transparent")
+                  (hasNote
+                    ? "bg-[var(--calendar-note-frame)]"
+                    : busy
+                      ? "bg-[var(--app-accent)]"
+                      : "bg-transparent")
                 }
                 aria-hidden
               />

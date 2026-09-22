@@ -157,7 +157,7 @@ export function CalendarTimeGrid({
                     {allDay.map((entry) => (
                       <Link
                         key={`${entry.event.id}-${entry.occurrenceStartKey}`}
-                        to={eventPath(entry.event.id)}
+                        to={eventPath(entry.event.id, entry.occurrenceStartKey)}
                         state={{ from }}
                         className="flex min-w-0 items-center gap-1 truncate rounded px-1.5 py-0.5 text-[11px]"
                         style={{

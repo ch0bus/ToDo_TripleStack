@@ -4,6 +4,7 @@ import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
+import { EventFilterBar } from "@/components/EventFilterBar";
 import { EventList } from "@/components/EventList";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { FilterBar } from "@/components/FilterBar";
@@ -23,10 +24,16 @@ import {
   startOfWeek,
   toDateKey,
 } from "@/lib/calendar";
-import type { DayNote } from "@/lib/dayNotes";
+import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
+  EVENT_SORT_OPTIONS,
+  eventColorsInList,
+  filterEventsByColor,
   groupEventsForRange,
+  inboxEventEntries,
   lastMissedEventEntries,
+  parseEventSort,
+  sortEventEntries,
   uniqueEventEntries,
   type CalendarEvent,
 } from "@/lib/events";
@@ -131,7 +138,7 @@ export function HomePage() {
   const [refreshing, setRefreshing] = useState(false);
   const loadedOnce = useRef(false);
   const [error, setError] = useState("");
-  const [dayNote, setDayNote] = useState<DayNote | null>(null);
+  const [weekNotes, setWeekNotes] = useState<DayNote[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
@@ -140,6 +147,9 @@ export function HomePage() {
   }, [searchParams, today]);
   const selectedKey = toDateKey(selectedDate);
   const selectedIsToday = selectedKey === todayKey;
+  const weekStart = startOfWeek(selectedDate);
+  const weekFrom = toDateKey(weekStart);
+  const weekTo = toDateKey(addDays(weekStart, 6));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(
     () => searchParams.get("search") ?? "",
@@ -197,19 +207,18 @@ export function HomePage() {
 
   useEffect(() => {
     if (!hasToken) return;
-    setDayNote(null);
     let cancelled = false;
-    async function loadDayNote() {
-      const res = await apiFetch(`/day-notes/?from=${selectedKey}&to=${selectedKey}`);
+    async function loadWeekNotes() {
+      const res = await apiFetch(`/day-notes/?from=${weekFrom}&to=${weekTo}`);
       if (!res.ok || cancelled) return;
       const notes = (await res.json()) as DayNote[];
-      if (!cancelled) setDayNote(notes[0] ?? null);
+      if (!cancelled) setWeekNotes(notes);
     }
-    void loadDayNote();
+    void loadWeekNotes();
     return () => {
       cancelled = true;
     };
-  }, [hasToken, selectedKey, location.pathname]);
+  }, [hasToken, weekFrom, weekTo, location.pathname]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -295,9 +304,36 @@ export function HomePage() {
     return uniqueEventEntries(byDay.get(selectedKey) ?? []);
   }, [events, selectedKey]);
   const missedEvents = useMemo(() => lastMissedEventEntries(events), [events]);
-  const weekStart = startOfWeek(selectedDate);
-  const weekFrom = toDateKey(weekStart);
-  const weekTo = toDateKey(addDays(weekStart, 6));
+  const eventSort = parseEventSort(searchParams.get("esort"), "start");
+  const eventColor = searchParams.get("ecolor");
+  const inboxEventsAll = useMemo(
+    () => inboxEventEntries(events, todayKey),
+    [events, todayKey],
+  );
+  const inboxEventColors = useMemo(
+    () => eventColorsInList(inboxEventsAll),
+    [inboxEventsAll],
+  );
+  const inboxEvents = useMemo(() => {
+    const skip = new Set(
+      [...dayEvents, ...missedEvents].map(
+        (entry) => `${entry.event.id}-${entry.occurrenceStartKey}`,
+      ),
+    );
+    const rest = inboxEventsAll.filter(
+      (entry) => !skip.has(`${entry.event.id}-${entry.occurrenceStartKey}`),
+    );
+    return sortEventEntries(filterEventsByColor(rest, eventColor), eventSort);
+  }, [inboxEventsAll, dayEvents, missedEvents, eventColor, eventSort]);
+  const notesByDay = useMemo(() => dayNotesMap(weekNotes), [weekNotes]);
+  const dayNote = notesByDay.get(selectedKey) ?? null;
+  const noteDays = useMemo(() => {
+    const keys = new Set<string>();
+    for (const note of weekNotes) {
+      if (note.text.trim()) keys.add(note.date);
+    }
+    return keys;
+  }, [weekNotes]);
   const busyDays = useMemo(() => {
     const keys = inboxBusyDayKeys(todos, weekFrom, weekTo);
     const byDay = groupEventsForRange(events, weekFrom, weekTo);
@@ -354,6 +390,14 @@ export function HomePage() {
 
   function handleEventDeleted(id: number) {
     setEvents((prev) => prev.filter((item) => item.id !== id));
+  }
+
+  function handleNoteChanged(note: DayNote | null) {
+    setWeekNotes((prev) => {
+      const next = prev.filter((item) => item.date !== selectedKey);
+      if (note) next.push(note);
+      return next;
+    });
   }
 
   if (!hasToken) {
@@ -441,6 +485,7 @@ export function HomePage() {
             selected={selectedDate}
             today={today}
             busyDays={busyDays}
+            noteDays={noteDays}
             onSelect={selectDay}
           />
 
@@ -470,7 +515,7 @@ export function HomePage() {
                       key={selectedKey}
                       dateKey={selectedKey}
                       note={dayNote ?? undefined}
-                      onChanged={setDayNote}
+                      onChanged={handleNoteChanged}
                     />
                     <EventList
                       entries={dayEvents}
@@ -482,7 +527,43 @@ export function HomePage() {
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
+              <section id="inbox-events" className="min-w-0 space-y-3 scroll-mt-24">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    События
+                    <span className="ml-2 font-normal text-app-subtle">
+                      {inboxEvents.length}
+                    </span>
+                  </h2>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <EventFilterBar colors={inboxEventColors} />
+                    <SortBar
+                      paramName="esort"
+                      defaultSort="start"
+                      options={EVENT_SORT_OPTIONS}
+                      label="Сортировка событий"
+                    />
+                  </div>
+                </div>
+                {inboxEvents.length > 0 ? (
+                  <EventList
+                    entries={inboxEvents}
+                    showDate
+                    onUpdated={handleEventUpdated}
+                    onDeleted={handleEventDeleted}
+                  />
+                ) : (
+                  <p className="text-sm text-app-subtle">
+                    {inboxEventsAll.length > 0 && eventColor
+                      ? "Нет событий выбранного цвета."
+                      : events.length > 0
+                        ? "Других событий нет"
+                        : "Событий нет"}
+                  </p>
+                )}
+              </section>
               {todos.length === 0 && missedEvents.length === 0 && !filtersActive ? (
+                events.length === 0 ? (
                 <Link
                   to={newTodoPath()}
                   state={{ from: locationFrom(location) }}
@@ -490,6 +571,7 @@ export function HomePage() {
                 >
                   Создать задачу
                 </Link>
+                ) : null
               ) : todos.length === 0 && missedEvents.length === 0 ? (
                 <p className="text-sm text-app-subtle">
                   По выбранным фильтрам задач нет

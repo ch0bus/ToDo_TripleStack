@@ -78,7 +78,7 @@ export function eventMinutesOnDay(entry: EventEntry, dateKey: string): TimedBloc
   return {
     key: `e-${entry.event.id}-${entry.occurrenceStartKey}-${dateKey}`,
     title: entry.event.title,
-    to: eventPath(entry.event.id),
+    to: eventPath(entry.event.id, entry.occurrenceStartKey),
     startMin,
     endMin,
     color: entry.event.color,
