@@ -80,10 +80,11 @@ export function CalendarYearGrid({
                     !entry.virtual &&
                     isOverdue(entry.todo.due_date, entry.todo.status),
                 );
+                const hasNote = Boolean(notesByDay.get(cell.key)?.text?.trim());
                 const busy =
                   entries.length > 0 ||
                   (eventsByDay.get(cell.key)?.length ?? 0) > 0 ||
-                  Boolean(notesByDay.get(cell.key));
+                  hasNote;
                 const selected = cell.key === selectedKey;
                 return (
                   <div key={cell.key} className="relative">
@@ -112,7 +113,11 @@ export function CalendarYearGrid({
                         <span
                           className={
                             "absolute bottom-0.5 h-1 w-1 rounded-full " +
-                            (overdue ? "bg-red-500" : "bg-[var(--app-accent)]")
+                            (overdue
+                              ? "bg-red-500"
+                              : hasNote
+                                ? "bg-[var(--calendar-note-frame)]"
+                                : "bg-[var(--app-accent)]")
                           }
                         />
                       ) : null}

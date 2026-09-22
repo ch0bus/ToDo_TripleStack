@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import { TodayHalo } from "@/components/CalendarNoteMarks";
+import { DayNoteMark, TodayHalo } from "@/components/CalendarNoteMarks";
 import { CalendarSelectedDay } from "@/components/CalendarSelectedDay";
 import { CalendarTimeGrid } from "@/components/CalendarTimeGrid";
 import { CalendarViewSwitch } from "@/components/CalendarViewSwitch";
@@ -789,7 +789,6 @@ export function CalendarPage() {
                 />
                 <CalendarSelectedDay
                   {...selectedDayPanel}
-                  showNote={false}
                   showTodos={false}
                   showCounts={false}
                   eventListClassName="pt-2"
@@ -837,11 +836,8 @@ export function CalendarPage() {
                       (entry) => entry.event.title,
                     );
                     const colors = markColors(dayMarks);
-                    const dayBars = collectDayBars(
-                      dayEvents,
-                      dayEntries,
-                      note?.text,
-                    );
+                    const hasNote = Boolean(note?.text?.trim());
+                    const dayBars = collectDayBars(dayEvents, dayEntries);
                     const shiftNames = shiftLayers
                       .map((layer, index) => {
                         const kind = dayMarks?.[index as 0 | 1]?.kind;
@@ -874,6 +870,7 @@ export function CalendarPage() {
                         <MonthShiftFill colors={colors} />
                         <span className="relative isolate inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs">
                           {cell.isToday ? <TodayHalo size={28} /> : null}
+                          {hasNote ? <DayNoteMark /> : null}
                           <span
                             className={
                               "relative " +

@@ -12,14 +12,13 @@ const DESKTOP_MAX = 3;
 export type DayBarItem = {
   key: string;
   title: string;
-  tone: "event" | "task" | "task-overdue" | "note";
+  tone: "event" | "task" | "task-overdue";
   color?: string;
 };
 
 export function collectDayBars(
   events: EventEntry[],
   entries: CalendarEntry[],
-  noteText?: string | null,
 ): DayBarItem[] {
   const items: DayBarItem[] = [];
   for (const entry of uniqueEventEntries(events)) {
@@ -42,17 +41,10 @@ export function collectDayBars(
       tone: overdue ? "task-overdue" : "task",
     });
   }
-  const noteLine = noteText?.trim().split(/\n/)[0]?.trim();
-  if (noteLine) {
-    items.push({ key: "note", title: noteLine, tone: "note" });
-  }
   return items;
 }
 
 function barClass(item: DayBarItem): string {
-  if (item.tone === "note") {
-    return "h-0.5 bg-[var(--calendar-note-frame)] sm:h-4";
-  }
   if (item.tone === "task-overdue") {
     return "h-1 bg-red-500 sm:h-4";
   }
@@ -84,8 +76,7 @@ export function MonthDayBars({ items }: { items: DayBarItem[] }) {
         >
           <span
             className={
-              "hidden truncate text-[10px] leading-4 sm:block " +
-              (item.tone === "note" ? "text-[rgb(40_30_8)]" : "text-white")
+              "hidden truncate text-[10px] leading-4 sm:block text-white"
             }
           >
             {item.title}

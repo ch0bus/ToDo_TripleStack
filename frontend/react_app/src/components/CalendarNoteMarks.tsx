@@ -1,3 +1,16 @@
+/** Золотая чёрточка у числа: на дне есть заметка. Не нимб «сегодня». */
+export function DayNoteMark({ className = "" }: { className?: string }) {
+  return (
+    <span
+      className={
+        "pointer-events-none absolute bottom-0.5 left-1/2 z-[2] h-0.5 w-2.5 -translate-x-1/2 rounded-full bg-[var(--calendar-note-frame)] " +
+        className
+      }
+      aria-hidden
+    />
+  );
+}
+
 /** Нимб текущего дня: то же золото, что в логотипе, кольцо вокруг числа. */
 export function TodayHalo({ size = 30 }: { size?: number }) {
   return (
