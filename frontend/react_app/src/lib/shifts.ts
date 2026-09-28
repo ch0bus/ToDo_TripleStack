@@ -97,8 +97,12 @@ export function shiftMarksByDate(
 
 export function markColors(
   marks: DayShiftMarks | undefined,
+  hiddenPositions?: ReadonlySet<number>,
 ): [string | undefined, string | undefined] {
-  return [marks?.[0]?.kind?.color, marks?.[1]?.kind?.color];
+  return [
+    hiddenPositions?.has(0) ? undefined : marks?.[0]?.kind?.color,
+    hiddenPositions?.has(1) ? undefined : marks?.[1]?.kind?.color,
+  ];
 }
 
 export function isHexColor(value: string): boolean {
@@ -215,4 +219,31 @@ export function yearShiftSplitStyle(
     return { backgroundColor: a || b };
   }
   return undefined;
+}
+
+const HIDDEN_LAYERS_PREFIX = "haloday.hiddenShiftLayers.";
+
+export function loadHiddenShiftLayerIds(
+  calendarId: number | null | undefined,
+): number[] {
+  if (!calendarId) return [];
+  try {
+    const raw = localStorage.getItem(HIDDEN_LAYERS_PREFIX + calendarId);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((id): id is number => Number.isInteger(id));
+  } catch {
+    return [];
+  }
+}
+
+export function saveHiddenShiftLayerIds(
+  calendarId: number,
+  ids: Iterable<number>,
+): void {
+  const unique = [...new Set(ids)].filter((id) => Number.isInteger(id));
+  const key = HIDDEN_LAYERS_PREFIX + calendarId;
+  if (unique.length) localStorage.setItem(key, JSON.stringify(unique));
+  else localStorage.removeItem(key);
 }

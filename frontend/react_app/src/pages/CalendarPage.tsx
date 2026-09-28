@@ -64,7 +64,9 @@ import {
 } from "@/lib/events";
 import {
   nextShiftCalendarName,
+  loadHiddenShiftLayerIds,
   markColors,
+  saveHiddenShiftLayerIds,
   shiftMarksByDate,
   summarizeShiftDays,
   type PaintTool,
@@ -131,6 +133,9 @@ export function CalendarPage() {
   const [paint, setPaint] = useState<PaintTool>({ type: "select" });
   const [activeLayerId, setActiveLayerId] = useState<number | null>(null);
   const [showPaint, setShowPaint] = useState(false);
+  const [hiddenLayerIds, setHiddenLayerIds] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const hasToken = !!getAccessToken();
   const today = useMemo(() => new Date(), []);
@@ -260,6 +265,13 @@ export function CalendarPage() {
     [shiftDays, shiftLayers],
   );
   const notesByDay = useMemo(() => dayNotesMap(dayNotes), [dayNotes]);
+  const hiddenPositions = useMemo(() => {
+    const positions = new Set<number>();
+    for (const layer of shiftLayers) {
+      if (hiddenLayerIds.has(layer.id)) positions.add(layer.position);
+    }
+    return positions;
+  }, [shiftLayers, hiddenLayerIds]);
   const selectedMarks = shiftsByDay.get(selectedKey);
   const selectedNote = notesByDay.get(selectedKey);
   const activeLayer =
@@ -407,6 +419,12 @@ export function CalendarPage() {
   }, [loadShifts]);
 
   useEffect(() => {
+    setHiddenLayerIds(
+      new Set(loadHiddenShiftLayerIds(selectedShiftCalendar?.id)),
+    );
+  }, [selectedShiftCalendar?.id]);
+
+  useEffect(() => {
     void loadNotes();
   }, [loadNotes]);
 
@@ -550,6 +568,18 @@ export function CalendarPage() {
     setPaint({ type: "select" });
   }
 
+  function handleToggleLayerHidden(id: number) {
+    setHiddenLayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (selectedShiftCalendar) {
+        saveHiddenShiftLayerIds(selectedShiftCalendar.id, next);
+      }
+      return next;
+    });
+  }
+
   function handleShiftCalendarChange(id: number) {
     setPaint({ type: "select" });
     setActiveLayerId(null);
@@ -653,6 +683,8 @@ export function CalendarPage() {
       onTogglePaint={
         calendarView === "month" ? handleTogglePaint : undefined
       }
+      hiddenLayerIds={hiddenLayerIds}
+      onToggleLayerHidden={handleToggleLayerHidden}
     />
   );
 
@@ -784,6 +816,7 @@ export function CalendarPage() {
                   eventsByDay={eventsByDay}
                   marksByDay={shiftsByDay}
                   notesByDay={notesByDay}
+                  hiddenPositions={hiddenPositions}
                   onSelectMonth={handleYearMonth}
                   onSelectDay={(date) => void handleDayClick(date)}
                 />
@@ -805,6 +838,7 @@ export function CalendarPage() {
                     notesByDay={notesByDay}
                     shiftsByDay={shiftsByDay}
                     shiftLayers={shiftLayers}
+                    hiddenLayerIds={hiddenLayerIds}
                     onSelectDay={selectDay}
                   />
                   <CalendarSelectedDay
@@ -835,11 +869,12 @@ export function CalendarPage() {
                     const eventTitles = uniqueEventEntries(dayEvents).map(
                       (entry) => entry.event.title,
                     );
-                    const colors = markColors(dayMarks);
+                    const colors = markColors(dayMarks, hiddenPositions);
                     const hasNote = Boolean(note?.text?.trim());
                     const dayBars = collectDayBars(dayEvents, dayEntries);
                     const shiftNames = shiftLayers
                       .map((layer, index) => {
+                        if (hiddenLayerIds.has(layer.id)) return "";
                         const kind = dayMarks?.[index as 0 | 1]?.kind;
                         return kind ? `${layer.name}: ${kind.name}` : "";
                       })

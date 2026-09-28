@@ -24,6 +24,7 @@ interface CalendarYearGridProps {
   eventsByDay: Map<string, EventEntry[]>;
   marksByDay: Map<string, DayShiftMarks>;
   notesByDay: Map<string, DayNote>;
+  hiddenPositions?: ReadonlySet<number>;
   onSelectMonth: (date: Date) => void;
   onSelectDay: (date: Date) => void;
 }
@@ -36,6 +37,7 @@ export function CalendarYearGrid({
   eventsByDay,
   marksByDay,
   notesByDay,
+  hiddenPositions,
   onSelectMonth,
   onSelectDay,
 }: CalendarYearGridProps) {
@@ -105,7 +107,7 @@ export function CalendarYearGrid({
                               : "text-app-subtle/50")
                       }
                       style={yearShiftSplitStyle(
-                        markColors(marksByDay.get(cell.key)),
+                        markColors(marksByDay.get(cell.key), hiddenPositions),
                       )}
                     >
                       {cell.date.getDate()}

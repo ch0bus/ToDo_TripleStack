@@ -26,6 +26,36 @@ function MoreIcon() {
   );
 }
 
+function EyeIcon({ hidden }: { hidden: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden
+    >
+      {hidden ? (
+        <>
+          <path d="M3 3l18 18" />
+          <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
+          <path d="M9.4 5.2A9 9 0 0 1 12 5c5 0 9 4.5 10 7a11 11 0 0 1-1.7 2.6" />
+          <path d="M6.6 6.6C4 8.4 2.5 11 2 12c1 2.5 5 7 10 7a9 9 0 0 0 4.2-1" />
+        </>
+      ) : (
+        <>
+          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function ShiftDaySummary({
   layers,
   marks,
@@ -34,6 +64,8 @@ export function ShiftDaySummary({
   calendarId,
   painting,
   onTogglePaint,
+  hiddenLayerIds,
+  onToggleLayerHidden,
 }: {
   layers: ShiftLayer[];
   marks: DayShiftMarks | undefined;
@@ -42,6 +74,8 @@ export function ShiftDaySummary({
   calendarId?: number | null;
   painting?: boolean;
   onTogglePaint?: () => void;
+  hiddenLayerIds?: ReadonlySet<number>;
+  onToggleLayerHidden?: (id: number) => void;
 }) {
   const location = useLocation();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -71,21 +105,46 @@ export function ShiftDaySummary({
       <div className="min-w-0 flex-1 space-y-1">
         {layers.map((layer, index) => {
           const mark = marks?.[index as 0 | 1];
+          const hidden = hiddenLayerIds?.has(layer.id) ?? false;
           return (
-            <p key={layer.id} className="text-sm text-app-muted">
-              <span className="text-app">{layer.name}: </span>
-              {mark?.kind ? (
-                <>
-                  <span
-                    className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
-                    style={{ backgroundColor: mark.kind.color }}
-                    aria-hidden
-                  />
-                  {mark.kind.name} · {formatShiftPayLine(mark.kind)}
-                </>
-              ) : (
-                "нет смены"
-              )}
+            <p
+              key={layer.id}
+              className={
+                "flex items-start gap-1.5 text-sm text-app-muted " +
+                (hidden ? "opacity-50" : "")
+              }
+            >
+              {onToggleLayerHidden ? (
+                <button
+                  type="button"
+                  onClick={() => onToggleLayerHidden(layer.id)}
+                  className="mt-0.5 shrink-0 rounded-md p-0.5 text-app-subtle hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+                  aria-pressed={hidden}
+                  aria-label={
+                    hidden
+                      ? `Показать слой «${layer.name}»`
+                      : `Скрыть слой «${layer.name}»`
+                  }
+                  title={hidden ? "Показать слой на календаре" : "Скрыть слой на календаре"}
+                >
+                  <EyeIcon hidden={hidden} />
+                </button>
+              ) : null}
+              <span>
+                <span className="text-app">{layer.name}: </span>
+                {mark?.kind ? (
+                  <>
+                    <span
+                      className="mr-1.5 inline-block h-2.5 w-2.5 rounded-sm align-middle"
+                      style={{ backgroundColor: mark.kind.color }}
+                      aria-hidden
+                    />
+                    {mark.kind.name} · {formatShiftPayLine(mark.kind)}
+                  </>
+                ) : (
+                  "нет смены"
+                )}
+              </span>
             </p>
           );
         })}

@@ -30,6 +30,7 @@ interface CalendarTimeGridProps {
   notesByDay: Map<string, DayNote>;
   shiftsByDay: Map<string, DayShiftMarks>;
   shiftLayers: ShiftLayer[];
+  hiddenLayerIds?: ReadonlySet<number>;
   onSelectDay: (date: Date) => void;
 }
 
@@ -52,6 +53,7 @@ export function CalendarTimeGrid({
   notesByDay,
   shiftsByDay,
   shiftLayers,
+  hiddenLayerIds,
   onSelectDay,
 }: CalendarTimeGridProps) {
   const location = useLocation();
@@ -128,6 +130,7 @@ export function CalendarTimeGrid({
                     className="flex min-h-[3.25rem] flex-col gap-1 border-b border-l border-app bg-app-surface p-1"
                   >
                     {shiftLayers.map((layer, index) => {
+                      if (hiddenLayerIds?.has(layer.id)) return null;
                       const kind = marks?.[index as 0 | 1]?.kind;
                       if (!kind) return null;
                       return (
