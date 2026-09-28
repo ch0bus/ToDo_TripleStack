@@ -218,34 +218,20 @@ export function shiftCornerFillStyle(
   };
 }
 
+/** Сплошная заливка (год): без градиента. */
+export function shiftSolidFillStyle(
+  color: string | undefined,
+  alpha = 0.5,
+): { backgroundColor: string } | undefined {
+  const fill = hexRgba(color, alpha);
+  if (!fill) return undefined;
+  return { backgroundColor: fill };
+}
+
 export function bothShiftLayersVisible(
   hiddenPositions?: ReadonlySet<number>,
 ): boolean {
   return !hiddenPositions?.has(0) && !hiddenPositions?.has(1);
-}
-
-/** Кружок года: те же углы, что у месяца. */
-export function yearShiftSplitStyle(
-  colors: [string | undefined, string | undefined],
-  splitCorners = false,
-): CSSProperties | undefined {
-  const a = hexRgba(colors[0], 0.55);
-  const b = hexRgba(colors[1], 0.55);
-  if (splitCorners || (a && b)) {
-    const layers: string[] = [];
-    if (a) {
-      layers.push(`linear-gradient(to bottom right, ${a} 0%, transparent 58%)`);
-    }
-    if (b) {
-      layers.push(`linear-gradient(to top left, ${b} 0%, transparent 58%)`);
-    }
-    if (!layers.length) return undefined;
-    return { backgroundImage: layers.join(", ") };
-  }
-  if (a || b) {
-    return { backgroundColor: a || b };
-  }
-  return undefined;
 }
 
 const HIDDEN_LAYERS_PREFIX = "haloday.hiddenShiftLayers.";

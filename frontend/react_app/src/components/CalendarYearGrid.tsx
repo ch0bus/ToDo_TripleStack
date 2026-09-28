@@ -1,4 +1,5 @@
 import { TodayHalo } from "@/components/CalendarNoteMarks";
+import { MonthShiftFill } from "@/components/MonthShiftFill";
 import {
   MONTH_LABELS_SHORT,
   WEEKDAY_LABELS,
@@ -12,7 +13,6 @@ import { type EventEntry } from "@/lib/events";
 import {
   bothShiftLayersVisible,
   markColors,
-  yearShiftSplitStyle,
   type DayShiftMarks,
 } from "@/lib/shifts";
 import { isOverdue } from "@/lib/utils";
@@ -89,6 +89,10 @@ export function CalendarYearGrid({
                   (eventsByDay.get(cell.key)?.length ?? 0) > 0 ||
                   hasNote;
                 const selected = cell.key === selectedKey;
+                const colors = markColors(
+                  marksByDay.get(cell.key),
+                  hiddenPositions,
+                );
                 return (
                   <div key={cell.key} className="relative">
                     {cell.isToday ? <TodayHalo /> : null}
@@ -107,16 +111,17 @@ export function CalendarYearGrid({
                               ? "text-app hover:bg-app-surface-muted"
                               : "text-app-subtle/50")
                       }
-                      style={yearShiftSplitStyle(
-                        markColors(marksByDay.get(cell.key), hiddenPositions),
-                        bothShiftLayersVisible(hiddenPositions),
-                      )}
                     >
-                      {cell.date.getDate()}
+                      <MonthShiftFill
+                        colors={colors}
+                        splitCorners={bothShiftLayersVisible(hiddenPositions)}
+                        solid
+                      />
+                      <span className="relative z-[1]">{cell.date.getDate()}</span>
                       {busy ? (
                         <span
                           className={
-                            "absolute bottom-0.5 h-1 w-1 rounded-full " +
+                            "absolute bottom-0.5 z-[1] h-1 w-1 rounded-full " +
                             (overdue
                               ? "bg-red-500"
                               : hasNote
