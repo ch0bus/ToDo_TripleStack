@@ -264,6 +264,10 @@ class TodoViewSet(viewsets.ModelViewSet):
         if due_today in ("true", "1", "yes"):
             qs = qs.filter(due_date__date=timezone.localdate())
 
+        exclude_done = params.get("exclude_done")
+        if exclude_done in ("true", "1", "yes"):
+            qs = qs.exclude(status=Status.DONE)
+
         if search:
             qs = qs.filter(
                 Q(title__icontains=search) | Q(description__icontains=search)
@@ -296,8 +300,8 @@ class TodoViewSet(viewsets.ModelViewSet):
         summary="Получить все задачи пользователя",
         description=(
             "Возвращает список всех задач текущего пользователя с поддержкой фильтрации по "
-            "status, priority, tag, due_from, due_to, from/to (окно календаря) "
-            "и текстового поиска по title/description."
+            "status, priority, tag, due_from, due_to, from/to (окно календаря), "
+            "exclude_done и текстового поиска по title/description."
         ),
         parameters=[
             OpenApiParameter(
@@ -345,6 +349,12 @@ class TodoViewSet(viewsets.ModelViewSet):
             OpenApiParameter(
                 name="due_today",
                 description="true — срок выполнения сегодня (локальная дата сервера)",
+                required=False,
+                type=OpenApiTypes.BOOL,
+            ),
+            OpenApiParameter(
+                name="exclude_done",
+                description="true — без задач со статусом done (входящие)",
                 required=False,
                 type=OpenApiTypes.BOOL,
             ),

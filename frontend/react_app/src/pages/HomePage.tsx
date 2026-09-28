@@ -8,6 +8,7 @@ import { EventFilterBar } from "@/components/EventFilterBar";
 import { EventList } from "@/components/EventList";
 import { useAppShell } from "@/contexts/AppShellContext";
 import { FilterBar } from "@/components/FilterBar";
+import { ListReveal } from "@/components/ListReveal";
 import { LoadingBar } from "@/components/LoadingBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { SortBar } from "@/components/SortBar";
@@ -45,7 +46,7 @@ import {
   inboxBusyDayKeys,
   inboxTodosForDay,
 } from "@/lib/todoFilters";
-import { parseTodoSort, sortTodos } from "@/lib/todoSort";
+import { parseTodoSort, sortTodos, sortTodosCompleted } from "@/lib/todoSort";
 import type { TagOption } from "@/lib/tags";
 import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
@@ -68,12 +69,14 @@ function buildTodosQuery(params: {
   priority?: string;
   tag?: string;
   search?: string;
+  exclude_done?: boolean;
 }): string {
   const query = new URLSearchParams();
   if (params.status) query.set("status", params.status);
   if (params.priority) query.set("priority", params.priority);
   if (params.tag) query.set("tag", params.tag);
   if (params.search) query.set("search", params.search);
+  if (params.exclude_done) query.set("exclude_done", "true");
   const qs = query.toString();
   return qs ? `/todos/?${qs}` : "/todos/";
 }
@@ -86,6 +89,7 @@ function InboxSection({
   lead,
   action,
   count,
+  reveal = false,
   onUpdated,
   onDeleted,
   whenMode = "list",
@@ -97,6 +101,7 @@ function InboxSection({
   lead?: ReactNode;
   action?: ReactNode;
   count?: number;
+  reveal?: boolean;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
   whenMode?: TileWhenMode;
@@ -114,12 +119,25 @@ function InboxSection({
       </div>
       {lead}
       {todos.length > 0 ? (
-        <TodoList
-          todos={todos}
-          onUpdated={onUpdated}
-          onDeleted={onDeleted}
-          whenMode={whenMode}
-        />
+        reveal ? (
+          <ListReveal items={todos}>
+            {(visible) => (
+              <TodoList
+                todos={visible}
+                onUpdated={onUpdated}
+                onDeleted={onDeleted}
+                whenMode={whenMode}
+              />
+            )}
+          </ListReveal>
+        ) : (
+          <TodoList
+            todos={todos}
+            onUpdated={onUpdated}
+            onDeleted={onDeleted}
+            whenMode={whenMode}
+          />
+        )
       ) : empty ? (
         <p className="text-sm text-app-subtle">{empty}</p>
       ) : null}
@@ -140,6 +158,10 @@ export function HomePage() {
   const [error, setError] = useState("");
   const [weekNotes, setWeekNotes] = useState<DayNote[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [doneOpen, setDoneOpen] = useState(false);
+  const [doneTodos, setDoneTodos] = useState<TodoRow[]>([]);
+  const [doneLoading, setDoneLoading] = useState(false);
+  const [doneLoaded, setDoneLoaded] = useState(false);
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const selectedDate = useMemo(() => {
@@ -167,6 +189,7 @@ export function HomePage() {
       priority,
       tag,
       search,
+      exclude_done: !status,
     });
     const [statsRes, todosRes, eventsRes] = await Promise.all([
       apiFetch("/todos/stats/"),
@@ -288,6 +311,13 @@ export function HomePage() {
     tag,
     search,
   });
+  const doneFromFilter = status === "done";
+
+  useEffect(() => {
+    setDoneOpen(doneFromFilter);
+    setDoneTodos([]);
+    setDoneLoaded(false);
+  }, [status, priority, tag, search, doneFromFilter]);
 
   const grouped = useMemo(() => groupInboxTodos(todos), [todos]);
   const dayTodos = useMemo(
@@ -299,11 +329,37 @@ export function HomePage() {
     () => sortTodos(grouped.rest, restSort),
     [grouped.rest, restSort],
   );
+  const visibleDone = useMemo(
+    () =>
+      doneFromFilter ? sortTodosCompleted(grouped.done) : doneTodos,
+    [doneFromFilter, grouped.done, doneTodos],
+  );
+  const doneCount =
+    doneFromFilter || doneOpen
+      ? visibleDone.length
+      : !priority && !tag && !search
+        ? stats.done
+        : undefined;
+
+  const loadDoneTodos = useCallback(async () => {
+    const res = await apiFetch(
+      buildTodosQuery({ status: "done", priority, tag, search }),
+    );
+    if (!res.ok) throw new Error("Failed to load done");
+    const rows = sortTodosCompleted((await res.json()) as TodoRow[]);
+    setDoneTodos(rows);
+    setDoneLoaded(true);
+  }, [priority, tag, search]);
   const dayEvents = useMemo(() => {
     const byDay = groupEventsForRange(events, selectedKey, selectedKey);
     return uniqueEventEntries(byDay.get(selectedKey) ?? []);
   }, [events, selectedKey]);
   const missedEvents = useMemo(() => lastMissedEventEntries(events), [events]);
+  const hasTaskBlocks =
+    todos.length > 0 ||
+    missedEvents.length > 0 ||
+    stats.done > 0 ||
+    doneFromFilter;
   const eventSort = parseEventSort(searchParams.get("esort"), "start");
   const eventColor = searchParams.get("ecolor");
   const inboxEventsAll = useMemo(
@@ -365,6 +421,7 @@ export function HomePage() {
       if (data.stats) setStats(data.stats);
       setTodos(data.todos);
       if (data.events) setEvents(data.events);
+      if (doneOpen || doneLoaded) await loadDoneTodos();
     } catch {
       /* ignore */
     }
@@ -377,8 +434,28 @@ export function HomePage() {
       if (data.stats) setStats(data.stats);
       setTodos(data.todos);
       if (data.events) setEvents(data.events);
+      if (doneOpen || doneLoaded) await loadDoneTodos();
     } catch {
       /* ignore */
+    }
+  }
+
+  async function handleToggleDone() {
+    if (doneFromFilter) return;
+    if (doneOpen) {
+      setDoneOpen(false);
+      return;
+    }
+    setDoneOpen(true);
+    if (doneLoaded) return;
+    setDoneLoading(true);
+    try {
+      await loadDoneTodos();
+    } catch {
+      setDoneOpen(false);
+      setError("Не удалось загрузить выполненные");
+    } finally {
+      setDoneLoading(false);
     }
   }
 
@@ -546,12 +623,16 @@ export function HomePage() {
                   </div>
                 </div>
                 {inboxEvents.length > 0 ? (
-                  <EventList
-                    entries={inboxEvents}
-                    showDate
-                    onUpdated={handleEventUpdated}
-                    onDeleted={handleEventDeleted}
-                  />
+                  <ListReveal items={inboxEvents}>
+                    {(visible) => (
+                      <EventList
+                        entries={visible}
+                        showDate
+                        onUpdated={handleEventUpdated}
+                        onDeleted={handleEventDeleted}
+                      />
+                    )}
+                  </ListReveal>
                 ) : (
                   <p className="text-sm text-app-subtle">
                     {inboxEventsAll.length > 0 && eventColor
@@ -562,8 +643,7 @@ export function HomePage() {
                   </p>
                 )}
               </section>
-              {todos.length === 0 && missedEvents.length === 0 && !filtersActive ? (
-                events.length === 0 ? (
+              {!hasTaskBlocks && !filtersActive && events.length === 0 ? (
                 <Link
                   to={newTodoPath()}
                   state={{ from: locationFrom(location) }}
@@ -571,12 +651,11 @@ export function HomePage() {
                 >
                   Создать задачу
                 </Link>
-                ) : null
-              ) : todos.length === 0 && missedEvents.length === 0 ? (
+              ) : !hasTaskBlocks && filtersActive ? (
                 <p className="text-sm text-app-subtle">
                   По выбранным фильтрам задач нет
                 </p>
-              ) : (
+              ) : hasTaskBlocks ? (
                 <>
               <InboxSection
                 id="inbox-overdue"
@@ -602,20 +681,53 @@ export function HomePage() {
                 title="Все задачи"
                 todos={restTodos}
                 empty="Других активных задач нет"
+                reveal
                 action={<SortBar defaultSort="new" />}
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
-              <InboxSection
-                id="inbox-done"
-                title="Готово"
-                todos={grouped.done}
-                empty="Пока нет выполненных задач"
-                onUpdated={handleTodoUpdated}
-                onDeleted={handleTodoDeleted}
-              />
+              <section id="inbox-done" className="min-w-0 space-y-3 scroll-mt-24">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    Готово
+                    {doneCount != null ? (
+                      <span className="ml-2 font-normal text-app-subtle">
+                        {doneCount}
+                      </span>
+                    ) : null}
+                  </h2>
+                  {doneFromFilter ? null : (
+                    <button
+                      type="button"
+                      onClick={() => void handleToggleDone()}
+                      className="text-xs text-app-muted hover:text-app"
+                    >
+                      {doneOpen ? "Скрыть" : "Показать"}
+                    </button>
+                  )}
+                </div>
+                {doneFromFilter || doneOpen ? (
+                  doneLoading ? (
+                    <p className="text-sm text-app-subtle">Загрузка…</p>
+                  ) : visibleDone.length > 0 ? (
+                    <ListReveal items={visibleDone}>
+                      {(visible) => (
+                        <TodoList
+                          todos={visible}
+                          onUpdated={handleTodoUpdated}
+                          onDeleted={handleTodoDeleted}
+                        />
+                      )}
+                    </ListReveal>
+                  ) : (
+                    <p className="text-sm text-app-subtle">
+                      Пока нет выполненных задач
+                    </p>
+                  )
+                ) : null}
+              </section>
                 </>
-              )}
+              ) : null}
             </div>
             </>
           )}

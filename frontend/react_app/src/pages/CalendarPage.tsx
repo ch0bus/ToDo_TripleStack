@@ -10,6 +10,7 @@ import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { EventFilterBar } from "@/components/EventFilterBar";
 import { EventList } from "@/components/EventList";
+import { ListReveal } from "@/components/ListReveal";
 import { LoadingBar } from "@/components/LoadingBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
 import { MonthDayBars, collectDayBars } from "@/components/MonthDayBars";
@@ -940,11 +941,18 @@ export function CalendarPage() {
                   Без даты
                 </h2>
                 {undated.length > 0 ? (
-                  <TodoList
-                    todos={undated}
-                    onUpdated={handleTodoUpdated}
-                    onDeleted={handleTodoDeleted}
-                  />
+                  <ListReveal
+                    items={undated}
+                    enabled={calendarView === "month" || calendarView === "year"}
+                  >
+                    {(visible) => (
+                      <TodoList
+                        todos={visible}
+                        onUpdated={handleTodoUpdated}
+                        onDeleted={handleTodoDeleted}
+                      />
+                    )}
+                  </ListReveal>
                 ) : (
                   <p className="text-sm text-app-subtle">
                     Все задачи с указанным сроком.
@@ -965,12 +973,19 @@ export function CalendarPage() {
                   <SortBar defaultSort="due" />
                 </div>
                 {periodTodos.length > 0 ? (
-                  <TodoList
-                    todos={periodTodos}
-                    onUpdated={handleTodoUpdated}
-                    onDeleted={handleTodoDeleted}
-                    whenMode={calendarView === "day" ? "day" : "list"}
-                  />
+                  <ListReveal
+                    items={periodTodos}
+                    enabled={calendarView === "month" || calendarView === "year"}
+                  >
+                    {(visible) => (
+                      <TodoList
+                        todos={visible}
+                        onUpdated={handleTodoUpdated}
+                        onDeleted={handleTodoDeleted}
+                        whenMode={calendarView === "day" ? "day" : "list"}
+                      />
+                    )}
+                  </ListReveal>
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
                     {PERIOD_TODOS_EMPTY[calendarView]}
@@ -998,12 +1013,19 @@ export function CalendarPage() {
                   </div>
                 </div>
                 {periodEvents.length > 0 ? (
-                  <EventList
-                    entries={periodEvents}
-                    onUpdated={handleEventUpdated}
-                    onDeleted={handleEventDeleted}
-                    showDate={calendarView !== "day"}
-                  />
+                  <ListReveal
+                    items={periodEvents}
+                    enabled={calendarView === "month" || calendarView === "year"}
+                  >
+                    {(visible) => (
+                      <EventList
+                        entries={visible}
+                        onUpdated={handleEventUpdated}
+                        onDeleted={handleEventDeleted}
+                        showDate={calendarView !== "day"}
+                      />
+                    )}
+                  </ListReveal>
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
                     {periodEventsUnsorted.length

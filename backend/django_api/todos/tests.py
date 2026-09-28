@@ -109,6 +109,13 @@ class TodoStatsTests(APITestCase):
         self.assertEqual(res.data["in_progress"], 1)
         self.assertEqual(res.data["overdue"], 1)
 
+    def test_exclude_done(self):
+        self.client.force_authenticate(self.user)
+        res = self.client.get("/api/todos/?exclude_done=true")
+        self.assertEqual(res.status_code, 200)
+        titles = {row["title"] for row in res.data}
+        self.assertEqual(titles, {"open", "doing", "late"})
+
 
 UTC = dt_timezone.utc
 

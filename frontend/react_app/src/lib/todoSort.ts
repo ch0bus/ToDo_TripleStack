@@ -38,7 +38,15 @@ function dueTime(todo: TodoRow): number | null {
 }
 
 function compareCreatedDesc(a: TodoRow, b: TodoRow): number {
-  return createdTime(b) - createdTime(a) || a.id - b.id;
+    return createdTime(b) - createdTime(a) || a.id - b.id;
+}
+
+export function sortTodosCompleted(todos: TodoRow[]): TodoRow[] {
+  return [...todos].sort((a, b) => {
+    const aDone = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+    const bDone = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+    return bDone - aDone || compareCreatedDesc(a, b);
+  });
 }
 
 export function sortTodos(todos: TodoRow[], sort: TodoSort): TodoRow[] {
