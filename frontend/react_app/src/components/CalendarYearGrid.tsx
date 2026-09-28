@@ -10,6 +10,7 @@ import {
 import { type DayNote } from "@/lib/dayNotes";
 import { type EventEntry } from "@/lib/events";
 import {
+  bothShiftLayersVisible,
   markColors,
   yearShiftSplitStyle,
   type DayShiftMarks,
@@ -108,6 +109,7 @@ export function CalendarYearGrid({
                       }
                       style={yearShiftSplitStyle(
                         markColors(marksByDay.get(cell.key), hiddenPositions),
+                        bothShiftLayersVisible(hiddenPositions),
                       )}
                     >
                       {cell.date.getDate()}

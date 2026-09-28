@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { ShiftLayerEyeIcon } from "@/components/ShiftLayerEyeIcon";
 import {
   formatKindMeta,
   isHexColor,
@@ -30,6 +31,8 @@ interface ShiftSchedulePanelProps {
     endDate: string | null,
     kindIds: Array<number | null>,
   ) => Promise<void>;
+  hiddenLayerIds?: ReadonlySet<number>;
+  onToggleLayerHidden?: (id: number) => void;
 }
 
 const compactInput = inputClass + " w-24 shrink-0";
@@ -49,6 +52,8 @@ export function ShiftSchedulePanel({
   onUpdateKind,
   onDeleteKind,
   onSavePattern,
+  hiddenLayerIds,
+  onToggleLayerHidden,
 }: ShiftSchedulePanelProps) {
   const [name, setName] = useState("");
   const [color, setColor] = useState("#2563eb");
@@ -209,22 +214,26 @@ export function ShiftSchedulePanel({
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        {layers.map((layer) => (
-          <button
-            key={layer.id}
-            type="button"
-            onClick={() => onActiveLayerChange(layer.id)}
-            className={
-              "rounded-md px-2.5 py-1 text-xs " +
-              (layer.id === activeLayer.id
-                ? "bg-app-surface-muted text-app"
-                : "text-app-subtle hover:bg-app-surface-muted")
-            }
-          >
-            {layer.position === 0 ? "↖ " : "↘ "}
-            {layer.name}
-          </button>
-        ))}
+        {layers.map((layer) => {
+          const hidden = hiddenLayerIds?.has(layer.id) ?? false;
+          return (
+            <button
+              key={layer.id}
+              type="button"
+              onClick={() => onActiveLayerChange(layer.id)}
+              className={
+                "rounded-md px-2.5 py-1 text-xs " +
+                (layer.id === activeLayer.id
+                  ? "bg-app-surface-muted text-app"
+                  : "text-app-subtle hover:bg-app-surface-muted") +
+                (hidden ? " opacity-50" : "")
+              }
+            >
+              {layer.position === 0 ? "↖ " : "↘ "}
+              {layer.name}
+            </button>
+          );
+        })}
         <input
           type="text"
           value={layerName}
@@ -243,6 +252,34 @@ export function ShiftSchedulePanel({
           }}
           className={inputClass + " h-8 w-36 py-1 text-xs"}
         />
+        {onToggleLayerHidden ? (
+          <button
+            type="button"
+            onClick={() => onToggleLayerHidden(activeLayer.id)}
+            className={
+              btnSecondary +
+              " inline-flex h-8 items-center gap-1.5 py-1 text-xs"
+            }
+            aria-pressed={hiddenLayerIds?.has(activeLayer.id) ?? false}
+            aria-label={
+              hiddenLayerIds?.has(activeLayer.id)
+                ? `Показать слой «${activeLayer.name}»`
+                : `Скрыть слой «${activeLayer.name}»`
+            }
+            title={
+              hiddenLayerIds?.has(activeLayer.id)
+                ? "Показать слой на календаре"
+                : "Скрыть слой на календаре"
+            }
+          >
+            <ShiftLayerEyeIcon
+              hidden={hiddenLayerIds?.has(activeLayer.id) ?? false}
+            />
+            {hiddenLayerIds?.has(activeLayer.id)
+              ? "Показать слой"
+              : "Скрыть слой"}
+          </button>
+        ) : null}
       </div>
 
       <div className="space-y-4 border-t border-app pt-4">

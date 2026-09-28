@@ -191,7 +191,7 @@ export function formatShiftTotalsLine(label: string, totals: ShiftTotals): strin
   return `${label}: ${formatHours(totals.hours)} · ${formatRub(totals.pay)}`;
 }
 
-/** Мягкая заливка дня календаря цветом смены. */
+/** Мягкая заливка всей клетки (когда второй слой скрыт). */
 export function shiftDayFillStyle(
   color: string | undefined,
 ): { backgroundImage: string } | undefined {
@@ -204,16 +204,43 @@ export function shiftDayFillStyle(
   };
 }
 
-/** Кружок года: диагональный разрез без градиента. */
+/** Угол клетки: слой 0 — сверху слева, слой 1 — снизу справа, к центру тает. */
+export function shiftCornerFillStyle(
+  color: string | undefined,
+  corner: 0 | 1,
+): CSSProperties | undefined {
+  const fill = hexRgba(color, 0.52);
+  const mid = hexRgba(color, 0.2);
+  if (!fill || !mid) return undefined;
+  const dir = corner === 0 ? "to bottom right" : "to top left";
+  return {
+    backgroundImage: `linear-gradient(${dir}, ${fill} 0%, ${mid} 40%, transparent 78%)`,
+  };
+}
+
+export function bothShiftLayersVisible(
+  hiddenPositions?: ReadonlySet<number>,
+): boolean {
+  return !hiddenPositions?.has(0) && !hiddenPositions?.has(1);
+}
+
+/** Кружок года: те же углы, что у месяца. */
 export function yearShiftSplitStyle(
   colors: [string | undefined, string | undefined],
+  splitCorners = false,
 ): CSSProperties | undefined {
-  const a = hexRgba(colors[0], 0.5);
-  const b = hexRgba(colors[1], 0.5);
-  if (a && b) {
-    return {
-      backgroundImage: `linear-gradient(to bottom right, ${a} 50%, ${b} 50%)`,
-    };
+  const a = hexRgba(colors[0], 0.55);
+  const b = hexRgba(colors[1], 0.55);
+  if (splitCorners || (a && b)) {
+    const layers: string[] = [];
+    if (a) {
+      layers.push(`linear-gradient(to bottom right, ${a} 0%, transparent 58%)`);
+    }
+    if (b) {
+      layers.push(`linear-gradient(to top left, ${b} 0%, transparent 58%)`);
+    }
+    if (!layers.length) return undefined;
+    return { backgroundImage: layers.join(", ") };
   }
   if (a || b) {
     return { backgroundColor: a || b };

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { ShiftLayerEyeIcon } from "@/components/ShiftLayerEyeIcon";
 import { locationFrom, shiftSettingsPath } from "@/lib/nav";
 import {
   formatShiftPayLine,
@@ -10,23 +10,7 @@ import {
   type ShiftTotals,
 } from "@/lib/shifts";
 
-function MoreIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="h-4 w-4"
-      aria-hidden
-    >
-      <circle cx="5" cy="12" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="19" cy="12" r="1.6" />
-    </svg>
-  );
-}
-
-function EyeIcon({ hidden }: { hidden: boolean }) {
+function GearIcon() {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -39,22 +23,33 @@ function EyeIcon({ hidden }: { hidden: boolean }) {
       className="h-4 w-4"
       aria-hidden
     >
-      {hidden ? (
-        <>
-          <path d="M3 3l18 18" />
-          <path d="M10.6 10.6a2 2 0 0 0 2.8 2.8" />
-          <path d="M9.4 5.2A9 9 0 0 1 12 5c5 0 9 4.5 10 7a11 11 0 0 1-1.7 2.6" />
-          <path d="M6.6 6.6C4 8.4 2.5 11 2 12c1 2.5 5 7 10 7a9 9 0 0 0 4.2-1" />
-        </>
-      ) : (
-        <>
-          <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      )}
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
     </svg>
   );
 }
+
+function BrushIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden
+    >
+      <path d="M14.5 5.5 18.5 9.5" />
+      <path d="M4 20c1.8 0 3-.8 4.2-2.2L17 8.9a2.3 2.3 0 0 0-3.2-3.2L4.9 14.6C3.6 16 3 17.3 3 19c0 .6.4 1 1 1Z" />
+    </svg>
+  );
+}
+
+const iconBtn =
+  "shrink-0 rounded-md p-1.5 text-app-subtle hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]";
 
 export function ShiftDaySummary({
   layers,
@@ -78,27 +73,7 @@ export function ShiftDaySummary({
   onToggleLayerHidden?: (id: number) => void;
 }) {
   const location = useLocation();
-  const rootRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(false);
   const from = locationFrom(location);
-
-  useEffect(() => {
-    if (!open) return;
-
-    function onPointerDown(e: PointerEvent) {
-      if (rootRef.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("pointerdown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", onPointerDown);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
 
   return (
     <div className="flex items-start gap-3 bg-transparent">
@@ -127,7 +102,7 @@ export function ShiftDaySummary({
                   }
                   title={hidden ? "Показать слой на календаре" : "Скрыть слой на календаре"}
                 >
-                  <EyeIcon hidden={hidden} />
+                  <ShiftLayerEyeIcon hidden={hidden} />
                 </button>
               ) : null}
               <span>
@@ -155,63 +130,30 @@ export function ShiftDaySummary({
         ))}
       </div>
 
-      <div ref={rootRef} className="relative shrink-0">
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-haspopup="menu"
-          aria-label="Действия со сменами"
-          onClick={() => setOpen((value) => !value)}
-          className={
-            "rounded-md p-1.5 " +
-            (painting || open
-              ? "bg-app-surface-muted text-app"
-              : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
-          }
+      <div className="flex shrink-0 items-center gap-0.5">
+        <Link
+          to={shiftSettingsPath(calendarId)}
+          state={{ from }}
+          className={iconBtn}
+          aria-label="Настройки смен"
+          title="Настройки смен"
         >
-          <MoreIcon />
-        </button>
-
-        {open && (
-          <div
-            role="menu"
-            aria-label="Действия со сменами"
-            className="absolute right-0 z-40 mt-1 w-56 rounded-xl border border-app bg-app-modal p-1 shadow-app"
+          <GearIcon />
+        </Link>
+        {onTogglePaint ? (
+          <button
+            type="button"
+            onClick={onTogglePaint}
+            className={
+              iconBtn + (painting ? " bg-app-surface-muted text-app" : "")
+            }
+            aria-pressed={painting}
+            aria-label={painting ? "Скрыть кисть" : "Рисование"}
+            title={painting ? "Убрать кисть с календаря" : "Рисование"}
           >
-            <Link
-              role="menuitem"
-              to={shiftSettingsPath(calendarId)}
-              state={{ from }}
-              onClick={() => setOpen(false)}
-              className="block rounded-lg px-3 py-2 text-left hover:bg-app-surface-muted"
-            >
-              <span className="block text-sm font-medium text-app">
-                Настройки смен
-              </span>
-              <span className="block text-xs text-app-subtle">
-                Типы, слои и шаблон цикла
-              </span>
-            </Link>
-            {onTogglePaint ? (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onTogglePaint();
-              }}
-              className="block w-full rounded-lg px-3 py-2 text-left hover:bg-app-surface-muted"
-            >
-              <span className="block text-sm font-medium text-app">
-                {painting ? "Скрыть кисть" : "Рисование"}
-              </span>
-              <span className="block text-xs text-app-subtle">
-                {painting ? "Убрать кисть с календаря" : "Кисть сразу под календарём"}
-              </span>
-            </button>
-            ) : null}
-          </div>
-        )}
+            <BrushIcon />
+          </button>
+        ) : null}
       </div>
     </div>
   );

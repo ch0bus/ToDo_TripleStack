@@ -7,7 +7,9 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import {
   emptyPattern,
+  loadHiddenShiftLayerIds,
   nextShiftCalendarName,
+  saveHiddenShiftLayerIds,
   type ShiftCalendar,
   type ShiftKind,
   type ShiftKindWrite,
@@ -25,6 +27,9 @@ export function ShiftSettingsPage() {
   const [kinds, setKinds] = useState<ShiftKind[]>([]);
   const [patterns, setPatterns] = useState<ShiftPattern[]>([]);
   const [activeLayerId, setActiveLayerId] = useState<number | null>(null);
+  const [hiddenLayerIds, setHiddenLayerIds] = useState<Set<number>>(
+    () => new Set(),
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -96,6 +101,20 @@ export function ShiftSettingsPage() {
     if (!selected) return;
     loadShifts().catch(() => setError("Не удалось загрузить настройки смен"));
   }, [selected, loadShifts]);
+
+  useEffect(() => {
+    setHiddenLayerIds(new Set(loadHiddenShiftLayerIds(selected?.id)));
+  }, [selected?.id]);
+
+  function handleToggleLayerHidden(id: number) {
+    setHiddenLayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      if (selected) saveHiddenShiftLayerIds(selected.id, next);
+      return next;
+    });
+  }
 
   function selectCalendar(id: number) {
     setActiveLayerId(null);
@@ -248,6 +267,8 @@ export function ShiftSettingsPage() {
             onUpdateKind={handleUpdateKind}
             onDeleteKind={handleDeleteKind}
             onSavePattern={handleSavePattern}
+            hiddenLayerIds={hiddenLayerIds}
+            onToggleLayerHidden={handleToggleLayerHidden}
           />
         </div>
       ) : (

@@ -64,6 +64,7 @@ import {
 } from "@/lib/events";
 import {
   nextShiftCalendarName,
+  bothShiftLayersVisible,
   loadHiddenShiftLayerIds,
   markColors,
   saveHiddenShiftLayerIds,
@@ -272,6 +273,7 @@ export function CalendarPage() {
     }
     return positions;
   }, [shiftLayers, hiddenLayerIds]);
+  const splitCorners = bothShiftLayersVisible(hiddenPositions);
   const selectedMarks = shiftsByDay.get(selectedKey);
   const selectedNote = notesByDay.get(selectedKey);
   const activeLayer =
@@ -902,7 +904,7 @@ export function CalendarPage() {
                           (cell.inMonth ? "" : " opacity-40")
                         }
                       >
-                        <MonthShiftFill colors={colors} />
+                        <MonthShiftFill colors={colors} splitCorners={splitCorners} />
                         <span className="relative isolate inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs">
                           {cell.isToday ? <TodayHalo size={28} /> : null}
                           {hasNote ? <DayNoteMark /> : null}
