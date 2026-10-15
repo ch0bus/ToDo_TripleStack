@@ -4,7 +4,17 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
-from todos.models import Event, EventAttendance, Recurrence, Status, Tag, TagKind, Todo
+from todos.models import (
+    DayNote,
+    Event,
+    EventAttendance,
+    Recurrence,
+    Status,
+    Subtask,
+    Tag,
+    TagKind,
+    Todo,
+)
 
 User = get_user_model()
 
@@ -78,6 +88,71 @@ class TagIsolationTests(APITestCase):
         self.assertEqual(patch_res.status_code, 405)
         self.system_tag.refresh_from_db()
         self.assertNotEqual(self.system_tag.tag_name, "взлом")
+
+    def test_event_and_note_use_same_tags(self):
+        self.client.force_authenticate(self.alice)
+        event_res = self.client.post(
+            "/api/events/",
+            {
+                "title": "Встреча",
+                "start_at": "2026-04-01T10:00:00Z",
+                "tag_ids": [self.alice_tag.id, self.system_tag.id],
+            },
+            format="json",
+        )
+        self.assertEqual(event_res.status_code, 201, event_res.data)
+        self.assertEqual(
+            {row["id"] for row in event_res.data["tags"]},
+            {self.alice_tag.id, self.system_tag.id},
+        )
+        note_res = self.client.put(
+            "/api/day-notes/",
+            {
+                "date": "2026-04-02",
+                "text": "Смена",
+                "tag_ids": [self.alice_tag.id],
+            },
+            format="json",
+        )
+        self.assertEqual(note_res.status_code, 200, note_res.data)
+        self.assertEqual(
+            {row["id"] for row in note_res.data["tags"]},
+            {self.alice_tag.id},
+        )
+        listed = self.client.get(f"/api/events/?tag={self.alice_tag.id}")
+        self.assertEqual(
+            {row["id"] for row in listed.data},
+            {event_res.data["id"]},
+        )
+        notes = self.client.get(
+            f"/api/day-notes/?from=2026-04-01&to=2026-04-03&tag={self.alice_tag.id}"
+        )
+        self.assertEqual({row["date"] for row in notes.data}, {"2026-04-02"})
+
+    def test_cannot_attach_another_users_tag_to_event_or_note(self):
+        self.client.force_authenticate(self.alice)
+        event_res = self.client.post(
+            "/api/events/",
+            {
+                "title": "Встреча",
+                "start_at": "2026-04-01T10:00:00Z",
+                "tag_ids": [self.bob_tag.id],
+            },
+            format="json",
+        )
+        self.assertEqual(event_res.status_code, 400)
+        self.assertFalse(Event.objects.filter(user=self.alice).exists())
+        note_res = self.client.put(
+            "/api/day-notes/",
+            {
+                "date": "2026-04-02",
+                "text": "Смена",
+                "tag_ids": [self.bob_tag.id],
+            },
+            format="json",
+        )
+        self.assertEqual(note_res.status_code, 400)
+        self.assertFalse(DayNote.objects.filter(user=self.alice).exists())
 
 
 class TodoStatsTests(APITestCase):
@@ -307,3 +382,87 @@ class EventAttendanceTests(APITestCase):
         event = Event.objects.prefetch_related("attendances").get(pk=event.pk)
         missed = last_missed_occurrence(event, now, ZoneInfo("UTC"))
         self.assertEqual(missed[1].isoformat(), "2026-03-14")
+
+
+class SearchTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="seek",
+            email="seek@example.com",
+            password="password123",
+        )
+        self.other = User.objects.create_user(
+            username="other-seek",
+            email="other-seek@example.com",
+            password="password123",
+        )
+        self.client.force_authenticate(self.user)
+        self.todo = Todo.objects.create(
+            user=self.user,
+            title="Купить краску",
+            description="для кухни",
+        )
+        Subtask.objects.create(todo=self.todo, title="валик")
+        Event.objects.create(
+            user=self.user,
+            title="День рождения",
+            description="кафе",
+            start_at=_dt(2026, 4, 1, 18),
+        )
+        DayNote.objects.create(
+            user=self.user,
+            date="2026-04-02",
+            text="Смена графика",
+        )
+        Todo.objects.create(user=self.other, title="Купить краску")
+        Event.objects.create(
+            user=self.other, title="День рождения", start_at=_dt(2026, 4, 1)
+        )
+        DayNote.objects.create(
+            user=self.other, date="2026-04-02", text="Смена графика"
+        )
+
+    def test_empty_query(self):
+        res = self.client.get("/api/search/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data["q"], "")
+        self.assertEqual(res.data["todos"], [])
+        self.assertEqual(res.data["events"], [])
+        self.assertEqual(res.data["notes"], [])
+
+    def test_finds_own_entities(self):
+        res = self.client.get("/api/search/?q=крас")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["q"], "крас")
+        self.assertEqual({row["title"] for row in res.data["todos"]}, {"Купить краску"})
+        self.assertEqual(res.data["events"], [])
+        self.assertEqual(res.data["notes"], [])
+
+        res = self.client.get("/api/search/?q=валик")
+        self.assertEqual({row["id"] for row in res.data["todos"]}, {self.todo.id})
+
+        res = self.client.get("/api/search/?q=кафе")
+        self.assertEqual({row["title"] for row in res.data["events"]}, {"День рождения"})
+
+        res = self.client.get("/api/search/?q=график")
+        self.assertEqual({row["date"] for row in res.data["notes"]}, {"2026-04-02"})
+
+    def test_finds_by_tag_name(self):
+        tag = Tag.objects.create(
+            user=self.user, tag_name="покупки", kind=TagKind.SHOPPING
+        )
+        self.todo.tags.add(tag)
+        event = Event.objects.get(user=self.user, title="День рождения")
+        event.tags.add(tag)
+        note = DayNote.objects.get(user=self.user, date="2026-04-02")
+        note.tags.add(tag)
+        res = self.client.get("/api/search/?q=покуп")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual({row["id"] for row in res.data["todos"]}, {self.todo.id})
+        self.assertEqual({row["title"] for row in res.data["events"]}, {"День рождения"})
+        self.assertEqual({row["date"] for row in res.data["notes"]}, {"2026-04-02"})
+
+    def test_unauthenticated(self):
+        self.client.force_authenticate(user=None)
+        res = self.client.get("/api/search/?q=крас")
+        self.assertEqual(res.status_code, 401)

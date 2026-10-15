@@ -1,9 +1,11 @@
 import { formatDueDateShort } from "@/lib/utils";
 import { toDateKey } from "@/lib/calendar";
+import type { TagRef } from "@/lib/tags";
 
 export interface DayNote {
   date: string;
   text: string;
+  tags?: TagRef[];
   updated_at?: string;
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 
+import { TagChips } from "@/components/TagChips";
 import { apiFetch } from "@/lib/api";
 import {
   dayNotePath,
@@ -139,6 +140,7 @@ export function DayNoteEditor({ dateKey, note, onChanged }: DayNoteEditorProps) 
                   Заметка
                 </p>
               )}
+              <TagChips tags={note.tags} />
             </div>
             <span className="hidden shrink-0 pt-0.5 text-xs text-app-subtle sm:inline">
               {formatDayNoteLabel(dateKey)}

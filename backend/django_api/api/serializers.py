@@ -116,12 +116,29 @@ class TagSerializer(serializers.ModelSerializer):
         return obj.user_id is None
 
 
+class VisibleTagIdsMixin:
+    """tag_ids — только системные и личные теги текущего пользователя."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        field = self.fields.get("tag_ids")
+        if field is None:
+            return
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        queryset = Tag.visible_to(user)
+        field.queryset = queryset
+        child = getattr(field, "child_relation", None)
+        if child is not None:
+            child.queryset = queryset
+
+
 class SubtasksSummarySerializer(serializers.Serializer):
     done = serializers.IntegerField()
     total = serializers.IntegerField()
 
 
-class TodoSerializer(serializers.ModelSerializer):
+class TodoSerializer(VisibleTagIdsMixin, serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="user.id", read_only=True)
     tags = TagSerializer(many=True, read_only=True)
     subtasks_summary = serializers.SerializerMethodField()
@@ -189,17 +206,6 @@ class TodoSerializer(serializers.ModelSerializer):
                 "help_text": "Когда статус стал «Готово»; сбрасывается при другом статусе",
             },
         }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        request = self.context.get("request")
-        user = getattr(request, "user", None)
-        queryset = Tag.visible_to(user)
-        field = self.fields["tag_ids"]
-        field.queryset = queryset
-        child = getattr(field, "child_relation", None)
-        if child is not None:
-            child.queryset = queryset
 
     def get_subtasks_summary(self, obj):
         total = getattr(obj, "subtasks_total", None)
@@ -524,8 +530,17 @@ class EventAttendanceWriteSerializer(serializers.Serializer):
     attended = serializers.BooleanField()
 
 
-class EventSerializer(serializers.ModelSerializer):
+class EventSerializer(VisibleTagIdsMixin, serializers.ModelSerializer):
     attended_dates = serializers.SerializerMethodField()
+    tags = TagSerializer(many=True, read_only=True)
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Tag.objects.none(),
+        source="tags",
+        write_only=True,
+        required=False,
+        help_text="Список ID тегов при создании/обновлении",
+    )
 
     class Meta:
         model = Event
@@ -538,6 +553,8 @@ class EventSerializer(serializers.ModelSerializer):
             "all_day",
             "recurrence",
             "color",
+            "tags",
+            "tag_ids",
             "attended_dates",
             "created_at",
             "updated_at",
@@ -599,10 +616,20 @@ class EventSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class DayNoteSerializer(serializers.ModelSerializer):
+class DayNoteSerializer(VisibleTagIdsMixin, serializers.ModelSerializer):
+    tags = TagSerializer(many=True, read_only=True)
+    tag_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Tag.objects.none(),
+        source="tags",
+        write_only=True,
+        required=False,
+        help_text="Список ID тегов при создании/обновлении",
+    )
+
     class Meta:
         model = DayNote
-        fields = ("date", "text", "updated_at")
+        fields = ("date", "text", "tags", "tag_ids", "updated_at")
         read_only_fields = ("updated_at",)
 
     def validate_text(self, value):
@@ -613,9 +640,19 @@ class DayNoteSerializer(serializers.ModelSerializer):
 
     def save(self, **kwargs):
         user = self.context["request"].user
+        tags = self.validated_data.pop("tags", serializers.empty)
         note, _ = DayNote.objects.update_or_create(
             user=user,
             date=self.validated_data["date"],
             defaults={"text": self.validated_data["text"]},
         )
+        if tags is not serializers.empty:
+            note.tags.set(tags)
         return note
+
+
+class SearchResponseSerializer(serializers.Serializer):
+    q = serializers.CharField()
+    todos = TodoSerializer(many=True)
+    events = EventSerializer(many=True)
+    notes = DayNoteSerializer(many=True)

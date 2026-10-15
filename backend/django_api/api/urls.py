@@ -17,6 +17,7 @@ from .views import (
     DayNotesView,
     DayNoteDetailView,
     EventViewSet,
+    SearchView,
 )
 from telegram_bot.views import TelegramBotView, TelegramUnlinkView
 
@@ -66,6 +67,7 @@ urlpatterns = [
         ShiftDayDetailView.as_view(),
         name="shift-day-detail",
     ),
+    path("search/", SearchView.as_view(), name="search"),
     path("day-notes/", DayNotesView.as_view(), name="day-notes"),
     path(
         "day-notes/<str:day>/",

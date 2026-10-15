@@ -31,9 +31,8 @@ export function FilterBar() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const currentStatus = searchParams.get("status") ?? "";
   const currentPriority = searchParams.get("priority") ?? "";
-  const active = Boolean(currentStatus || currentPriority);
+  const active = Boolean(currentPriority);
 
   function updateParam(name: string, value: string) {
     const params = new URLSearchParams(searchParams);
@@ -48,7 +47,6 @@ export function FilterBar() {
 
   function clearFilters() {
     const params = new URLSearchParams(searchParams);
-    params.delete("status");
     params.delete("priority");
     setSearchParams(params);
   }
@@ -78,7 +76,7 @@ export function FilterBar() {
         type="button"
         aria-expanded={open}
         aria-haspopup="dialog"
-        aria-label="Фильтр по статусу и приоритету"
+        aria-label="Фильтр по приоритету"
         onClick={() => setOpen((value) => !value)}
         className={
           "relative flex h-10 w-10 items-center justify-center rounded-md border " +
@@ -99,39 +97,10 @@ export function FilterBar() {
       {open && (
         <div
           role="dialog"
-          aria-label="Статус и приоритет"
+          aria-label="Приоритет"
           className="absolute left-0 z-40 mt-1 w-64 rounded-xl border border-app bg-app-modal p-3 shadow-app"
         >
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5">
-              <StatusCycleIcon
-                status={currentStatus}
-                className="h-4 w-4"
-              />
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
-                Статус
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-1">
-              <ChoiceChip
-                selected={!currentStatus}
-                onClick={() => updateParam("status", "")}
-              >
-                Все
-              </ChoiceChip>
-              {STATUS_SELECT_OPTIONS.map((option) => (
-                <ChoiceChip
-                  key={option.value}
-                  selected={currentStatus === option.value}
-                  onClick={() => toggleParam("status", option.value)}
-                >
-                  {option.label}
-                </ChoiceChip>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3 space-y-1">
             <div className="flex items-center gap-1.5">
               <PriorityMark priority={currentPriority} />
               <p className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
@@ -166,6 +135,90 @@ export function FilterBar() {
               Сбросить фильтр
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function StatusFilter() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const currentStatus = searchParams.get("status") ?? "";
+  const active = Boolean(currentStatus);
+
+  function setStatus(value: string) {
+    const params = new URLSearchParams(searchParams);
+    if (!value || value === currentStatus) params.delete("status");
+    else params.set("status", value);
+    setSearchParams(params);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(e: PointerEvent) {
+      if (rootRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label="Фильтр задач по статусу"
+        onClick={() => setOpen((value) => !value)}
+        className={
+          "relative flex h-8 w-8 items-center justify-center rounded-md border " +
+          (active || open
+            ? "border-app-strong bg-app-surface-muted text-app"
+            : "border-app text-app-muted hover:bg-app-surface-muted hover:text-app")
+        }
+      >
+        <StatusCycleIcon status={currentStatus} className="h-4 w-4" />
+        {active && (
+          <span
+            className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[var(--app-accent)]"
+            aria-hidden
+          />
+        )}
+      </button>
+      {open && (
+        <div
+          role="dialog"
+          aria-label="Статус задач"
+          className="absolute right-0 z-40 mt-1 w-56 rounded-xl border border-app bg-app-modal p-3 shadow-app"
+        >
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
+            Статус
+          </p>
+          <div className="flex flex-wrap gap-1">
+            <ChoiceChip selected={!currentStatus} onClick={() => setStatus("")}>
+              Все
+            </ChoiceChip>
+            {STATUS_SELECT_OPTIONS.map((option) => (
+              <ChoiceChip
+                key={option.value}
+                selected={currentStatus === option.value}
+                onClick={() => setStatus(option.value)}
+              >
+                {option.label}
+              </ChoiceChip>
+            ))}
+          </div>
         </div>
       )}
     </div>

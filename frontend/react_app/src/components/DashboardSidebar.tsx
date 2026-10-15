@@ -114,7 +114,7 @@ export function DashboardSidebar({
               onClick={clearTag}
               className={navButtonClass(allTasksActive)}
             >
-              Все задачи
+              Все
             </button>
           </li>
         </ul>

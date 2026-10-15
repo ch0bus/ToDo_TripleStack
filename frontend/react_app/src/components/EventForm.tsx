@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { DateTimeField } from "@/components/DateTimeField";
 import { PropertyField } from "@/components/FormFields";
 import { RecurrenceSelect } from "@/components/RecurrenceSelect";
+import { TagPicker } from "@/components/TagPicker";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import {
@@ -12,6 +13,7 @@ import {
 } from "@/lib/events";
 import { type RecurrenceValue } from "@/lib/recurrence";
 import { isHexColor } from "@/lib/shifts";
+import type { TagOption } from "@/lib/tags";
 import { btnPrimary, propertyControlClass } from "@/lib/uiClasses";
 import { toDatetimeLocalValue } from "@/lib/utils";
 
@@ -41,8 +43,20 @@ export function EventForm({
     (event?.recurrence as RecurrenceValue) || "never",
   );
   const [color, setColor] = useState(event?.color || DEFAULT_EVENT_COLOR);
+  const [tags, setTags] = useState<TagOption[]>([]);
+  const [tagIds, setTagIds] = useState<number[]>(
+    () => event?.tags?.map((tag) => tag.id) ?? [],
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    async function loadTags() {
+      const res = await apiFetch("/tags/");
+      if (res.ok) setTags((await res.json()) as TagOption[]);
+    }
+    void loadTags();
+  }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -70,6 +84,7 @@ export function EventForm({
         all_day: allDay,
         recurrence,
         color,
+        tag_ids: tagIds,
       };
       const res = await apiFetch(event ? `/events/${event.id}/` : "/events/", {
         method: event ? "PATCH" : "POST",
@@ -104,6 +119,16 @@ export function EventForm({
         className="w-full border-0 bg-transparent px-0 py-0 text-lg font-semibold text-app placeholder:text-app-subtle focus:ring-0 focus:outline-none"
         placeholder="Название события"
         required
+      />
+
+      <TagPicker
+        tags={tags}
+        selectedIds={tagIds}
+        onToggle={(id) =>
+          setTagIds((prev) =>
+            prev.includes(id) ? prev.filter((tagId) => tagId !== id) : [...prev, id],
+          )
+        }
       />
 
       <textarea

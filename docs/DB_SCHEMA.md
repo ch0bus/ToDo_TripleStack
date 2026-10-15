@@ -46,7 +46,7 @@ Django: `account.User` (`AbstractUser`).
 | updated_at | datetime | auto |
 | completed_at | datetime | NULL; ставится при входе в done, сбрасывается при выходе |
 
-M2M: **todos ↔ tags** через промежуточную таблицу.
+M2M: **todos ↔ tags**, **events ↔ tags**, **day_notes ↔ tags** — один каталог тегов на все три сущности.
 
 Индексы (Django): `(user, status)`, `(user, -created_at)`, отдельные на title, status, due_date.
 
@@ -67,6 +67,7 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | updated_at | datetime | auto |
 
 Индекс: `(user, start_at)`. Без статуса Todo: посещение хранится в `event_attendances`.
+M2M: **events ↔ tags**.
 
 ## event_attendances
 
@@ -160,6 +161,8 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 | text | text 2000 | заметка к дню |
 | updated_at | datetime | |
 
+M2M: **day_notes ↔ tags**.
+
 ## telegram_bots
 
 | Поле | Тип | Описание |
@@ -203,6 +206,8 @@ M2M: **todos ↔ tags** через промежуточную таблицу.
 User 1 ── * Todo
 User 1 ── * Tag (личные; системные без user)
 Todo * ── * Tag
+Event * ── * Tag
+DayNote * ── * Tag
 Todo 1 ── * Subtask
 User 1 ── * ShiftCalendar
 ShiftCalendar 1 ── 2 ShiftLayer

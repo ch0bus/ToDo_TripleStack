@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
 
-export interface TagOption {
+export interface TagRef {
   id: number;
   tag_name: string;
+}
+
+export interface TagOption extends TagRef {
   kind: string;
   is_system: boolean;
+}
+
+export function tagNames(tags?: TagRef[] | null): string[] {
+  return (tags ?? []).map((tag) => tag.tag_name);
 }
 
 const HIDDEN_IDS_KEY = "todo_hidden_system_tag_ids";

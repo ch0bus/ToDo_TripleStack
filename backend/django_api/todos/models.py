@@ -357,6 +357,12 @@ class Event(models.Model):
         default=Recurrence.NEVER,
     )
     color = models.CharField("Цвет", max_length=7, default=DEFAULT_EVENT_COLOR)
+    tags = models.ManyToManyField(
+        Tag,
+        blank=True,
+        related_name="events",
+        verbose_name="Теги",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -403,6 +409,12 @@ class DayNote(models.Model):
     )
     date = models.DateField()
     text = models.TextField("Заметка", max_length=2000)
+    tags = models.ManyToManyField(
+        Tag,
+        blank=True,
+        related_name="day_notes",
+        verbose_name="Теги",
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

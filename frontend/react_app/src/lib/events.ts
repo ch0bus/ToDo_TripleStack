@@ -1,5 +1,6 @@
 import { dueDateKey, parseDateKey, toDateKey } from "@/lib/calendar";
 import { isRecurring, nextDueDate, type RecurrenceValue } from "@/lib/recurrence";
+import type { TagRef } from "@/lib/tags";
 
 export const DEFAULT_EVENT_COLOR = "#e11d48";
 
@@ -21,6 +22,7 @@ export interface CalendarEvent {
   all_day: boolean;
   recurrence: RecurrenceValue | string;
   color: string;
+  tags?: TagRef[];
   attended_dates?: string[];
   created_at: string;
   updated_at: string;
@@ -91,6 +93,17 @@ export function isEventOccurrenceAttended(
   occurrenceStartKey: string,
 ): boolean {
   return (event.attended_dates ?? []).includes(occurrenceStartKey);
+}
+
+export function searchEventEntry(event: CalendarEvent): EventEntry {
+  const key = dueDateKey(event.start_at) ?? toDateKey(new Date());
+  return {
+    event,
+    dateKey: key,
+    occurrenceStartKey: key,
+    virtual: false,
+    attended: isEventOccurrenceAttended(event, key),
+  };
 }
 
 function occurrenceStartAt(event: CalendarEvent, occurrenceStartKey: string): Date | null {
@@ -332,6 +345,35 @@ export function filterEventsByColor(
 ): EventEntry[] {
   if (!color) return entries;
   return entries.filter((entry) => entry.event.color === color);
+}
+
+export const EVENT_ATTN_VALUES = ["open", "attended"] as const;
+export type EventAttn = (typeof EVENT_ATTN_VALUES)[number];
+
+export function parseEventAttn(
+  value: string | null | undefined,
+): EventAttn | undefined {
+  if (value && (EVENT_ATTN_VALUES as readonly string[]).includes(value)) {
+    return value as EventAttn;
+  }
+  return undefined;
+}
+
+export function filterEventsByAttendance(
+  entries: EventEntry[],
+  attn: EventAttn | undefined,
+): EventEntry[] {
+  if (attn === "open") return entries.filter((entry) => !entry.attended);
+  if (attn === "attended") return entries.filter((entry) => entry.attended);
+  return entries;
+}
+
+/** Блок дня: сначала без отметки, отмеченные ниже. */
+export function sortDayEventEntries(entries: EventEntry[]): EventEntry[] {
+  return [...entries].sort((a, b) => {
+    if (a.attended !== b.attended) return a.attended ? 1 : -1;
+    return occurrenceTime(a) - occurrenceTime(b) || a.event.id - b.event.id;
+  });
 }
 
 export function sortEventEntries(

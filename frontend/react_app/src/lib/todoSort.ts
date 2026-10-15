@@ -49,6 +49,17 @@ export function sortTodosCompleted(todos: TodoRow[]): TodoRow[] {
   });
 }
 
+/** Блок дня: открытые сверху, закрытые снизу по дате завершения. */
+export function sortInboxDayTodos(todos: TodoRow[]): TodoRow[] {
+  const open: TodoRow[] = [];
+  const done: TodoRow[] = [];
+  for (const todo of todos) {
+    if (todo.status === "done") done.push(todo);
+    else open.push(todo);
+  }
+  return [...open, ...sortTodosCompleted(done)];
+}
+
 export function sortTodos(todos: TodoRow[], sort: TodoSort): TodoRow[] {
   return [...todos].sort((a, b) => {
     if (sort === "created") {

@@ -26,10 +26,27 @@ export function isEventToday(todo: TodoRow, now = new Date()): boolean {
 
 export function inboxTodosForDay(todos: TodoRow[], day: Date): TodoRow[] {
   return todos.filter(
-    (todo) =>
-      todo.status !== "done" &&
-      (isDueOnDay(todo, day) || isEventOnDay(todo, day)),
+    (todo) => isDueOnDay(todo, day) || isEventOnDay(todo, day),
   );
+}
+
+export type InboxScope = "week" | "all";
+
+export function parseInboxScope(value: string | null | undefined): InboxScope {
+  return value === "all" ? "all" : "week";
+}
+
+export function todoInDateRange(
+  todo: TodoRow,
+  rangeFrom: string,
+  rangeTo: string,
+): boolean {
+  for (const iso of [todo.due_date, todo.event_date]) {
+    if (!iso) continue;
+    const key = dueDateKey(iso);
+    if (key && key >= rangeFrom && key <= rangeTo) return true;
+  }
+  return false;
 }
 
 export function inboxBusyDayKeys(
@@ -39,7 +56,6 @@ export function inboxBusyDayKeys(
 ): Set<string> {
   const keys = new Set<string>();
   for (const todo of todos) {
-    if (todo.status === "done") continue;
     for (const iso of [todo.due_date, todo.event_date]) {
       if (!iso) continue;
       const key = dueDateKey(iso);
@@ -49,30 +65,34 @@ export function inboxBusyDayKeys(
   return keys;
 }
 
-export function groupInboxTodos(todos: TodoRow[], now = new Date()) {
+/** День (включая done) забирает свои строки; просрочено — только открытые не из дня. */
+export function groupInboxTodos(
+  todos: TodoRow[],
+  selectedDay: Date,
+  now = new Date(),
+) {
   const today: TodoRow[] = [];
   const overdue: TodoRow[] = [];
   const rest: TodoRow[] = [];
-  const done: TodoRow[] = [];
 
   for (const todo of todos) {
-    if (todo.status === "done") {
-      done.push(todo);
+    if (isDueOnDay(todo, selectedDay) || isEventOnDay(todo, selectedDay)) {
+      today.push(todo);
       continue;
     }
-    if (isDueToday(todo, now) || isEventToday(todo, now)) today.push(todo);
-    else if (isOverdue(todo, now)) overdue.push(todo);
-    else rest.push(todo);
+    if (todo.status !== "done" && isOverdue(todo, now)) {
+      overdue.push(todo);
+      continue;
+    }
+    rest.push(todo);
   }
 
-  return { today, overdue, rest, done };
+  return { today, overdue, rest };
 }
 
 export function hasActiveFilters(params: {
-  status?: string;
   priority?: string;
   tag?: string;
-  search?: string;
 }): boolean {
-  return Boolean(params.status || params.priority || params.tag || params.search);
+  return Boolean(params.priority || params.tag);
 }

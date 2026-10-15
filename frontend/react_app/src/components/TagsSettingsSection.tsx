@@ -168,7 +168,7 @@ export function TagsSettingsSection() {
         title="Удалить тег?"
         message={
           deleteTarget
-            ? `«${deleteTarget.tag_name}» будет удалён. Задачи сохранятся, но связь с тегом пропадёт.`
+            ? `«${deleteTarget.tag_name}» будет удалён. Задачи, события и заметки сохранятся, но связь с тегом пропадёт.`
             : ""
         }
         confirmLabel="Удалить"

@@ -7,6 +7,7 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { CalendarPage } from "@/pages/CalendarPage";
 import { DayNotePage } from "@/pages/DayNotePage";
 import { EventFormPage } from "@/pages/EventFormPage";
+import { SearchPage } from "@/pages/SearchPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { ShiftSettingsPage } from "@/pages/ShiftSettingsPage";
 import { TodoCreatePage } from "@/pages/TodoCreatePage";
@@ -28,6 +29,7 @@ export default function App() {
             <Route path="/notes/:date" element={<DayNotePage />} />
             <Route path="/events/new" element={<EventFormPage />} />
             <Route path="/events/:eventId" element={<EventFormPage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/settings/shifts" element={<ShiftSettingsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

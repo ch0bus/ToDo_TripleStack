@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { TagPicker } from "@/components/TagPicker";
 import { useToast } from "@/contexts/ToastContext";
 import { apiFetch } from "@/lib/api";
 import { formatDayTitle, parseDateKey } from "@/lib/calendar";
@@ -9,7 +10,14 @@ import {
   formatDayNoteLabel,
   type DayNote,
 } from "@/lib/dayNotes";
+import type { TagOption } from "@/lib/tags";
 import { btnDangerGhost, btnPrimary } from "@/lib/uiClasses";
+
+function sameIdSet(a: number[], b: number[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(a);
+  return b.every((id) => set.has(id));
+}
 
 function DetailSkeleton() {
   return (
@@ -37,6 +45,8 @@ export function DayNotePage() {
 
   const [note, setNote] = useState<DayNote | null>(null);
   const [text, setText] = useState("");
+  const [tags, setTags] = useState<TagOption[]>([]);
+  const [tagIds, setTagIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -53,16 +63,24 @@ export function DayNotePage() {
       try {
         setLoading(true);
         setError("");
-        const res = await apiFetch(`/day-notes/${dateKey}/`);
-        if (res.status === 404) {
+        const [noteRes, tagsRes] = await Promise.all([
+          apiFetch(`/day-notes/${dateKey}/`),
+          apiFetch("/tags/"),
+        ]);
+        if (tagsRes.ok) {
+          setTags((await tagsRes.json()) as TagOption[]);
+        }
+        if (noteRes.status === 404) {
           setNote(null);
           setText("");
+          setTagIds([]);
           return;
         }
-        if (!res.ok) throw new Error("Failed to load note");
-        const data = (await res.json()) as DayNote;
+        if (!noteRes.ok) throw new Error("Failed to load note");
+        const data = (await noteRes.json()) as DayNote;
         setNote(data);
         setText(data.text);
+        setTagIds(data.tags?.map((tag) => tag.id) ?? []);
       } catch (e) {
         console.error(e);
         setError("Не удалось загрузить заметку");
@@ -75,7 +93,9 @@ export function DayNotePage() {
   }, [dateKey]);
 
   const trimmed = text.trim();
-  const dirty = trimmed !== (note?.text ?? "");
+  const dirty =
+    trimmed !== (note?.text ?? "") ||
+    !sameIdSet(tagIds, note?.tags?.map((tag) => tag.id) ?? []);
   const parsed = dateKey ? parseDateKey(dateKey) : null;
 
   async function save() {
@@ -85,12 +105,13 @@ export function DayNotePage() {
       setError("");
       const res = await apiFetch("/day-notes/", {
         method: "PUT",
-        body: JSON.stringify({ date: dateKey, text: trimmed }),
+        body: JSON.stringify({ date: dateKey, text: trimmed, tag_ids: tagIds }),
       });
       if (!res.ok) throw new Error("save failed");
       const saved = (await res.json()) as DayNote;
       setNote(saved);
       setText(saved.text);
+      setTagIds(saved.tags?.map((tag) => tag.id) ?? []);
       pushToast("Заметка сохранена", "success");
     } catch (e) {
       console.error(e);
@@ -177,6 +198,17 @@ export function DayNotePage() {
                     {formatDayNoteLabel(dateKey)}
                   </p>
                 </div>
+                <TagPicker
+                  tags={tags}
+                  selectedIds={tagIds}
+                  onToggle={(id) =>
+                    setTagIds((prev) =>
+                      prev.includes(id)
+                        ? prev.filter((tagId) => tagId !== id)
+                        : [...prev, id],
+                    )
+                  }
+                />
                 {note && (
                   <button
                     type="button"

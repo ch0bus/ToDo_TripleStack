@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
@@ -7,12 +7,13 @@ import { DayNoteEditor } from "@/components/DayNoteEditor";
 import { EventFilterBar } from "@/components/EventFilterBar";
 import { EventList } from "@/components/EventList";
 import { useAppShell } from "@/contexts/AppShellContext";
-import { FilterBar } from "@/components/FilterBar";
+import { FilterBar, StatusFilter } from "@/components/FilterBar";
+import { ChoiceChip } from "@/components/FormFields";
 import { ListReveal } from "@/components/ListReveal";
 import { LoadingBar } from "@/components/LoadingBar";
 import { MobileSidebarDrawer } from "@/components/MobileSidebarDrawer";
+import { SearchField } from "@/components/SearchField";
 import { SortBar } from "@/components/SortBar";
-import { StatsCards } from "@/components/StatsCards";
 import { InboxSkeleton } from "@/components/skeletons/InboxSkeleton";
 import { TodoList, type TodoRow } from "@/components/TodoList";
 import { WeekDayStrip } from "@/components/WeekDayStrip";
@@ -29,13 +30,17 @@ import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
   EVENT_SORT_OPTIONS,
   eventColorsInList,
+  filterEventsByAttendance,
   filterEventsByColor,
   groupEventsForRange,
   inboxEventEntries,
   lastMissedEventEntries,
+  parseEventAttn,
   parseEventSort,
+  sortDayEventEntries,
   sortEventEntries,
   uniqueEventEntries,
+  uniqueEventsInRange,
   type CalendarEvent,
 } from "@/lib/events";
 import { locationFrom, newTodoPath } from "@/lib/nav";
@@ -44,39 +49,20 @@ import {
   groupInboxTodos,
   hasActiveFilters,
   inboxBusyDayKeys,
-  inboxTodosForDay,
+  parseInboxScope,
+  todoInDateRange,
 } from "@/lib/todoFilters";
-import { parseTodoSort, sortTodos, sortTodosCompleted } from "@/lib/todoSort";
+import { parseTodoSort, sortInboxDayTodos, sortTodos } from "@/lib/todoSort";
 import type { TagOption } from "@/lib/tags";
-import { btnPrimary, inputClass } from "@/lib/uiClasses";
-
-interface TodoStats {
-  total: number;
-  done: number;
-  in_progress: number;
-  overdue: number;
-}
-
-const emptyStats: TodoStats = {
-  total: 0,
-  done: 0,
-  in_progress: 0,
-  overdue: 0,
-};
+import { btnPrimary } from "@/lib/uiClasses";
 
 function buildTodosQuery(params: {
-  status?: string;
   priority?: string;
   tag?: string;
-  search?: string;
-  exclude_done?: boolean;
 }): string {
   const query = new URLSearchParams();
-  if (params.status) query.set("status", params.status);
   if (params.priority) query.set("priority", params.priority);
   if (params.tag) query.set("tag", params.tag);
-  if (params.search) query.set("search", params.search);
-  if (params.exclude_done) query.set("exclude_done", "true");
   const qs = query.toString();
   return qs ? `/todos/?${qs}` : "/todos/";
 }
@@ -145,11 +131,30 @@ function InboxSection({
   );
 }
 
+function InboxScopeSwitch({
+  scope,
+  onChange,
+}: {
+  scope: "week" | "all";
+  onChange: (scope: "week" | "all") => void;
+}) {
+  return (
+    <div className="flex shrink-0 gap-1" role="group" aria-label="Объём списков">
+      <ChoiceChip selected={scope === "week"} onClick={() => onChange("week")}>
+        Неделя
+      </ChoiceChip>
+      <ChoiceChip selected={scope === "all"} onClick={() => onChange("all")}>
+        Все
+      </ChoiceChip>
+    </div>
+  );
+}
+
 export function HomePage() {
   const { registerFiltersToggle } = useAppShell();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [stats, setStats] = useState<TodoStats>(emptyStats);
   const [todos, setTodos] = useState<TodoRow[]>([]);
   const [tags, setTags] = useState<TagOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -158,10 +163,6 @@ export function HomePage() {
   const [error, setError] = useState("");
   const [weekNotes, setWeekNotes] = useState<DayNote[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [doneOpen, setDoneOpen] = useState(false);
-  const [doneTodos, setDoneTodos] = useState<TodoRow[]>([]);
-  const [doneLoading, setDoneLoading] = useState(false);
-  const [doneLoaded, setDoneLoaded] = useState(false);
   const today = useMemo(() => new Date(), []);
   const todayKey = toDateKey(today);
   const selectedDate = useMemo(() => {
@@ -173,38 +174,32 @@ export function HomePage() {
   const weekFrom = toDateKey(weekStart);
   const weekTo = toDateKey(addDays(weekStart, 6));
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchInput, setSearchInput] = useState(
-    () => searchParams.get("search") ?? "",
-  );
+  const [searchInput, setSearchInput] = useState("");
 
   const hasToken = !!getAccessToken();
   const status = searchParams.get("status") ?? undefined;
   const priority = searchParams.get("priority") ?? undefined;
   const tag = searchParams.get("tag") ?? undefined;
-  const search = searchParams.get("search") ?? undefined;
+  const inboxScope = parseInboxScope(searchParams.get("scope"));
 
   const fetchDashboard = useCallback(async () => {
     const todosPath = buildTodosQuery({
-      status,
       priority,
       tag,
-      search,
-      exclude_done: !status,
     });
-    const [statsRes, todosRes, eventsRes] = await Promise.all([
-      apiFetch("/todos/stats/"),
+    const eventsPath = tag ? `/events/?tag=${encodeURIComponent(tag)}` : "/events/";
+    const [todosRes, eventsRes] = await Promise.all([
       apiFetch(todosPath),
-      apiFetch("/events/"),
+      apiFetch(eventsPath),
     ]);
     if (!todosRes.ok) throw new Error("Failed to load todos");
     return {
-      stats: statsRes.ok ? ((await statsRes.json()) as TodoStats) : null,
       todos: (await todosRes.json()) as TodoRow[],
       events: eventsRes.ok
         ? ((await eventsRes.json()) as CalendarEvent[])
         : null,
     };
-  }, [status, priority, tag, search]);
+  }, [priority, tag]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -232,7 +227,9 @@ export function HomePage() {
     if (!hasToken) return;
     let cancelled = false;
     async function loadWeekNotes() {
-      const res = await apiFetch(`/day-notes/?from=${weekFrom}&to=${weekTo}`);
+      const notesQuery = new URLSearchParams({ from: weekFrom, to: weekTo });
+      if (tag) notesQuery.set("tag", tag);
+      const res = await apiFetch(`/day-notes/?${notesQuery.toString()}`);
       if (!res.ok || cancelled) return;
       const notes = (await res.json()) as DayNote[];
       if (!cancelled) setWeekNotes(notes);
@@ -241,7 +238,7 @@ export function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [hasToken, weekFrom, weekTo, location.pathname]);
+  }, [hasToken, weekFrom, weekTo, tag, location.pathname]);
 
   useEffect(() => {
     if (!hasToken) {
@@ -263,7 +260,6 @@ export function HomePage() {
         }
         const data = await fetchDashboard();
         if (cancelled) return;
-        if (data.stats) setStats(data.stats);
         setTodos(data.todos);
         if (data.events) setEvents(data.events);
         loadedOnce.current = true;
@@ -286,101 +282,82 @@ export function HomePage() {
     };
   }, [hasToken, fetchDashboard, location.pathname]);
 
-  useEffect(() => {
-    setSearchInput(search ?? "");
-  }, [search]);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      setSearchParams((prev) => {
-        const next = new URLSearchParams(prev);
-        const trimmed = searchInput.trim();
-        const current = next.get("search") ?? "";
-        if (trimmed === current) return prev;
-        if (trimmed) next.set("search", trimmed);
-        else next.delete("search");
-        return next;
-      });
-    }, 350);
-    return () => window.clearTimeout(t);
-  }, [searchInput, setSearchParams]);
-
   const filtersActive = hasActiveFilters({
-    status,
     priority,
     tag,
-    search,
   });
-  const doneFromFilter = status === "done";
 
-  useEffect(() => {
-    setDoneOpen(doneFromFilter);
-    setDoneTodos([]);
-    setDoneLoaded(false);
-  }, [status, priority, tag, search, doneFromFilter]);
-
-  const grouped = useMemo(() => groupInboxTodos(todos), [todos]);
-  const dayTodos = useMemo(
-    () => inboxTodosForDay(todos, selectedDate),
+  const grouped = useMemo(
+    () => groupInboxTodos(todos, selectedDate),
     [todos, selectedDate],
   );
+  const dayTodos = useMemo(
+    () => sortInboxDayTodos(grouped.today),
+    [grouped.today],
+  );
   const restSort = parseTodoSort(searchParams.get("sort"), "new");
-  const restTodos = useMemo(
-    () => sortTodos(grouped.rest, restSort),
-    [grouped.rest, restSort],
-  );
-  const visibleDone = useMemo(
-    () =>
-      doneFromFilter ? sortTodosCompleted(grouped.done) : doneTodos,
-    [doneFromFilter, grouped.done, doneTodos],
-  );
-  const doneCount =
-    doneFromFilter || doneOpen
-      ? visibleDone.length
-      : !priority && !tag && !search
-        ? stats.done
-        : undefined;
-
-  const loadDoneTodos = useCallback(async () => {
-    const res = await apiFetch(
-      buildTodosQuery({ status: "done", priority, tag, search }),
+  const restPool = useMemo(() => {
+    if (inboxScope === "all") return grouped.rest;
+    return grouped.rest.filter((todo) =>
+      todoInDateRange(todo, weekFrom, weekTo),
     );
-    if (!res.ok) throw new Error("Failed to load done");
-    const rows = sortTodosCompleted((await res.json()) as TodoRow[]);
-    setDoneTodos(rows);
-    setDoneLoaded(true);
-  }, [priority, tag, search]);
+  }, [grouped.rest, inboxScope, weekFrom, weekTo]);
+  const restTodos = useMemo(() => {
+    const rows = status
+      ? restPool.filter((todo) => todo.status === status)
+      : restPool;
+    return sortTodos(rows, restSort);
+  }, [restPool, restSort, status]);
+  const weekTodoCount = useMemo(
+    () => todos.filter((todo) => todoInDateRange(todo, weekFrom, weekTo)).length,
+    [todos, weekFrom, weekTo],
+  );
   const dayEvents = useMemo(() => {
     const byDay = groupEventsForRange(events, selectedKey, selectedKey);
-    return uniqueEventEntries(byDay.get(selectedKey) ?? []);
+    return sortDayEventEntries(
+      uniqueEventEntries(byDay.get(selectedKey) ?? []),
+    );
   }, [events, selectedKey]);
   const missedEvents = useMemo(() => lastMissedEventEntries(events), [events]);
-  const hasTaskBlocks =
-    todos.length > 0 ||
-    missedEvents.length > 0 ||
-    stats.done > 0 ||
-    doneFromFilter;
+  const hasTaskBlocks = todos.length > 0 || missedEvents.length > 0;
   const eventSort = parseEventSort(searchParams.get("esort"), "start");
   const eventColor = searchParams.get("ecolor");
-  const inboxEventsAll = useMemo(
-    () => inboxEventEntries(events, todayKey),
-    [events, todayKey],
-  );
+  const eventAttn = parseEventAttn(searchParams.get("eattn"));
+  const inboxEventsPool = useMemo(() => {
+    const skipIds = new Set(
+      [...dayEvents, ...missedEvents].map((entry) => entry.event.id),
+    );
+    const source =
+      inboxScope === "all"
+        ? inboxEventEntries(events, todayKey)
+        : uniqueEventsInRange(
+            groupEventsForRange(events, weekFrom, weekTo),
+            weekFrom,
+            weekTo,
+          );
+    return source.filter((entry) => !skipIds.has(entry.event.id));
+  }, [
+    events,
+    todayKey,
+    weekFrom,
+    weekTo,
+    inboxScope,
+    dayEvents,
+    missedEvents,
+  ]);
   const inboxEventColors = useMemo(
-    () => eventColorsInList(inboxEventsAll),
-    [inboxEventsAll],
+    () => eventColorsInList(inboxEventsPool),
+    [inboxEventsPool],
   );
   const inboxEvents = useMemo(() => {
-    const skip = new Set(
-      [...dayEvents, ...missedEvents].map(
-        (entry) => `${entry.event.id}-${entry.occurrenceStartKey}`,
+    return sortEventEntries(
+      filterEventsByAttendance(
+        filterEventsByColor(inboxEventsPool, eventColor),
+        eventAttn,
       ),
+      eventSort,
     );
-    const rest = inboxEventsAll.filter(
-      (entry) => !skip.has(`${entry.event.id}-${entry.occurrenceStartKey}`),
-    );
-    return sortEventEntries(filterEventsByColor(rest, eventColor), eventSort);
-  }, [inboxEventsAll, dayEvents, missedEvents, eventColor, eventSort]);
+  }, [inboxEventsPool, eventColor, eventAttn, eventSort]);
   const notesByDay = useMemo(() => dayNotesMap(weekNotes), [weekNotes]);
   const dayNote = notesByDay.get(selectedKey) ?? null;
   const noteDays = useMemo(() => {
@@ -398,6 +375,18 @@ export function HomePage() {
     }
     return keys;
   }, [todos, events, weekFrom, weekTo]);
+
+  function setInboxScope(next: "week" | "all") {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (next === "week") params.delete("scope");
+        else params.set("scope", "all");
+        return params;
+      },
+      { replace: true },
+    );
+  }
 
   function selectDay(date: Date) {
     const key = toDateKey(date);
@@ -418,10 +407,8 @@ export function HomePage() {
     );
     try {
       const data = await fetchDashboard();
-      if (data.stats) setStats(data.stats);
       setTodos(data.todos);
       if (data.events) setEvents(data.events);
-      if (doneOpen || doneLoaded) await loadDoneTodos();
     } catch {
       /* ignore */
     }
@@ -431,31 +418,10 @@ export function HomePage() {
     setTodos((prev) => prev.filter((t) => t.id !== id));
     try {
       const data = await fetchDashboard();
-      if (data.stats) setStats(data.stats);
       setTodos(data.todos);
       if (data.events) setEvents(data.events);
-      if (doneOpen || doneLoaded) await loadDoneTodos();
     } catch {
       /* ignore */
-    }
-  }
-
-  async function handleToggleDone() {
-    if (doneFromFilter) return;
-    if (doneOpen) {
-      setDoneOpen(false);
-      return;
-    }
-    setDoneOpen(true);
-    if (doneLoaded) return;
-    setDoneLoading(true);
-    try {
-      await loadDoneTodos();
-    } catch {
-      setDoneOpen(false);
-      setError("Не удалось загрузить выполненные");
-    } finally {
-      setDoneLoading(false);
     }
   }
 
@@ -510,39 +476,22 @@ export function HomePage() {
         </div>
 
         <div className="min-w-0 space-y-4">
-          <div className="relative">
-          {loading ? (
-            <div className="grid grid-cols-4 gap-1 sm:gap-3" aria-hidden>
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="animate-pulse space-y-2 px-1">
-                  <div className="h-3 w-16 rounded bg-app-border" />
-                  <div className="h-7 w-10 rounded bg-app-border" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <StatsCards
-              total={stats.total}
-              done={stats.done}
-              inProgress={stats.in_progress}
-              overdue={stats.overdue + missedEvents.length}
-            />
-          )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-full">
-            <LoadingBar active={refreshing} />
-          </div>
-          </div>
           {loading ? (
             <InboxSkeleton />
           ) : (
             <>
-          <input
-            type="text"
-            placeholder="Поиск задач..."
+          <div className="relative">
+          <SearchField
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className={inputClass}
+            onChange={setSearchInput}
+            onSubmit={(query) => {
+              navigate(query ? `/search?q=${encodeURIComponent(query)}` : "/search");
+            }}
           />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 translate-y-full">
+            <LoadingBar active={refreshing} />
+          </div>
+          </div>
 
           <div className="flex min-w-0 w-full items-center gap-2">
             <FilterBar />
@@ -554,9 +503,14 @@ export function HomePage() {
             />
           </div>
 
-          <p className="text-sm text-app-muted">
-            Показано {todos.length} из {stats.total} задач
-          </p>
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-app-muted">
+              {inboxScope === "week"
+                ? `За неделю ${weekTodoCount} · всего ${todos.length}`
+                : `Задач ${todos.length}`}
+            </p>
+            <InboxScopeSwitch scope={inboxScope} onChange={setInboxScope} />
+          </div>
 
           <WeekDayStrip
             selected={selectedDate}
@@ -613,7 +567,7 @@ export function HomePage() {
                     </span>
                   </h2>
                   <div className="flex shrink-0 items-center gap-2">
-                    <EventFilterBar colors={inboxEventColors} />
+                    <EventFilterBar colors={inboxEventColors} attendance />
                     <SortBar
                       paramName="esort"
                       defaultSort="start"
@@ -635,10 +589,16 @@ export function HomePage() {
                   </ListReveal>
                 ) : (
                   <p className="text-sm text-app-subtle">
-                    {inboxEventsAll.length > 0 && eventColor
-                      ? "Нет событий выбранного цвета."
+                    {inboxEventsPool.length > 0 && (eventColor || eventAttn)
+                      ? eventAttn === "attended"
+                        ? "Нет отмеченных событий."
+                        : eventAttn === "open"
+                          ? "Нет неотмеченных событий."
+                          : "Нет событий выбранного цвета."
                       : events.length > 0
-                        ? "Других событий нет"
+                        ? inboxScope === "week"
+                          ? "На этой неделе других событий нет"
+                          : "Других событий нет"
                         : "Событий нет"}
                   </p>
                 )}
@@ -658,6 +618,27 @@ export function HomePage() {
               ) : hasTaskBlocks ? (
                 <>
               <InboxSection
+                id="inbox-all"
+                title="Все задачи"
+                todos={restTodos}
+                empty={
+                  status
+                    ? "Нет задач с этим статусом"
+                    : inboxScope === "week"
+                      ? "На этой неделе других задач нет"
+                      : "Других задач нет"
+                }
+                reveal
+                action={
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusFilter />
+                    <SortBar defaultSort="new" />
+                  </div>
+                }
+                onUpdated={handleTodoUpdated}
+                onDeleted={handleTodoDeleted}
+              />
+              <InboxSection
                 id="inbox-overdue"
                 title="Просрочено"
                 todos={grouped.overdue}
@@ -676,56 +657,6 @@ export function HomePage() {
                 onUpdated={handleTodoUpdated}
                 onDeleted={handleTodoDeleted}
               />
-              <InboxSection
-                id="inbox-all"
-                title="Все задачи"
-                todos={restTodos}
-                empty="Других активных задач нет"
-                reveal
-                action={<SortBar defaultSort="new" />}
-                onUpdated={handleTodoUpdated}
-                onDeleted={handleTodoDeleted}
-              />
-              <section id="inbox-done" className="min-w-0 space-y-3 scroll-mt-24">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-                    Готово
-                    {doneCount != null ? (
-                      <span className="ml-2 font-normal text-app-subtle">
-                        {doneCount}
-                      </span>
-                    ) : null}
-                  </h2>
-                  {doneFromFilter ? null : (
-                    <button
-                      type="button"
-                      onClick={() => void handleToggleDone()}
-                      className="text-xs text-app-muted hover:text-app"
-                    >
-                      {doneOpen ? "Скрыть" : "Показать"}
-                    </button>
-                  )}
-                </div>
-                {doneFromFilter || doneOpen ? (
-                  doneLoading ? (
-                    <p className="text-sm text-app-subtle">Загрузка…</p>
-                  ) : visibleDone.length > 0 ? (
-                    <ListReveal items={visibleDone}>
-                      {(visible) => (
-                        <TodoList
-                          todos={visible}
-                          onUpdated={handleTodoUpdated}
-                          onDeleted={handleTodoDeleted}
-                        />
-                      )}
-                    </ListReveal>
-                  ) : (
-                    <p className="text-sm text-app-subtle">
-                      Пока нет выполненных задач
-                    </p>
-                  )
-                ) : null}
-              </section>
                 </>
               ) : null}
             </div>

@@ -13,6 +13,7 @@ import {
 } from "@/lib/events";
 import { eventPath, locationFrom } from "@/lib/nav";
 import { getRecurrenceFact } from "@/lib/recurrence";
+import { tagNames } from "@/lib/tags";
 import { eventTileWhen } from "@/lib/tileWhen";
 
 interface EventItemProps {
@@ -135,6 +136,7 @@ export function EventItem({
         status={status}
         statusShort={statusShort}
         facts={facts}
+        tags={tagNames(event.tags)}
         menu={
           <div ref={menuRef} className="relative">
             <button

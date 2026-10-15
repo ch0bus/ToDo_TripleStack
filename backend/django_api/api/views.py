@@ -28,6 +28,7 @@ from .serializers import (
     DayNoteSerializer,
     EventSerializer,
     EventAttendanceWriteSerializer,
+    SearchResponseSerializer,
 )
 from todos.models import (
     Todo,
@@ -55,6 +56,7 @@ from todos.shift_utils import (
 User = get_user_model()
 
 CALENDAR_RANGE_MAX_DAYS = 366
+SEARCH_LIMIT = 20
 
 CALENDAR_RANGE_PARAMETERS = [
     OpenApiParameter(
@@ -207,6 +209,22 @@ class MeView(APIView):
         return Response(ProfileSerializer(request.user).data)
 
 
+def _annotated_todos(user):
+    return (
+        Todo.objects.filter(user=user)
+        .select_related("user")
+        .prefetch_related("tags")
+        .annotate(
+            subtasks_total=Count("subtasks", distinct=True),
+            subtasks_done=Count(
+                "subtasks",
+                filter=Q(subtasks__completed=True),
+                distinct=True,
+            ),
+        )
+    )
+
+
 class TodoViewSet(viewsets.ModelViewSet):
     """API для управления задачами (Todo)."""
 
@@ -214,19 +232,7 @@ class TodoViewSet(viewsets.ModelViewSet):
     permission_classes = (permissions.IsAuthenticated,)
 
     def _annotated_queryset(self):
-        return (
-            Todo.objects.filter(user=self.request.user)
-            .select_related("user")
-            .prefetch_related("tags")
-            .annotate(
-                subtasks_total=Count("subtasks", distinct=True),
-                subtasks_done=Count(
-                    "subtasks",
-                    filter=Q(subtasks__completed=True),
-                    distinct=True,
-                ),
-            )
-        )
+        return _annotated_todos(self.request.user)
 
     def get_queryset(self):
         """Фильтрация задач по всем нужным параметрам."""
@@ -685,17 +691,29 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Event.objects.filter(user=self.request.user).prefetch_related(
-            "attendances"
+            "attendances",
+            "tags",
         )
+        tag_id = self.request.query_params.get("tag")
+        if tag_id:
+            qs = qs.filter(tags__id=tag_id)
         if getattr(self, "action", None) == "list":
             range_from, range_to = _optional_date_range(self.request.query_params)
             if range_from and range_to:
                 qs = _filter_events_for_calendar(qs, range_from, range_to)
-        return qs
+        return qs.distinct()
 
     @extend_schema(
         summary="Список событий",
-        parameters=CALENDAR_RANGE_PARAMETERS,
+        parameters=[
+            *CALENDAR_RANGE_PARAMETERS,
+            OpenApiParameter(
+                name="tag",
+                description="ID тега",
+                required=False,
+                type=OpenApiTypes.INT,
+            ),
+        ],
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
@@ -723,7 +741,7 @@ class EventViewSet(viewsets.ModelViewSet):
             ).delete()
         event = (
             Event.objects.filter(pk=event.pk)
-            .prefetch_related("attendances")
+            .prefetch_related("attendances", "tags")
             .get()
         )
         return Response(EventSerializer(event, context={"request": request}).data)
@@ -742,8 +760,14 @@ class DayNotesView(APIView):
         notes = DayNote.objects.filter(
             user=request.user,
             date__range=(start, end),
-        ).order_by("date")
-        return Response(DayNoteSerializer(notes, many=True).data)
+        ).prefetch_related("tags")
+        tag_id = request.query_params.get("tag")
+        if tag_id:
+            notes = notes.filter(tags__id=tag_id)
+        notes = notes.order_by("date").distinct()
+        return Response(
+            DayNoteSerializer(notes, many=True, context={"request": request}).data
+        )
 
     def put(self, request):
         serializer = DayNoteSerializer(
@@ -752,7 +776,10 @@ class DayNotesView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         note = serializer.save()
-        return Response(DayNoteSerializer(note).data)
+        note = DayNote.objects.prefetch_related("tags").get(pk=note.pk)
+        return Response(
+            DayNoteSerializer(note, context={"request": request}).data
+        )
 
 
 class DayNoteDetailView(APIView):
@@ -765,13 +792,17 @@ class DayNoteDetailView(APIView):
             raise ValidationError({"detail": "Ожидается дата YYYY-MM-DD."})
 
     def get(self, request, day: str):
-        note = DayNote.objects.filter(
-            user=request.user,
-            date=self._date(day),
-        ).first()
+        note = (
+            DayNote.objects.filter(
+                user=request.user,
+                date=self._date(day),
+            )
+            .prefetch_related("tags")
+            .first()
+        )
         if not note:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        return Response(DayNoteSerializer(note).data)
+        return Response(DayNoteSerializer(note, context={"request": request}).data)
 
     def delete(self, request, day: str):
         deleted, _ = DayNote.objects.filter(
@@ -781,3 +812,74 @@ class DayNoteDetailView(APIView):
         if not deleted:
             return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SearchView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    @extend_schema(
+        summary="Глобальный поиск",
+        description=(
+            "Ищет свои задачи (название, описание, подзадачи, теги), события "
+            "(название, описание, теги) и заметки дня (текст, теги). "
+            "Пустой q — пустые списки. Не больше 20 записей на тип."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="q",
+                description="Строка поиска",
+                required=False,
+                type=OpenApiTypes.STR,
+            ),
+        ],
+        responses={200: SearchResponseSerializer},
+    )
+    def get(self, request):
+        q = (request.query_params.get("q") or "").strip()
+        if not q:
+            return Response({"q": "", "todos": [], "events": [], "notes": []})
+
+        todos = (
+            _annotated_todos(request.user)
+            .filter(
+                Q(title__icontains=q)
+                | Q(description__icontains=q)
+                | Q(subtasks__title__icontains=q)
+                | Q(tags__tag_name__icontains=q)
+            )
+            .distinct()
+            .order_by("-created_at")[:SEARCH_LIMIT]
+        )
+        events = (
+            Event.objects.filter(user=request.user)
+            .filter(
+                Q(title__icontains=q)
+                | Q(description__icontains=q)
+                | Q(tags__tag_name__icontains=q)
+            )
+            .prefetch_related("attendances", "tags")
+            .distinct()
+            .order_by("start_at", "id")[:SEARCH_LIMIT]
+        )
+        notes = (
+            DayNote.objects.filter(user=request.user)
+            .filter(Q(text__icontains=q) | Q(tags__tag_name__icontains=q))
+            .prefetch_related("tags")
+            .distinct()
+            .order_by("-date")[:SEARCH_LIMIT]
+        )
+
+        return Response(
+            {
+                "q": q,
+                "todos": TodoSerializer(
+                    todos, many=True, context={"request": request}
+                ).data,
+                "events": EventSerializer(
+                    events, many=True, context={"request": request}
+                ).data,
+                "notes": DayNoteSerializer(
+                    notes, many=True, context={"request": request}
+                ).data,
+            }
+        )
