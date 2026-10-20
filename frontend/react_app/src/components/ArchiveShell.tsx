@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
+import { ArchiveSearch } from "@/components/ArchiveFilters";
 import { ChoiceChip } from "@/components/FormFields";
 import { LoadingBar } from "@/components/LoadingBar";
 import {
@@ -9,7 +10,7 @@ import {
   type ArchiveKind,
   type ArchivePeriod,
 } from "@/lib/archive";
-import { backFromState, backLabel } from "@/lib/nav";
+import { backLabel } from "@/lib/nav";
 
 const PERIODS: { value: Exclude<ArchivePeriod, "custom">; label: string }[] = [
   { value: "week", label: "Неделя" },
@@ -25,6 +26,7 @@ export function ArchiveShell({
   error,
   facts,
   extra,
+  tools,
   children,
 }: {
   kind: ArchiveKind;
@@ -34,6 +36,7 @@ export function ArchiveShell({
   error?: string;
   facts: string;
   extra?: ReactNode;
+  tools?: ReactNode;
   children: ReactNode;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -49,6 +52,7 @@ export function ArchiveShell({
         params.delete("to");
         if (next === "week") params.delete("period");
         else params.set("period", next);
+        params.delete("page");
         return params;
       },
       { replace: true },
@@ -110,6 +114,10 @@ export function ArchiveShell({
               </ChoiceChip>
             ))}
           </div>
+          {extra}
+          <div className="mt-3">
+            <ArchiveSearch />
+          </div>
           <div className="pointer-events-none absolute inset-x-0 z-10">
             <LoadingBar active={Boolean(loading)} />
           </div>
@@ -121,8 +129,12 @@ export function ArchiveShell({
           </div>
         )}
 
-        {facts ? <p className="text-sm text-app-muted">{facts}</p> : null}
-        {extra}
+        {facts || tools ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {facts ? <p className="text-sm text-app-muted">{facts}</p> : <span />}
+            {tools}
+          </div>
+        ) : null}
 
         <div
           className={loading ? "pointer-events-none opacity-50" : ""}

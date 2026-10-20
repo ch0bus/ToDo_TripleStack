@@ -521,6 +521,20 @@ export function sortDayEventEntries(entries: EventEntry[]): EventEntry[] {
   });
 }
 
+export function sortArchiveEventEntries(
+  entries: EventEntry[],
+  sort: EventSort,
+): EventEntry[] {
+  if (sort === "new") {
+    return [...entries].sort(
+      (a, b) =>
+        b.occurrenceStartKey.localeCompare(a.occurrenceStartKey) ||
+        a.event.id - b.event.id,
+    );
+  }
+  return sortEventEntries(entries, sort);
+}
+
 export function sortEventEntries(
   entries: EventEntry[],
   sort: EventSort,

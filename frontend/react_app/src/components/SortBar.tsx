@@ -51,6 +51,7 @@ export function SortBar({
     const params = new URLSearchParams(searchParams);
     if (value === defaultSort) params.delete(paramName);
     else params.set(paramName, value);
+    params.delete("page");
     setSearchParams(params);
   }
 

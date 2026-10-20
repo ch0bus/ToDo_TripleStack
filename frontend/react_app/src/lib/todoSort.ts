@@ -49,6 +49,18 @@ export function sortTodosCompleted(todos: TodoRow[]): TodoRow[] {
   });
 }
 
+export function sortArchiveTodos(todos: TodoRow[], sort: TodoSort): TodoRow[] {
+  if (sort === "new") return sortTodosCompleted(todos);
+  if (sort === "created") {
+    return [...todos].sort((a, b) => {
+      const aDone = a.completed_at ? new Date(a.completed_at).getTime() : 0;
+      const bDone = b.completed_at ? new Date(b.completed_at).getTime() : 0;
+      return aDone - bDone || a.id - b.id;
+    });
+  }
+  return sortTodos(todos, sort);
+}
+
 /** Блок дня: открытые сверху, закрытые снизу по дате завершения. */
 export function sortInboxDayTodos(todos: TodoRow[]): TodoRow[] {
   const open: TodoRow[] = [];
