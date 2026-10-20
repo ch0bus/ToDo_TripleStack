@@ -7,6 +7,8 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { CalendarPage } from "@/pages/CalendarPage";
 import { DayNotePage } from "@/pages/DayNotePage";
 import { EventFormPage } from "@/pages/EventFormPage";
+import { ArchiveEventsPage } from "@/pages/ArchiveEventsPage";
+import { ArchiveTodosPage } from "@/pages/ArchiveTodosPage";
 import { SearchPage } from "@/pages/SearchPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { ShiftSettingsPage } from "@/pages/ShiftSettingsPage";
@@ -30,6 +32,8 @@ export default function App() {
             <Route path="/events/new" element={<EventFormPage />} />
             <Route path="/events/:eventId" element={<EventFormPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/archive/todos" element={<ArchiveTodosPage />} />
+            <Route path="/archive/events" element={<ArchiveEventsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/settings/shifts" element={<ShiftSettingsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

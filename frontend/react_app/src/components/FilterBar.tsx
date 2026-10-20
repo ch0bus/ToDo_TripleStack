@@ -209,15 +209,17 @@ export function StatusFilter() {
             <ChoiceChip selected={!currentStatus} onClick={() => setStatus("")}>
               Все
             </ChoiceChip>
-            {STATUS_SELECT_OPTIONS.map((option) => (
-              <ChoiceChip
-                key={option.value}
-                selected={currentStatus === option.value}
-                onClick={() => setStatus(option.value)}
-              >
-                {option.label}
-              </ChoiceChip>
-            ))}
+            {STATUS_SELECT_OPTIONS.filter((option) => option.value !== "done").map(
+              (option) => (
+                <ChoiceChip
+                  key={option.value}
+                  selected={currentStatus === option.value}
+                  onClick={() => setStatus(option.value)}
+                >
+                  {option.label}
+                </ChoiceChip>
+              ),
+            )}
           </div>
         </div>
       )}

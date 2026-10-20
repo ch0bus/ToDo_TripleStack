@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { ArchiveCountLink } from "@/components/ArchiveCountLink";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { DayNoteEditor } from "@/components/DayNoteEditor";
@@ -29,20 +30,20 @@ import {
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
   EVENT_SORT_OPTIONS,
+  attendedEventEntries,
   eventColorsInList,
-  filterEventsByAttendance,
   filterEventsByColor,
   groupEventsForRange,
   inboxEventEntries,
   lastMissedEventEntries,
-  parseEventAttn,
   parseEventSort,
   sortDayEventEntries,
   sortEventEntries,
   uniqueEventEntries,
-  uniqueEventsInRange,
+  uniqueOpenEventsInRange,
   type CalendarEvent,
 } from "@/lib/events";
+import { archivePath } from "@/lib/archive";
 import { locationFrom, newTodoPath } from "@/lib/nav";
 import type { TileWhenMode } from "@/lib/tileWhen";
 import {
@@ -50,6 +51,7 @@ import {
   hasActiveFilters,
   inboxBusyDayKeys,
   parseInboxScope,
+  todoCompletedInRange,
   todoInDateRange,
 } from "@/lib/todoFilters";
 import { parseTodoSort, sortInboxDayTodos, sortTodos } from "@/lib/todoSort";
@@ -75,6 +77,7 @@ function InboxSection({
   lead,
   action,
   count,
+  titleExtra,
   reveal = false,
   onUpdated,
   onDeleted,
@@ -87,6 +90,7 @@ function InboxSection({
   lead?: ReactNode;
   action?: ReactNode;
   count?: number;
+  titleExtra?: ReactNode;
   reveal?: boolean;
   onUpdated: (todo: TodoRow) => void;
   onDeleted: (id: number) => void;
@@ -95,11 +99,14 @@ function InboxSection({
   return (
     <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-          {title}
-          <span className="ml-2 font-normal text-app-subtle">
-            {count ?? todos.length}
+        <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-sm font-semibold uppercase tracking-wide text-app-muted">
+          <span>
+            {title}
+            <span className="ml-2 font-normal text-app-subtle">
+              {count ?? todos.length}
+            </span>
           </span>
+          {titleExtra}
         </h2>
         {action}
       </div>
@@ -303,11 +310,19 @@ export function HomePage() {
     );
   }, [grouped.rest, inboxScope, weekFrom, weekTo]);
   const restTodos = useMemo(() => {
-    const rows = status
-      ? restPool.filter((todo) => todo.status === status)
-      : restPool;
+    const open = restPool.filter((todo) => todo.status !== "done");
+    const rows =
+      status && status !== "done"
+        ? open.filter((todo) => todo.status === status)
+        : open;
     return sortTodos(rows, restSort);
   }, [restPool, restSort, status]);
+  const doneInScope = useMemo(() => {
+    const pool = inboxScope === "all" ? todos : todos.filter((todo) =>
+      todoCompletedInRange(todo, weekFrom, weekTo),
+    );
+    return pool.filter((todo) => todo.status === "done").length;
+  }, [todos, inboxScope, weekFrom, weekTo]);
   const weekTodoCount = useMemo(
     () => todos.filter((todo) => todoInDateRange(todo, weekFrom, weekTo)).length,
     [todos, weekFrom, weekTo],
@@ -322,7 +337,6 @@ export function HomePage() {
   const hasTaskBlocks = todos.length > 0 || missedEvents.length > 0;
   const eventSort = parseEventSort(searchParams.get("esort"), "start");
   const eventColor = searchParams.get("ecolor");
-  const eventAttn = parseEventAttn(searchParams.get("eattn"));
   const inboxEventsPool = useMemo(() => {
     const skipIds = new Set(
       [...dayEvents, ...missedEvents].map((entry) => entry.event.id),
@@ -330,7 +344,7 @@ export function HomePage() {
     const source =
       inboxScope === "all"
         ? inboxEventEntries(events, todayKey)
-        : uniqueEventsInRange(
+        : uniqueOpenEventsInRange(
             groupEventsForRange(events, weekFrom, weekTo),
             weekFrom,
             weekTo,
@@ -351,13 +365,21 @@ export function HomePage() {
   );
   const inboxEvents = useMemo(() => {
     return sortEventEntries(
-      filterEventsByAttendance(
-        filterEventsByColor(inboxEventsPool, eventColor),
-        eventAttn,
-      ),
+      filterEventsByColor(inboxEventsPool, eventColor),
       eventSort,
     );
-  }, [inboxEventsPool, eventColor, eventAttn, eventSort]);
+  }, [inboxEventsPool, eventColor, eventSort]);
+  const attendedInScope = useMemo(() => {
+    if (inboxScope === "all") {
+      return attendedEventEntries(events).length;
+    }
+    return attendedEventEntries(events, weekFrom, weekTo).length;
+  }, [events, inboxScope, weekFrom, weekTo]);
+  const archiveLinkState = { from: locationFrom(location) };
+  const archiveQuery =
+    inboxScope === "all"
+      ? { period: "all" as const, tag }
+      : { from: weekFrom, to: weekTo, tag };
   const notesByDay = useMemo(() => dayNotesMap(weekNotes), [weekNotes]);
   const dayNote = notesByDay.get(selectedKey) ?? null;
   const noteDays = useMemo(() => {
@@ -560,14 +582,22 @@ export function HomePage() {
               />
               <section id="inbox-events" className="min-w-0 space-y-3 scroll-mt-24">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-                    События
-                    <span className="ml-2 font-normal text-app-subtle">
-                      {inboxEvents.length}
+                  <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    <span>
+                      События
+                      <span className="ml-2 font-normal text-app-subtle">
+                        {inboxEvents.length}
+                      </span>
                     </span>
+                    <ArchiveCountLink
+                      to={archivePath("events", archiveQuery)}
+                      state={archiveLinkState}
+                      label="Был"
+                      count={attendedInScope}
+                    />
                   </h2>
                   <div className="flex shrink-0 items-center gap-2">
-                    <EventFilterBar colors={inboxEventColors} attendance />
+                    <EventFilterBar colors={inboxEventColors} />
                     <SortBar
                       paramName="esort"
                       defaultSort="start"
@@ -589,12 +619,8 @@ export function HomePage() {
                   </ListReveal>
                 ) : (
                   <p className="text-sm text-app-subtle">
-                    {inboxEventsPool.length > 0 && (eventColor || eventAttn)
-                      ? eventAttn === "attended"
-                        ? "Нет отмеченных событий."
-                        : eventAttn === "open"
-                          ? "Нет неотмеченных событий."
-                          : "Нет событий выбранного цвета."
+                    {inboxEventsPool.length > 0 && eventColor
+                      ? "Нет событий выбранного цвета."
                       : events.length > 0
                         ? inboxScope === "week"
                           ? "На этой неделе других событий нет"
@@ -619,7 +645,15 @@ export function HomePage() {
                 <>
               <InboxSection
                 id="inbox-all"
-                title="Все задачи"
+                title="Задачи"
+                titleExtra={
+                  <ArchiveCountLink
+                    to={archivePath("todos", archiveQuery)}
+                    state={archiveLinkState}
+                    label="Готово"
+                    count={doneInScope}
+                  />
+                }
                 todos={restTodos}
                 empty={
                   status

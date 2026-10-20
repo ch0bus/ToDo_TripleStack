@@ -96,3 +96,22 @@ export function hasActiveFilters(params: {
 }): boolean {
   return Boolean(params.priority || params.tag);
 }
+
+export function isCompletedLate(todo: TodoRow): boolean {
+  if (todo.status !== "done" || !todo.due_date || !todo.completed_at) {
+    return false;
+  }
+  return new Date(todo.completed_at).getTime() > new Date(todo.due_date).getTime();
+}
+
+export function todoCompletedInRange(
+  todo: TodoRow,
+  rangeFrom?: string | null,
+  rangeTo?: string | null,
+): boolean {
+  if (todo.status !== "done") return false;
+  if (!rangeFrom || !rangeTo) return true;
+  const key = dueDateKey(todo.completed_at);
+  if (!key) return false;
+  return key >= rangeFrom && key <= rangeTo;
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
+import { ArchiveCountLink } from "@/components/ArchiveCountLink";
 import { DayNoteMark, TodayHalo } from "@/components/CalendarNoteMarks";
 import { CalendarSelectedDay } from "@/components/CalendarSelectedDay";
 import { CalendarTimeGrid } from "@/components/CalendarTimeGrid";
@@ -54,6 +55,7 @@ import {
 import { dayNotesMap, type DayNote } from "@/lib/dayNotes";
 import {
   EVENT_SORT_OPTIONS,
+  attendedEventEntries,
   eventColorsInList,
   filterEventsByColor,
   groupEventsForRange,
@@ -77,7 +79,8 @@ import {
   type ShiftKind,
   type ShiftLayer,
 } from "@/lib/shifts";
-import { shiftSettingsPath } from "@/lib/nav";
+import { archivePath } from "@/lib/archive";
+import { locationFrom, shiftSettingsPath } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
 import { parseTodoSort, sortTodos } from "@/lib/todoSort";
 
@@ -253,6 +256,16 @@ export function CalendarPage() {
     () => eventColorsInList(periodEventsUnsorted),
     [periodEventsUnsorted],
   );
+  const periodDoneCount = useMemo(
+    () => periodTodosUnsorted.filter((todo) => todo.status === "done").length,
+    [periodTodosUnsorted],
+  );
+  const periodAttendedCount = useMemo(
+    () => attendedEventEntries(events, listFrom, listTo).length,
+    [events, listFrom, listTo],
+  );
+  const archiveLinkState = { from: locationFrom(location) };
+  const archiveQuery = { from: listFrom, to: listTo };
   const selectedKey = toDateKey(selectedDay);
   const selectedEntries = useMemo(
     () => sortCalendarEntries(byDay.get(selectedKey) ?? []),
@@ -962,13 +975,21 @@ export function CalendarPage() {
 
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-                    Задачи {PERIOD_SCOPE[calendarView]}
-                    <span className="ml-2 font-normal text-app-subtle">
-                      {periodTodos.length
-                        ? `${periodTodos.length} · ${periodCaption}`
-                        : periodCaption}
+                  <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    <span>
+                      Задачи {PERIOD_SCOPE[calendarView]}
+                      <span className="ml-2 font-normal text-app-subtle">
+                        {periodTodos.length
+                          ? `${periodTodos.length} · ${periodCaption}`
+                          : periodCaption}
+                      </span>
                     </span>
+                    <ArchiveCountLink
+                      to={archivePath("todos", archiveQuery)}
+                      state={archiveLinkState}
+                      label="Готово"
+                      count={periodDoneCount}
+                    />
                   </h2>
                   <SortBar defaultSort="due" />
                 </div>
@@ -994,13 +1015,21 @@ export function CalendarPage() {
               </section>
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <h2 className="min-w-0 text-sm font-semibold uppercase tracking-wide text-app-muted">
-                    События {PERIOD_SCOPE[calendarView]}
-                    <span className="ml-2 font-normal text-app-subtle">
-                      {periodEvents.length
-                        ? `${periodEvents.length} · ${periodCaption}`
-                        : periodCaption}
+                  <h2 className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-sm font-semibold uppercase tracking-wide text-app-muted">
+                    <span>
+                      События {PERIOD_SCOPE[calendarView]}
+                      <span className="ml-2 font-normal text-app-subtle">
+                        {periodEvents.length
+                          ? `${periodEvents.length} · ${periodCaption}`
+                          : periodCaption}
+                      </span>
                     </span>
+                    <ArchiveCountLink
+                      to={archivePath("events", archiveQuery)}
+                      state={archiveLinkState}
+                      label="Был"
+                      count={periodAttendedCount}
+                    />
                   </h2>
                   <div className="flex shrink-0 items-center gap-2">
                     <EventFilterBar colors={eventFilterColors} />

@@ -202,7 +202,7 @@ export function lastMissedEventEntries(
   );
 }
 
-/** Одна строка на событие: ближайшее вхождение от fromKey или исходная дата. */
+/** Одна строка на событие: ближайшее неотмеченное вхождение от fromKey. */
 export function inboxEventEntries(
   events: CalendarEvent[],
   fromKey: string,
@@ -214,20 +214,71 @@ export function inboxEventEntries(
     const originKey = dueDateKey(event.start_at);
     if (!originKey) continue;
     let cursor = start;
+    let guard = 0;
     if (isRecurring(event.recurrence)) {
-      let guard = 0;
       while (guard < 2400 && toDateKey(cursor) < fromKey) {
         cursor = nextDueDate(cursor, event.recurrence);
         guard += 1;
       }
+      while (
+        guard < 2400 &&
+        isEventOccurrenceAttended(event, toDateKey(cursor))
+      ) {
+        cursor = nextDueDate(cursor, event.recurrence);
+        guard += 1;
+      }
+    } else if (isEventOccurrenceAttended(event, originKey)) {
+      continue;
     }
     const occurrenceStartKey = toDateKey(cursor);
+    if (isEventOccurrenceAttended(event, occurrenceStartKey)) continue;
     list.push({
       event,
       dateKey: occurrenceStartKey,
       occurrenceStartKey,
       virtual: occurrenceStartKey !== originKey,
-      attended: isEventOccurrenceAttended(event, occurrenceStartKey),
+      attended: false,
+    });
+  }
+  return list;
+}
+
+/** Ближайшее неотмеченное вхождение от fromKey; отмеченная серия не пропадает целиком. */
+export function inboxOpenEventEntries(
+  events: CalendarEvent[],
+  fromKey: string,
+): EventEntry[] {
+  const list: EventEntry[] = [];
+  for (const event of events) {
+    const start = new Date(event.start_at);
+    if (Number.isNaN(start.getTime())) continue;
+    const originKey = dueDateKey(event.start_at);
+    if (!originKey) continue;
+    let cursor = start;
+    let guard = 0;
+    if (isRecurring(event.recurrence)) {
+      while (guard < 2400 && toDateKey(cursor) < fromKey) {
+        cursor = nextDueDate(cursor, event.recurrence);
+        guard += 1;
+      }
+      while (
+        guard < 2400 &&
+        isEventOccurrenceAttended(event, toDateKey(cursor))
+      ) {
+        cursor = nextDueDate(cursor, event.recurrence);
+        guard += 1;
+      }
+    } else if (isEventOccurrenceAttended(event, originKey)) {
+      continue;
+    }
+    const occurrenceStartKey = toDateKey(cursor);
+    if (isEventOccurrenceAttended(event, occurrenceStartKey)) continue;
+    list.push({
+      event,
+      dateKey: occurrenceStartKey,
+      occurrenceStartKey,
+      virtual: occurrenceStartKey !== originKey,
+      attended: false,
     });
   }
   return list;
@@ -296,6 +347,100 @@ export function uniqueEventsInRange(
       if (seen.has(entry.event.id)) continue;
       seen.add(entry.event.id);
       list.push(entry);
+    }
+  }
+  return list;
+}
+
+/** Как uniqueEventsInRange, но пропускает отмеченные вхождения — серия остаётся. */
+export function uniqueOpenEventsInRange(
+  byDay: Map<string, EventEntry[]>,
+  rangeFrom: string,
+  rangeTo: string,
+): EventEntry[] {
+  const seen = new Set<number>();
+  const list: EventEntry[] = [];
+  const keys = [...byDay.keys()].sort();
+  for (const key of keys) {
+    if (key < rangeFrom || key > rangeTo) continue;
+    for (const entry of uniqueEventEntries(byDay.get(key) ?? [])) {
+      if (entry.attended || seen.has(entry.event.id)) continue;
+      seen.add(entry.event.id);
+      list.push(entry);
+    }
+  }
+  return list;
+}
+
+/** Отмеченные вхождения; без дат — все. Новые сверху. */
+export function attendedEventEntries(
+  events: CalendarEvent[],
+  rangeFrom?: string | null,
+  rangeTo?: string | null,
+): EventEntry[] {
+  const list: EventEntry[] = [];
+  for (const event of events) {
+    const originKey = dueDateKey(event.start_at);
+    if (!originKey) continue;
+    for (const date of event.attended_dates ?? []) {
+      if (rangeFrom && date < rangeFrom) continue;
+      if (rangeTo && date > rangeTo) continue;
+      list.push({
+        event,
+        dateKey: date,
+        occurrenceStartKey: date,
+        virtual: date !== originKey,
+        attended: true,
+      });
+    }
+  }
+  return list.sort(
+    (a, b) =>
+      b.occurrenceStartKey.localeCompare(a.occurrenceStartKey) ||
+      a.event.id - b.event.id,
+  );
+}
+
+/** Законченные вхождения без отметки в окне (пустое окно — до сегодня). */
+export function missedEventEntriesInRange(
+  events: CalendarEvent[],
+  rangeFrom: string | null,
+  rangeTo: string | null,
+  now = new Date(),
+): EventEntry[] {
+  const list: EventEntry[] = [];
+  const toKey = rangeTo ?? toDateKey(now);
+  for (const event of events) {
+    const start = new Date(event.start_at);
+    if (Number.isNaN(start.getTime())) continue;
+    const originKey = dueDateKey(event.start_at);
+    if (!originKey) continue;
+    let cursor = start;
+    let guard = 0;
+    while (guard < 2400) {
+      const key = toDateKey(cursor);
+      if (rangeFrom && key < rangeFrom) {
+        if (!isRecurring(event.recurrence)) break;
+        cursor = nextDueDate(cursor, event.recurrence);
+        guard += 1;
+        continue;
+      }
+      if (key > toKey) break;
+      if (
+        !isEventOccurrenceAttended(event, key) &&
+        isEventOccurrenceMissed(event, key, now)
+      ) {
+        list.push({
+          event,
+          dateKey: key,
+          occurrenceStartKey: key,
+          virtual: key !== originKey,
+          attended: false,
+        });
+      }
+      if (!isRecurring(event.recurrence)) break;
+      cursor = nextDueDate(cursor, event.recurrence);
+      guard += 1;
     }
   }
   return list;
