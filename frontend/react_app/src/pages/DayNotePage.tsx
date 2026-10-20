@@ -10,6 +10,7 @@ import {
   formatDayNoteLabel,
   type DayNote,
 } from "@/lib/dayNotes";
+import { backFromState, backLabel } from "@/lib/nav";
 import type { TagOption } from "@/lib/tags";
 import { btnDangerGhost, btnPrimary } from "@/lib/uiClasses";
 
@@ -39,9 +40,7 @@ export function DayNotePage() {
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const dateKey = date && parseDateKey(date) ? date : "";
-  const backTo =
-    (location.state as { from?: string } | null)?.from || "/";
-  const backLabel = backTo.startsWith("/calendar") ? "Календарь" : "Входящие";
+  const backTo = backFromState(location.state);
 
   const [note, setNote] = useState<DayNote | null>(null);
   const [text, setText] = useState("");
@@ -147,7 +146,7 @@ export function DayNotePage() {
           className="inline-flex items-center gap-1 text-sm text-app-muted transition-colors hover:text-app-accent"
         >
           <span aria-hidden>←</span>
-          {backLabel}
+          {backLabel(backTo)}
         </Link>
       </nav>
 

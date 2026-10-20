@@ -6,6 +6,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { CalendarPage } from "@/pages/CalendarPage";
 import { DayNotePage } from "@/pages/DayNotePage";
+import { NotesPage } from "@/pages/NotesPage";
 import { EventFormPage } from "@/pages/EventFormPage";
 import { ArchiveEventsPage } from "@/pages/ArchiveEventsPage";
 import { ArchiveTodosPage } from "@/pages/ArchiveTodosPage";
@@ -28,6 +29,7 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/todos/new" element={<TodoCreatePage />} />
             <Route path="/todos/:todoId" element={<TodoDetailPage />} />
+            <Route path="/notes" element={<NotesPage />} />
             <Route path="/notes/:date" element={<DayNotePage />} />
             <Route path="/events/new" element={<EventFormPage />} />
             <Route path="/events/:eventId" element={<EventFormPage />} />

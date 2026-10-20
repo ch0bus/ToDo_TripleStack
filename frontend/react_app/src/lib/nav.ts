@@ -11,6 +11,7 @@ export function backFromState(state: unknown, fallback = "/"): string {
 
 export function backLabel(path: string): string {
   if (path.startsWith("/calendar")) return "Календарь";
+  if (path.startsWith("/notes")) return "Заметки";
   if (path.startsWith("/search")) return "Поиск";
   if (path.startsWith("/archive")) return "Архив";
   if (path.startsWith("/settings")) return "Настройки";

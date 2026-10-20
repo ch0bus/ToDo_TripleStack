@@ -466,3 +466,67 @@ class SearchTests(APITestCase):
         self.client.force_authenticate(user=None)
         res = self.client.get("/api/search/?q=крас")
         self.assertEqual(res.status_code, 401)
+
+
+class DayNoteListTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="notes",
+            email="notes@example.com",
+            password="password123",
+        )
+        self.other = User.objects.create_user(
+            username="other-notes",
+            email="other-notes@example.com",
+            password="password123",
+        )
+        self.client.force_authenticate(self.user)
+        self.tag = Tag.objects.create(
+            user=self.user, tag_name="работа", kind=TagKind.WORK
+        )
+        self.note = DayNote.objects.create(
+            user=self.user,
+            date="2026-04-02",
+            text="Смена графика",
+        )
+        self.note.tags.add(self.tag)
+        DayNote.objects.create(user=self.user, date="2026-01-10", text="Старый план")
+        DayNote.objects.create(
+            user=self.other, date="2026-04-02", text="Чужая смена"
+        )
+
+    def test_list_all_without_range(self):
+        res = self.client.get("/api/day-notes/")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(
+            {row["date"] for row in res.data},
+            {"2026-04-02", "2026-01-10"},
+        )
+        self.assertGreaterEqual(
+            res.data[0]["updated_at"],
+            res.data[1]["updated_at"],
+        )
+
+    def test_search_text(self):
+        res = self.client.get("/api/day-notes/?q=график")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual({row["date"] for row in res.data}, {"2026-04-02"})
+
+    def test_tag_filter(self):
+        res = self.client.get(f"/api/day-notes/?tag={self.tag.id}")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual({row["date"] for row in res.data}, {"2026-04-02"})
+
+    def test_range_still_works(self):
+        res = self.client.get("/api/day-notes/?from=2026-04-01&to=2026-04-03")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual({row["date"] for row in res.data}, {"2026-04-02"})
+
+    def test_only_from_rejected(self):
+        res = self.client.get("/api/day-notes/?from=2026-04-01")
+        self.assertEqual(res.status_code, 400)
+
+    def test_unauthenticated(self):
+        self.client.force_authenticate(user=None)
+        res = self.client.get("/api/day-notes/")
+        self.assertEqual(res.status_code, 401)

@@ -751,20 +751,17 @@ class DayNotesView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
     def get(self, request):
-        start = _parse_query_date(request.query_params.get("from"), "from")
-        end = _parse_query_date(request.query_params.get("to"), "to")
-        if not start or not end:
-            raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
-        if (end - start).days > 366:
-            raise ValidationError({"detail": "Диапазон не больше 366 дней."})
-        notes = DayNote.objects.filter(
-            user=request.user,
-            date__range=(start, end),
-        ).prefetch_related("tags")
+        start, end = _optional_date_range(request.query_params)
+        notes = DayNote.objects.filter(user=request.user).prefetch_related("tags")
+        if start and end:
+            notes = notes.filter(date__range=(start, end))
+        query = (request.query_params.get("q") or "").strip()
+        if query:
+            notes = notes.filter(text__icontains=query)
         tag_id = request.query_params.get("tag")
         if tag_id:
             notes = notes.filter(tags__id=tag_id)
-        notes = notes.order_by("date").distinct()
+        notes = notes.order_by("-updated_at", "-date").distinct()
         return Response(
             DayNoteSerializer(notes, many=True, context={"request": request}).data
         )

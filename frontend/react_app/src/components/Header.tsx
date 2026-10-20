@@ -33,17 +33,31 @@ export function Header() {
             <BrandMark />
           </Link>
           {hasToken && (
-            <Link
-              to="/calendar"
-              className={
-                "hidden shrink-0 text-sm hover:text-app hover:underline sm:inline " +
-                (location.pathname === "/calendar"
-                  ? "font-medium text-app"
-                  : "text-app-muted")
-              }
-            >
-              Календарь
-            </Link>
+            <>
+              <Link
+                to="/calendar"
+                className={
+                  "hidden shrink-0 text-sm hover:text-app hover:underline sm:inline " +
+                  (location.pathname === "/calendar"
+                    ? "font-medium text-app"
+                    : "text-app-muted")
+                }
+              >
+                Календарь
+              </Link>
+              <Link
+                to="/notes"
+                className={
+                  "hidden shrink-0 text-sm hover:text-app hover:underline sm:inline " +
+                  (location.pathname === "/notes" ||
+                  location.pathname.startsWith("/notes/")
+                    ? "font-medium text-app"
+                    : "text-app-muted")
+                }
+              >
+                Заметки
+              </Link>
+            </>
           )}
         </div>
 
@@ -83,6 +97,35 @@ export function Header() {
               >
                 <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
                 <path d="M8 3.5v3M16 3.5v3M3.5 10h17" />
+              </svg>
+            </Link>
+          )}
+          {hasToken && (
+            <Link
+              to="/notes"
+              className={
+                "flex h-9 w-9 items-center justify-center rounded-md border border-app bg-app-surface-muted sm:hidden " +
+                (location.pathname === "/notes" ||
+                location.pathname.startsWith("/notes/")
+                  ? "text-app"
+                  : "text-app-muted hover:text-app")
+              }
+              aria-label="Заметки"
+              title="Заметки"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5"
+                aria-hidden
+              >
+                <rect x="5" y="3.5" width="14" height="17" rx="2" />
+                <path d="M9 8h6M9 12h6M9 16h4" />
               </svg>
             </Link>
           )}
