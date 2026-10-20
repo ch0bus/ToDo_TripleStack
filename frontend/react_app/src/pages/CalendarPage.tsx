@@ -10,6 +10,7 @@ import { CalendarYearGrid } from "@/components/CalendarYearGrid";
 import { CreateAddMenu } from "@/components/CreateAddMenu";
 import { DashboardSidebar } from "@/components/DashboardSidebar";
 import { EventFilterBar } from "@/components/EventFilterBar";
+import { StatusFilter } from "@/components/FilterBar";
 import { EventList } from "@/components/EventList";
 import { ListReveal } from "@/components/ListReveal";
 import { LoadingBar } from "@/components/LoadingBar";
@@ -57,8 +58,10 @@ import {
   EVENT_SORT_OPTIONS,
   attendedEventEntries,
   eventColorsInList,
+  filterEventsByAttendance,
   filterEventsByColor,
   groupEventsForRange,
+  parseEventAttn,
   parseEventSort,
   sortEventEntries,
   uniqueEventEntries,
@@ -234,23 +237,30 @@ export function CalendarPage() {
     [byDay, listFrom, listTo],
   );
   const monthSort = parseTodoSort(searchParams.get("sort"), "due");
-  const periodTodos = useMemo(
-    () => sortTodos(periodTodosUnsorted, monthSort),
-    [periodTodosUnsorted, monthSort],
-  );
+  const status = searchParams.get("status") ?? "";
+  const periodTodos = useMemo(() => {
+    const rows = status
+      ? periodTodosUnsorted.filter((todo) => todo.status === status)
+      : periodTodosUnsorted;
+    return sortTodos(rows, monthSort);
+  }, [periodTodosUnsorted, monthSort, status]);
   const periodEventsUnsorted = useMemo(
     () => uniqueEventsInRange(eventsByDay, listFrom, listTo),
     [eventsByDay, listFrom, listTo],
   );
   const eventColor = searchParams.get("ecolor");
+  const eventAttn = parseEventAttn(searchParams.get("eattn"));
   const eventSort = parseEventSort(searchParams.get("esort"), "start");
   const periodEvents = useMemo(
     () =>
       sortEventEntries(
-        filterEventsByColor(periodEventsUnsorted, eventColor),
+        filterEventsByAttendance(
+          filterEventsByColor(periodEventsUnsorted, eventColor),
+          eventAttn,
+        ),
         eventSort,
       ),
-    [periodEventsUnsorted, eventColor, eventSort],
+    [periodEventsUnsorted, eventColor, eventAttn, eventSort],
   );
   const eventFilterColors = useMemo(
     () => eventColorsInList(periodEventsUnsorted),
@@ -682,6 +692,8 @@ export function CalendarPage() {
 
   const shiftSummary = (
     <ShiftDaySummary
+      title={formatDayTitle(selectedDay)}
+      dateKey={selectedKey}
       layers={shiftLayers}
       marks={selectedMarks}
       totals={periodTotals}
@@ -839,7 +851,6 @@ export function CalendarPage() {
                 <CalendarSelectedDay
                   {...selectedDayPanel}
                   showTodos={false}
-                  showCounts={false}
                   eventListClassName="pt-2"
                 />
                 </>
@@ -991,7 +1002,10 @@ export function CalendarPage() {
                       count={periodDoneCount}
                     />
                   </h2>
-                  <SortBar defaultSort="due" />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <StatusFilter includeDone />
+                    <SortBar defaultSort="due" />
+                  </div>
                 </div>
                 {periodTodos.length > 0 ? (
                   <ListReveal
@@ -1009,7 +1023,9 @@ export function CalendarPage() {
                   </ListReveal>
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
-                    {PERIOD_TODOS_EMPTY[calendarView]}
+                    {periodTodosUnsorted.length && status
+                      ? "Нет задач с этим статусом"
+                      : PERIOD_TODOS_EMPTY[calendarView]}
                   </p>
                 )}
               </section>
@@ -1032,7 +1048,7 @@ export function CalendarPage() {
                     />
                   </h2>
                   <div className="flex shrink-0 items-center gap-2">
-                    <EventFilterBar colors={eventFilterColors} />
+                    <EventFilterBar colors={eventFilterColors} attendance />
                     <SortBar
                       paramName="esort"
                       defaultSort="start"
@@ -1058,7 +1074,11 @@ export function CalendarPage() {
                 ) : (
                   <p className="rounded-xl border border-dashed border-app px-4 py-6 text-sm text-app-subtle">
                     {periodEventsUnsorted.length
-                      ? "Нет событий выбранного цвета."
+                      ? eventAttn && eventColor
+                        ? "Нет событий с выбранными фильтрами."
+                        : eventAttn
+                          ? "Нет событий с этой отметкой."
+                          : "Нет событий выбранного цвета."
                       : PERIOD_EVENTS_EMPTY[calendarView]}
                   </p>
                 )}

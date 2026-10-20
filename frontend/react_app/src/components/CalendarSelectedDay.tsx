@@ -8,7 +8,6 @@ import type { TodoRow } from "@/components/TodoList";
 import { formatDayTitle, type CalendarEntry } from "@/lib/calendar";
 import type { DayNote } from "@/lib/dayNotes";
 import type { CalendarEvent, EventEntry } from "@/lib/events";
-import { pluralRu } from "@/lib/utils";
 
 export function CalendarSelectedDay({
   selectedDay,
@@ -20,7 +19,6 @@ export function CalendarSelectedDay({
   showNote = true,
   showTodos = true,
   showEvents = true,
-  showCounts = true,
   showEmpty = false,
   eventListClassName,
   onNoteChanged,
@@ -38,7 +36,6 @@ export function CalendarSelectedDay({
   showNote?: boolean;
   showTodos?: boolean;
   showEvents?: boolean;
-  showCounts?: boolean;
   showEmpty?: boolean;
   eventListClassName?: string;
   onNoteChanged: (note: DayNote | null) => void;
@@ -47,20 +44,6 @@ export function CalendarSelectedDay({
   onEventUpdated: (event: CalendarEvent) => void;
   onEventDeleted: (id: number) => void;
 }) {
-  const realCount = selectedEntries.filter((entry) => !entry.virtual).length;
-  const repeatCount = selectedEntries.length - realCount;
-  const caption = [
-    selectedEventEntries.length
-      ? `${selectedEventEntries.length} ${pluralRu(selectedEventEntries.length, "событие", "события", "событий")}`
-      : "",
-    realCount ? `${realCount} задач` : "",
-    repeatCount
-      ? `${repeatCount} ${pluralRu(repeatCount, "повтор", "повтора", "повторов")}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" · ") || "Нет событий и задач в этот день";
-
   const empty =
     showEmpty &&
     selectedEntries.length === 0 &&
@@ -68,15 +51,11 @@ export function CalendarSelectedDay({
 
   return (
     <section className="min-w-0 space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
+      {shiftSummary ?? (
         <h2 className="text-lg font-semibold capitalize text-app">
           {formatDayTitle(selectedDay)}
         </h2>
-        {showCounts ? (
-          <p className="text-sm text-app-subtle">{caption}</p>
-        ) : null}
-      </div>
-      {shiftSummary}
+      )}
       {showNote ? (
         <DayNoteEditor
           dateKey={selectedKey}

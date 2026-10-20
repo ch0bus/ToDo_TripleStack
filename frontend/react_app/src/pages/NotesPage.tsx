@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { DayNoteList } from "@/components/DayNoteList";
 import { ChoiceChip } from "@/components/FormFields";
@@ -7,17 +7,21 @@ import { ListReveal } from "@/components/ListReveal";
 import { LoadingBar } from "@/components/LoadingBar";
 import { SearchField } from "@/components/SearchField";
 import { apiFetch } from "@/lib/api";
+import { parseDateKey, toDateKey } from "@/lib/calendar";
 import {
+  dayNotePath,
   notesPeriodLabel,
   resolveNotesRange,
   type DayNote,
   type NotesPeriod,
 } from "@/lib/dayNotes";
+import { locationFrom } from "@/lib/nav";
 import {
   useHiddenSystemTags,
   visibleTagOptions,
   type TagOption,
 } from "@/lib/tags";
+import { btnPrimary, inputClass } from "@/lib/uiClasses";
 
 const PERIODS: { value: Exclude<NotesPeriod, "custom">; label: string }[] = [
   { value: "week", label: "Неделя" },
@@ -25,6 +29,39 @@ const PERIODS: { value: Exclude<NotesPeriod, "custom">; label: string }[] = [
   { value: "year", label: "Год" },
   { value: "all", label: "Всё" },
 ];
+
+function AddNoteButton() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [date, setDate] = useState(toDateKey(new Date()));
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!parseDateKey(date)) return;
+    navigate(dayNotePath(date), {
+      state: { from: locationFrom(location) },
+    });
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex min-w-0 flex-wrap items-center justify-end gap-2"
+    >
+      <input
+        type="date"
+        value={date}
+        onChange={(event) => setDate(event.target.value)}
+        className={inputClass + " h-10 w-[11.5rem]"}
+        aria-label="Дата заметки"
+        required
+      />
+      <button type="submit" className={btnPrimary + " h-10 whitespace-nowrap"}>
+        Добавить заметку
+      </button>
+    </form>
+  );
+}
 
 export function NotesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -148,17 +185,22 @@ export function NotesPage() {
       : tag
         ? "Нет заметок с этим тегом"
         : range.period === "all"
-          ? "Нет заметок — откройте день в календаре или «+ Добавить»"
+          ? "Нет заметок"
           : "Нет заметок за этот период";
 
   return (
     <div className="mx-auto min-w-0 max-w-6xl px-4 py-6 md:py-8">
       <div className="relative space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold">Заметки</h1>
-          <p className="mt-1 text-sm text-app-subtle">
-            {notesPeriodLabel(range.period, range.from, range.to)}
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold">Заметки</h1>
+              <p className="mt-1 text-sm text-app-subtle">
+                {notesPeriodLabel(range.period, range.from, range.to)}
+              </p>
+            </div>
+            <AddNoteButton />
+          </div>
           <div className="mt-3 flex flex-wrap gap-1" role="group" aria-label="Период">
             {PERIODS.map((option) => (
               <ChoiceChip
@@ -219,7 +261,7 @@ export function NotesPage() {
         >
           {notes.length > 0 ? (
             <ListReveal items={notes}>
-              {(visible) => <DayNoteList notes={visible} />}
+              {(visible) => <DayNoteList notes={visible} variant="tiles" />}
             </ListReveal>
           ) : loading ? null : (
             <p className="text-sm text-app-subtle">{empty}</p>
