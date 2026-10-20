@@ -80,7 +80,7 @@ export function ArchiveShell({
                   : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
               }
             >
-              Готово
+              Завершённые задачи
             </Link>
             <Link
               to={`/archive/events${suffix}`}
@@ -92,7 +92,7 @@ export function ArchiveShell({
                   : "text-app-subtle hover:bg-app-surface-muted hover:text-app")
               }
             >
-              Был
+              Отмеченные события
             </Link>
           </div>
           <h1 className="text-2xl font-semibold">{title}</h1>

@@ -81,7 +81,7 @@ export function ArchiveEventsPage() {
   return (
     <ArchiveShell
       kind="events"
-      title="Был"
+      title="Отмеченные события"
       backTo={backTo}
       loading={loading}
       error={error}

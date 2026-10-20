@@ -8,7 +8,7 @@ import type { TodoRow } from "@/components/TodoList";
 import { apiFetch } from "@/lib/api";
 import { TODO_PRIORITIES, getPriorityLabel } from "@/lib/labels";
 import { getRecurrenceFact } from "@/lib/recurrence";
-import { todoTileWhen, type TileWhenMode } from "@/lib/tileWhen";
+import { todoArchiveLifetime, todoTileWhen, type TileWhenMode } from "@/lib/tileWhen";
 import { getPriorityBorderClass, getPriorityStripeClass } from "@/lib/utils";
 
 interface TodoItemProps {
@@ -38,6 +38,7 @@ export function TodoItem({
   const facts = [
     subTotal > 0 ? `${subDone}/${subTotal}` : "",
     getRecurrenceFact(todo.recurrence),
+    whenMode === "archive" ? todoArchiveLifetime(todo) : "",
   ]
     .filter(Boolean)
     .join(" · ");

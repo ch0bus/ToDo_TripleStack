@@ -72,7 +72,7 @@ export function ArchiveTodosPage() {
   return (
     <ArchiveShell
       kind="todos"
-      title="Готово"
+      title="Завершённые задачи"
       backTo={backTo}
       loading={loading}
       error={error}
@@ -90,6 +90,7 @@ export function ArchiveTodosPage() {
           {(visible) => (
             <TodoList
               todos={visible}
+              whenMode="archive"
               onUpdated={(todo) =>
                 setTodos((prev) =>
                   todo.status === "done"

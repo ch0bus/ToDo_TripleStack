@@ -14,7 +14,7 @@ import {
   pluralRu,
 } from "@/lib/utils";
 
-export type TileWhenMode = "day" | "list";
+export type TileWhenMode = "day" | "list" | "archive";
 
 export type TileWhen = {
   when: string;
@@ -81,7 +81,53 @@ function todoClock(iso: string | null | undefined): string {
   return clock ? `в ${clock}` : "";
 }
 
+function closedVsDue(todo: TodoRow): { lateDays: number | null; overdue: boolean } {
+  if (!todo.due_date || !todo.completed_at) {
+    return { lateDays: null, overdue: false };
+  }
+  const completed = new Date(todo.completed_at);
+  if (Number.isNaN(completed.getTime())) {
+    return { lateDays: null, overdue: false };
+  }
+  const diff = getCalendarDayDiff(todo.due_date, completed);
+  if (diff === null) return { lateDays: null, overdue: false };
+  return { lateDays: -diff, overdue: diff < 0 };
+}
+
+export function todoArchiveLifetime(todo: TodoRow): string {
+  if (!todo.created_at || !todo.completed_at) return "";
+  const created = new Date(todo.created_at);
+  if (Number.isNaN(created.getTime())) return "";
+  const days = getCalendarDayDiff(todo.completed_at, created);
+  if (days === null) return "";
+  if (days <= 0) return "в день создания";
+  return `${days} ${pluralRu(days, "день", "дня", "дней")} с создания`;
+}
+
 export function todoTileWhen(todo: TodoRow, mode: TileWhenMode): TileWhen {
+  if (mode === "archive") {
+    const closed = todo.completed_at
+      ? `закрыто ${formatDateCompact(todo.completed_at)}${todoClock(todo.completed_at) ? ` ${todoClock(todo.completed_at)}` : ""}`
+      : "";
+    const due = todo.due_date ? `срок ${formatDateCompact(todo.due_date)}` : "";
+    const { lateDays, overdue } = closedVsDue(todo);
+    const vsDue =
+      lateDays === null
+        ? ""
+        : lateDays === 0
+          ? "вовремя"
+          : lateDays > 0
+            ? `+${lateDays} дн.`
+            : `−${Math.abs(lateDays)} дн.`;
+    return {
+      when: closed,
+      whenSub: due,
+      status: vsDue,
+      statusShort: vsDue,
+      overdue,
+    };
+  }
+
   const done = todo.status === "done";
   const overdue = isOverdue(todo.due_date, todo.status);
   const when = todoClock(todo.event_date || todo.due_date);
