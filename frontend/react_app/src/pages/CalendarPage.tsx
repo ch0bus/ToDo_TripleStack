@@ -788,6 +788,7 @@ export function CalendarPage() {
           paint={paint}
           onActiveLayerChange={handleActiveLayerChange}
           onPaintChange={setPaint}
+          onClose={handleTogglePaint}
         />
       </div>
     ) : null;

@@ -1,5 +1,24 @@
 import type { PaintTool, ShiftKind, ShiftLayer } from "@/lib/shifts";
 
+function CloseIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-4 w-4"
+      aria-hidden
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 function toolActive(paint: PaintTool, tool: PaintTool): boolean {
   if (paint.type !== tool.type) return false;
   if (paint.type === "kind" && tool.type === "kind") {
@@ -15,6 +34,7 @@ export function ShiftPaintBar({
   paint,
   onActiveLayerChange,
   onPaintChange,
+  onClose,
 }: {
   layers: ShiftLayer[];
   activeLayer: ShiftLayer;
@@ -22,6 +42,7 @@ export function ShiftPaintBar({
   paint: PaintTool;
   onActiveLayerChange: (id: number) => void;
   onPaintChange: (tool: PaintTool) => void;
+  onClose?: () => void;
 }) {
   return (
     <div className="space-y-2">
@@ -42,6 +63,17 @@ export function ShiftPaintBar({
             {layer.name}
           </button>
         ))}
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="ml-auto shrink-0 rounded-md p-1 text-app-subtle hover:bg-app-surface-muted hover:text-app focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+            aria-label="Скрыть рисование"
+            title="Скрыть рисование"
+          >
+            <CloseIcon />
+          </button>
+        ) : null}
       </div>
       <div className="flex flex-wrap gap-1.5">
         <button
