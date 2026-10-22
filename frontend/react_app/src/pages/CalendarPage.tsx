@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ArchiveCountLink } from "@/components/ArchiveCountLink";
-import { DayNoteMark, TodayHalo } from "@/components/CalendarNoteMarks";
+import { DayNoteMark, ShiftBonusMark, TodayHalo } from "@/components/CalendarNoteMarks";
+import { ShiftBonusDialog } from "@/components/ShiftBonusDialog";
+import { ShiftHoursDialog } from "@/components/ShiftHoursDialog";
 import { CalendarSelectedDay } from "@/components/CalendarSelectedDay";
 import { CalendarTimeGrid } from "@/components/CalendarTimeGrid";
 import { CalendarViewSwitch } from "@/components/CalendarViewSwitch";
@@ -71,12 +73,19 @@ import {
 import {
   nextShiftCalendarName,
   bothShiftLayersVisible,
+  bonusAmount,
+  bonusForLayer,
+  bonusesByDate,
+  dayDurationHours,
+  formatRub,
   loadHiddenShiftLayerIds,
   markColors,
   saveHiddenShiftLayerIds,
   shiftMarksByDate,
+  summarizeBonuses,
   summarizeShiftDays,
   type PaintTool,
+  type ShiftBonus,
   type ShiftCalendar,
   type ShiftDay,
   type ShiftKind,
@@ -137,10 +146,21 @@ export function CalendarPage() {
   const [shiftLayers, setShiftLayers] = useState<ShiftLayer[]>([]);
   const [shiftKinds, setShiftKinds] = useState<ShiftKind[]>([]);
   const [shiftDays, setShiftDays] = useState<ShiftDay[]>([]);
+  const [shiftBonuses, setShiftBonuses] = useState<ShiftBonus[]>([]);
   const [dayNotes, setDayNotes] = useState<DayNote[]>([]);
   const [paint, setPaint] = useState<PaintTool>({ type: "select" });
   const [activeLayerId, setActiveLayerId] = useState<number | null>(null);
   const [showPaint, setShowPaint] = useState(false);
+  const [bonusDialog, setBonusDialog] = useState<{
+    date: string;
+    layerId: number;
+  } | null>(null);
+  const [bonusBusy, setBonusBusy] = useState(false);
+  const [hoursDialog, setHoursDialog] = useState<{
+    date: string;
+    layerId: number;
+  } | null>(null);
+  const [hoursBusy, setHoursBusy] = useState(false);
   const [hiddenLayerIds, setHiddenLayerIds] = useState<Set<number>>(
     () => new Set(),
   );
@@ -290,6 +310,14 @@ export function CalendarPage() {
     [shiftDays, shiftLayers],
   );
   const notesByDay = useMemo(() => dayNotesMap(dayNotes), [dayNotes]);
+  const bonusesMap = useMemo(() => bonusesByDate(shiftBonuses), [shiftBonuses]);
+  const selectedDayBonuses = useMemo(() => {
+    const map = new Map<number, ShiftBonus>();
+    for (const row of bonusesMap.get(selectedKey) ?? []) {
+      map.set(row.layer_id, row);
+    }
+    return map;
+  }, [bonusesMap, selectedKey]);
   const hiddenPositions = useMemo(() => {
     const positions = new Set<number>();
     for (const layer of shiftLayers) {
@@ -312,32 +340,36 @@ export function CalendarPage() {
       shiftLayers.map((layer) => ({
         layer,
         totals: summarizeShiftDays(shiftDays, monthFrom, monthTo, layer.id),
+        bonus: summarizeBonuses(shiftBonuses, monthFrom, monthTo, layer.id),
       })),
-    [shiftLayers, shiftDays, monthFrom, monthTo],
+    [shiftLayers, shiftDays, shiftBonuses, monthFrom, monthTo],
   );
   const yearLayerTotals = useMemo(
     () =>
       shiftLayers.map((layer) => ({
         layer,
         totals: summarizeShiftDays(shiftDays, yearFrom, yearTo, layer.id),
+        bonus: summarizeBonuses(shiftBonuses, yearFrom, yearTo, layer.id),
       })),
-    [shiftLayers, shiftDays, yearFrom, yearTo],
+    [shiftLayers, shiftDays, shiftBonuses, yearFrom, yearTo],
   );
   const weekLayerTotals = useMemo(
     () =>
       shiftLayers.map((layer) => ({
         layer,
         totals: summarizeShiftDays(shiftDays, weekFrom, weekTo, layer.id),
+        bonus: summarizeBonuses(shiftBonuses, weekFrom, weekTo, layer.id),
       })),
-    [shiftLayers, shiftDays, weekFrom, weekTo],
+    [shiftLayers, shiftDays, shiftBonuses, weekFrom, weekTo],
   );
   const dayLayerTotals = useMemo(
     () =>
       shiftLayers.map((layer) => ({
         layer,
         totals: summarizeShiftDays(shiftDays, dayKey, dayKey, layer.id),
+        bonus: summarizeBonuses(shiftBonuses, dayKey, dayKey, layer.id),
       })),
-    [shiftLayers, shiftDays, dayKey],
+    [shiftLayers, shiftDays, shiftBonuses, dayKey],
   );
 
   const loadCalendars = useCallback(async () => {
@@ -348,10 +380,11 @@ export function CalendarPage() {
   const loadShifts = useCallback(async () => {
     if (!queryFrom || !queryTo || !selectedShiftCalendar) return;
     const calendarQ = `calendar=${selectedShiftCalendar.id}`;
-    const [layersRes, kindsRes, daysRes] = await Promise.all([
+    const [layersRes, kindsRes, daysRes, bonusesRes] = await Promise.all([
       apiFetch(`/shift-layers/?${calendarQ}`),
       apiFetch(`/shift-kinds/?${calendarQ}`),
       apiFetch(`/shift-days/?from=${queryFrom}&to=${queryTo}&${calendarQ}`),
+      apiFetch(`/shift-bonuses/?from=${queryFrom}&to=${queryTo}&${calendarQ}`),
     ]);
     if (layersRes.ok) {
       const layers = (await layersRes.json()) as ShiftLayer[];
@@ -363,6 +396,7 @@ export function CalendarPage() {
     }
     if (kindsRes.ok) setShiftKinds((await kindsRes.json()) as ShiftKind[]);
     if (daysRes.ok) setShiftDays((await daysRes.json()) as ShiftDay[]);
+    if (bonusesRes.ok) setShiftBonuses((await bonusesRes.json()) as ShiftBonus[]);
   }, [queryFrom, queryTo, selectedShiftCalendar]);
 
   const loadNotes = useCallback(async () => {
@@ -557,7 +591,13 @@ export function CalendarPage() {
   async function handleDayClick(date: Date) {
     selectDay(date);
     const key = toDateKey(date);
-    if (!showPaint || paint.type === "select" || !activeLayer) return;
+    if (!showPaint || paint.type === "select") return;
+    if (!activeLayer) return;
+    if (paint.type === "bonus") {
+      if (calendarView !== "month") return;
+      setBonusDialog({ date: key, layerId: activeLayer.id });
+      return;
+    }
     try {
       if (paint.type === "pattern") {
         await apiFetch(`/shift-days/${key}/?layer=${activeLayer.id}`, {
@@ -577,6 +617,75 @@ export function CalendarPage() {
       await loadShifts();
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async function handleSaveBonus(payload: { amount: number; comment: string }) {
+    if (!bonusDialog) return;
+    setBonusBusy(true);
+    try {
+      const res = await apiFetch("/shift-bonuses/", {
+        method: "PUT",
+        body: JSON.stringify({
+          date: bonusDialog.date,
+          layer_id: bonusDialog.layerId,
+          amount: payload.amount,
+          comment: payload.comment,
+        }),
+      });
+      if (!res.ok) throw new Error("bonus save failed");
+      setBonusDialog(null);
+      await loadShifts();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBonusBusy(false);
+    }
+  }
+
+  async function handleSaveHours(hours: number) {
+    if (!hoursDialog) return;
+    const mark = shiftDays.find(
+      (row) =>
+        row.date === hoursDialog.date && row.layer_id === hoursDialog.layerId,
+    );
+    if (!mark?.kind) return;
+    setHoursBusy(true);
+    try {
+      const res = await apiFetch("/shift-days/", {
+        method: "PUT",
+        body: JSON.stringify({
+          date: hoursDialog.date,
+          layer_id: hoursDialog.layerId,
+          kind_id: mark.kind.id,
+          duration_hours: hours,
+        }),
+      });
+      if (!res.ok) throw new Error("hours save failed");
+      setHoursDialog(null);
+      await loadShifts();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setHoursBusy(false);
+    }
+  }
+
+  async function handleDeleteBonus() {
+    if (!bonusDialog) return;
+    setBonusBusy(true);
+    try {
+      const res = await apiFetch(
+        `/shift-bonuses/${bonusDialog.date}/?layer=${bonusDialog.layerId}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok && res.status !== 404) throw new Error("bonus delete failed");
+      setBonusDialog(null);
+      await loadShifts();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setBonusBusy(false);
     }
   }
 
@@ -609,6 +718,8 @@ export function CalendarPage() {
   function handleShiftCalendarChange(id: number) {
     setPaint({ type: "select" });
     setActiveLayerId(null);
+    setBonusDialog(null);
+    setHoursDialog(null);
     setSearchParams((prev) => {
       const params = new URLSearchParams(prev);
       params.set("calendar", String(id));
@@ -713,6 +824,13 @@ export function CalendarPage() {
       }
       hiddenLayerIds={hiddenLayerIds}
       onToggleLayerHidden={handleToggleLayerHidden}
+      dayBonuses={selectedDayBonuses}
+      onEditBonus={(layerId) =>
+        setBonusDialog({ date: selectedKey, layerId })
+      }
+      onEditHours={(layerId) =>
+        setHoursDialog({ date: selectedKey, layerId })
+      }
     />
   );
 
@@ -898,6 +1016,7 @@ export function CalendarPage() {
                     );
                     const colors = markColors(dayMarks, hiddenPositions);
                     const hasNote = Boolean(note?.text?.trim());
+                    const dayBonuses = bonusesMap.get(cell.key) ?? [];
                     const dayBars = collectDayBars(dayEvents, dayEntries);
                     const shiftNames = shiftLayers
                       .map((layer, index) => {
@@ -914,6 +1033,15 @@ export function CalendarPage() {
                         title={
                           [
                             ...shiftNames,
+                            ...dayBonuses.map((row) => {
+                              const layer = shiftLayers.find(
+                                (item) => item.id === row.layer_id,
+                              );
+                              const name = layer?.name ?? "Слой";
+                              return `${name}: доплата ${formatRub(bonusAmount(row))}${
+                                row.comment ? ` · ${row.comment}` : ""
+                              }`;
+                            }),
                             ...eventTitles,
                             ...dayEntries.map((entry) => entry.todo.title),
                             note?.text,
@@ -930,21 +1058,28 @@ export function CalendarPage() {
                         }
                       >
                         <MonthShiftFill colors={colors} splitCorners={splitCorners} />
-                        <span className="relative isolate inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs">
-                          {cell.isToday ? <TodayHalo size={28} /> : null}
-                          {hasNote ? <DayNoteMark /> : null}
-                          <span
-                            className={
-                              "relative " +
-                              (selected
-                                ? "font-semibold text-app-accent"
-                                : cell.isToday
-                                  ? "font-semibold text-app"
-                                  : "text-app-muted")
-                            }
-                          >
-                            {cell.date.getDate()}
+                        <span className="relative z-[1] flex items-center">
+                          <span className="relative isolate inline-flex h-7 w-7 shrink-0 items-center justify-center text-xs">
+                            {cell.isToday ? <TodayHalo size={28} /> : null}
+                            {hasNote ? <DayNoteMark /> : null}
+                            <span
+                              className={
+                                "relative " +
+                                (selected
+                                  ? "font-semibold text-app-accent"
+                                  : cell.isToday
+                                    ? "font-semibold text-app"
+                                    : "text-app-muted")
+                              }
+                            >
+                              {cell.date.getDate()}
+                            </span>
                           </span>
+                          {dayBonuses.length ? (
+                            <span className="relative -ml-0.5" aria-hidden>
+                              <ShiftBonusMark />
+                            </span>
+                          ) : null}
                         </span>
                         <MonthDayBars items={dayBars} />
                       </button>
@@ -1087,6 +1222,68 @@ export function CalendarPage() {
               )}
         </div>
       </div>
+
+      <ShiftHoursDialog
+        open={Boolean(hoursDialog)}
+        dateLabel={
+          hoursDialog
+            ? [
+                formatDayTitle(parseDateKey(hoursDialog.date) ?? selectedDay),
+                shiftLayers.find((layer) => layer.id === hoursDialog.layerId)
+                  ?.name,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : ""
+        }
+        hours={
+          hoursDialog
+            ? dayDurationHours(
+                shiftDays.find(
+                  (row) =>
+                    row.date === hoursDialog.date &&
+                    row.layer_id === hoursDialog.layerId,
+                ),
+              )
+            : 0
+        }
+        busy={hoursBusy}
+        onSave={(value) => void handleSaveHours(value)}
+        onCancel={() => {
+          if (!hoursBusy) setHoursDialog(null);
+        }}
+      />
+
+      <ShiftBonusDialog
+        open={Boolean(bonusDialog)}
+        dateLabel={
+          bonusDialog
+            ? [
+                formatDayTitle(parseDateKey(bonusDialog.date) ?? selectedDay),
+                shiftLayers.find((layer) => layer.id === bonusDialog.layerId)
+                  ?.name,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : ""
+        }
+        bonus={
+          bonusDialog
+            ? bonusForLayer(shiftBonuses, bonusDialog.date, bonusDialog.layerId)
+            : null
+        }
+        busy={bonusBusy}
+        onSave={(payload) => void handleSaveBonus(payload)}
+        onDelete={
+          bonusDialog &&
+          bonusForLayer(shiftBonuses, bonusDialog.date, bonusDialog.layerId)
+            ? () => void handleDeleteBonus()
+            : undefined
+        }
+        onCancel={() => {
+          if (!bonusBusy) setBonusDialog(null);
+        }}
+      />
 
       <MobileSidebarDrawer
         open={sidebarOpen}

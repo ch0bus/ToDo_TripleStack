@@ -48,6 +48,7 @@ export interface ShiftDay {
   date: string;
   layer_id: number;
   kind: ShiftKind | null;
+  duration_hours?: string | number | null;
   source: "pattern" | "override";
 }
 
@@ -57,7 +58,15 @@ export type PaintTool =
   | { type: "select" }
   | { type: "kind"; id: number }
   | { type: "off" }
+  | { type: "bonus" }
   | { type: "pattern" };
+
+export interface ShiftBonus {
+  date: string;
+  layer_id: number;
+  amount: string | number;
+  comment?: string;
+}
 
 export interface ShiftTotals {
   hours: number;
@@ -127,14 +136,30 @@ export function kindRate(kind: ShiftKind): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-export function paidHours(kind: ShiftKind | null | undefined): number {
-  if (!kind) return 0;
-  return Math.max(0, kindHours(kind) - (kind.break_minutes || 0) / 60);
+export function dayDurationHours(day: ShiftDay | null | undefined): number {
+  if (!day?.kind) return 0;
+  if (day.duration_hours != null && day.duration_hours !== "") {
+    const n = Number(day.duration_hours);
+    if (Number.isFinite(n)) return n;
+  }
+  return kindHours(day.kind);
 }
 
-export function shiftPay(kind: ShiftKind | null | undefined): number {
+export function paidHours(
+  kind: ShiftKind | null | undefined,
+  durationHours?: number,
+): number {
   if (!kind) return 0;
-  return paidHours(kind) * kindRate(kind);
+  const hours = durationHours ?? kindHours(kind);
+  return Math.max(0, hours - (kind.break_minutes || 0) / 60);
+}
+
+export function shiftPay(
+  kind: ShiftKind | null | undefined,
+  durationHours?: number,
+): number {
+  if (!kind) return 0;
+  return paidHours(kind, durationHours) * kindRate(kind);
 }
 
 export function summarizeShiftDays(
@@ -148,8 +173,9 @@ export function summarizeShiftDays(
   for (const day of days) {
     if (layerId != null && day.layer_id !== layerId) continue;
     if (day.date < from || day.date > to || !day.kind) continue;
-    hours += paidHours(day.kind);
-    pay += shiftPay(day.kind);
+    const duration = dayDurationHours(day);
+    hours += paidHours(day.kind, duration);
+    pay += shiftPay(day.kind, duration);
   }
   return { hours, pay };
 }
@@ -178,17 +204,62 @@ export function formatKindMeta(kind: ShiftKind): string {
   return parts.filter(Boolean).join(" · ");
 }
 
-export function formatShiftPayLine(kind: ShiftKind): string {
+export function formatShiftPayLine(kind: ShiftKind, durationHours?: number): string {
+  const hours = durationHours ?? kindHours(kind);
   const parts = [
-    formatHours(kindHours(kind)),
+    formatHours(hours),
     kind.break_minutes ? `перерыв ${kind.break_minutes} мин` : null,
-    formatRub(shiftPay(kind)),
+    formatRub(shiftPay(kind, hours)),
   ];
   return parts.filter(Boolean).join(" · ");
 }
 
-export function formatShiftTotalsLine(label: string, totals: ShiftTotals): string {
-  return `${label}: ${formatHours(totals.hours)} · ${formatRub(totals.pay)}`;
+export function formatShiftTotalsLine(
+  label: string,
+  totals: ShiftTotals,
+  bonus = 0,
+): string {
+  return `${label}: ${formatHours(totals.hours)} · Доплата ${formatRub(bonus)} · ${formatRub(totals.pay)}`;
+}
+
+export function bonusAmount(bonus: ShiftBonus | null | undefined): number {
+  const n = Number(bonus?.amount);
+  return Number.isFinite(n) ? n : 0;
+}
+
+export function bonusesByDate(rows: ShiftBonus[]): Map<string, ShiftBonus[]> {
+  const map = new Map<string, ShiftBonus[]>();
+  for (const row of rows) {
+    const list = map.get(row.date);
+    if (list) list.push(row);
+    else map.set(row.date, [row]);
+  }
+  return map;
+}
+
+export function bonusForLayer(
+  rows: ShiftBonus[],
+  date: string,
+  layerId: number,
+): ShiftBonus | null {
+  return (
+    rows.find((row) => row.date === date && row.layer_id === layerId) ?? null
+  );
+}
+
+export function summarizeBonuses(
+  rows: ShiftBonus[],
+  from: string,
+  to: string,
+  layerId?: number,
+): number {
+  let total = 0;
+  for (const row of rows) {
+    if (row.date < from || row.date > to) continue;
+    if (layerId != null && row.layer_id !== layerId) continue;
+    total += bonusAmount(row);
+  }
+  return total;
 }
 
 /** Мягкая заливка всей клетки (когда второй слой скрыт). */

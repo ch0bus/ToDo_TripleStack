@@ -25,6 +25,7 @@ from .serializers import (
     ShiftLayerSerializer,
     ShiftPatternSerializer,
     ShiftDaySerializer,
+    ShiftBonusSerializer,
     DayNoteSerializer,
     EventSerializer,
     EventAttendanceWriteSerializer,
@@ -41,6 +42,7 @@ from todos.models import (
     ShiftLayer,
     ShiftPattern,
     ShiftDayOverride,
+    ShiftDayBonus,
     DayNote,
     Event,
     EventAttendance,
@@ -616,6 +618,18 @@ class ShiftPatternView(APIView):
         )
 
 
+def _shift_day_payload(*, date, layer_id, kind, source, duration_hours=None) -> dict:
+    return {
+        "date": date.isoformat() if hasattr(date, "isoformat") else date,
+        "layer_id": layer_id,
+        "kind": ShiftKindSerializer(kind).data if kind else None,
+        "duration_hours": str(duration_hours)
+        if kind and duration_hours is not None
+        else None,
+        "source": source,
+    }
+
+
 class ShiftDaysView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -630,14 +644,13 @@ class ShiftDaysView(APIView):
         days = expand_shift_days(calendar, start, end)
         return Response(
             [
-                {
-                    "date": row["date"].isoformat(),
-                    "layer_id": row["layer_id"],
-                    "kind": ShiftKindSerializer(row["kind"]).data
-                    if row["kind"]
-                    else None,
-                    "source": row["source"],
-                }
+                _shift_day_payload(
+                    date=row["date"],
+                    layer_id=row["layer_id"],
+                    kind=row["kind"],
+                    source=row["source"],
+                    duration_hours=row.get("duration_hours"),
+                )
                 for row in days
             ]
         )
@@ -650,14 +663,13 @@ class ShiftDaysView(APIView):
         serializer.is_valid(raise_exception=True)
         override = serializer.save()
         return Response(
-            {
-                "date": override.date.isoformat(),
-                "layer_id": override.layer_id,
-                "kind": ShiftKindSerializer(override.kind).data
-                if override.kind
-                else None,
-                "source": "override",
-            }
+            _shift_day_payload(
+                date=override.date,
+                layer_id=override.layer_id,
+                kind=override.kind,
+                source="override",
+                duration_hours=override.duration_hours,
+            )
         )
 
 
@@ -676,6 +688,65 @@ class ShiftDayDetailView(APIView):
         if not layer:
             raise ValidationError({"layer": "Неизвестный слой."})
         deleted, _ = ShiftDayOverride.objects.filter(
+            layer=layer,
+            date=parsed,
+        ).delete()
+        if not deleted:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _bonus_payload(bonus: ShiftDayBonus) -> dict:
+    return {
+        "date": bonus.date.isoformat(),
+        "layer_id": bonus.layer_id,
+        "amount": str(bonus.amount),
+        "comment": bonus.comment,
+    }
+
+
+class ShiftBonusesView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        start = _parse_query_date(request.query_params.get("from"), "from")
+        end = _parse_query_date(request.query_params.get("to"), "to")
+        if not start or not end:
+            raise ValidationError({"detail": "Нужны параметры from и to (YYYY-MM-DD)."})
+        if (end - start).days > 366:
+            raise ValidationError({"detail": "Диапазон не больше 366 дней."})
+        calendar = _calendar_from_request(request)
+        bonuses = ShiftDayBonus.objects.filter(
+            layer__calendar=calendar,
+            date__range=(start, end),
+        ).order_by("date", "layer_id")
+        return Response([_bonus_payload(row) for row in bonuses])
+
+    def put(self, request):
+        serializer = ShiftBonusSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+        bonus = serializer.save()
+        return Response(_bonus_payload(bonus))
+
+
+class ShiftBonusDetailView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def delete(self, request, day: str):
+        try:
+            parsed = date.fromisoformat(day)
+        except ValueError:
+            raise ValidationError({"detail": "Ожидается дата YYYY-MM-DD."})
+        layer_id = request.query_params.get("layer")
+        if not layer_id:
+            raise ValidationError({"layer": "Укажите слой."})
+        layer = layer_for_user(request.user, layer_id)
+        if not layer:
+            raise ValidationError({"layer": "Неизвестный слой."})
+        deleted, _ = ShiftDayBonus.objects.filter(
             layer=layer,
             date=parsed,
         ).delete()

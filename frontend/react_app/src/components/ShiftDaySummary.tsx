@@ -4,9 +4,14 @@ import { Link, useLocation } from "react-router-dom";
 import { ShiftLayerEyeIcon } from "@/components/ShiftLayerEyeIcon";
 import { locationFrom, shiftSettingsPath } from "@/lib/nav";
 import {
-  formatShiftPayLine,
+  bonusAmount,
+  dayDurationHours,
+  formatHours,
+  formatRub,
   formatShiftTotalsLine,
+  shiftPay,
   type DayShiftMarks,
+  type ShiftBonus,
   type ShiftLayer,
   type ShiftTotals,
 } from "@/lib/shifts";
@@ -117,18 +122,24 @@ export function ShiftDaySummary({
   onTogglePaint,
   hiddenLayerIds,
   onToggleLayerHidden,
+  dayBonuses,
+  onEditBonus,
+  onEditHours,
 }: {
   title: ReactNode;
   dateKey: string;
   layers: ShiftLayer[];
   marks: DayShiftMarks | undefined;
-  totals: Array<{ layer: ShiftLayer; totals: ShiftTotals }>;
+  totals: Array<{ layer: ShiftLayer; totals: ShiftTotals; bonus: number }>;
   periodLabel: (layer: ShiftLayer) => string;
   calendarId?: number | null;
   painting?: boolean;
   onTogglePaint?: () => void;
   hiddenLayerIds?: ReadonlySet<number>;
   onToggleLayerHidden?: (id: number) => void;
+  dayBonuses?: ReadonlyMap<number, ShiftBonus>;
+  onEditBonus?: (layerId: number) => void;
+  onEditHours?: (layerId: number) => void;
 }) {
   const location = useLocation();
   const from = locationFrom(location);
@@ -169,6 +180,7 @@ export function ShiftDaySummary({
             {layers.map((layer, index) => {
               const mark = marks?.[index as 0 | 1];
               const hidden = hiddenLayerIds?.has(layer.id) ?? false;
+              const layerBonus = dayBonuses?.get(layer.id);
               return (
                 <p
                   key={layer.id}
@@ -206,18 +218,62 @@ export function ShiftDaySummary({
                           style={{ backgroundColor: mark.kind.color }}
                           aria-hidden
                         />
-                        {mark.kind.name} · {formatShiftPayLine(mark.kind)}
+                        {mark.kind.name}
+                        {" · "}
+                        {onEditHours ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditHours(layer.id)}
+                            className="rounded-sm text-app underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+                            title="Изменить часы в этот день"
+                            aria-label={`Изменить часы слоя «${layer.name}»`}
+                          >
+                            {formatHours(dayDurationHours(mark))}
+                          </button>
+                        ) : (
+                          formatHours(dayDurationHours(mark))
+                        )}
+                        {mark.kind.break_minutes
+                          ? ` · перерыв ${mark.kind.break_minutes} мин`
+                          : ""}
+                        {" · "}
+                        {formatRub(
+                          shiftPay(mark.kind, dayDurationHours(mark)),
+                        )}
                       </>
                     ) : (
                       "нет смены"
                     )}
+                    {layerBonus ? (
+                      <>
+                        {" · "}
+                        {onEditBonus ? (
+                          <button
+                            type="button"
+                            onClick={() => onEditBonus(layer.id)}
+                            className="rounded-sm text-app underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+                            title="Изменить доплату"
+                            aria-label={`Изменить доплату слоя «${layer.name}»`}
+                          >
+                            доплата {formatRub(bonusAmount(layerBonus))}
+                          </button>
+                        ) : (
+                          <>доплата {formatRub(bonusAmount(layerBonus))}</>
+                        )}
+                        {layerBonus.comment ? ` · ${layerBonus.comment}` : ""}
+                      </>
+                    ) : null}
                   </span>
                 </p>
               );
             })}
-            {totals.map(({ layer, totals: layerTotals }) => (
+            {totals.map(({ layer, totals: layerTotals, bonus: layerBonus }) => (
               <p key={`total-${layer.id}`} className="text-sm text-app-muted">
-                {formatShiftTotalsLine(periodLabel(layer), layerTotals)}
+                {formatShiftTotalsLine(
+                  periodLabel(layer),
+                  layerTotals,
+                  layerBonus,
+                )}
               </p>
             ))}
           </div>

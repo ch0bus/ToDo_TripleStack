@@ -304,6 +304,35 @@ class ShiftPatternSlot(models.Model):
         ]
 
 
+class ShiftDayBonus(models.Model):
+    """Доплата к дню слоя. Не затирает смену, не в цикле, одна на дату слоя."""
+
+    layer = models.ForeignKey(
+        ShiftLayer,
+        on_delete=models.CASCADE,
+        related_name="bonuses",
+    )
+    date = models.DateField()
+    amount = models.DecimalField(
+        "Сумма, ₽",
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    comment = models.CharField("Комментарий", max_length=200, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["layer", "date"],
+                name="unique_layer_shift_bonus_date",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["layer", "date"]),
+        ]
+
+
 class ShiftDayOverride(models.Model):
     """Ручная правка дня. kind=NULL — снять смену (в т.ч. поверх шаблона)."""
 
@@ -319,6 +348,17 @@ class ShiftDayOverride(models.Model):
         null=True,
         blank=True,
         related_name="day_overrides",
+    )
+    duration_hours = models.DecimalField(
+        "Часы в этот день",
+        max_digits=4,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(Decimal("0.25")),
+            MaxValueValidator(Decimal("24")),
+        ],
     )
 
     class Meta:

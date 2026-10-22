@@ -90,6 +90,18 @@ export function ShiftPaintBar({
         </button>
         <button
           type="button"
+          onClick={() => onPaintChange({ type: "bonus" })}
+          className={
+            "rounded-md px-2.5 py-1 text-xs " +
+            (toolActive(paint, { type: "bonus" })
+              ? "bg-app-surface-muted text-app"
+              : "text-app-subtle hover:bg-app-surface-muted")
+          }
+        >
+          Доплата
+        </button>
+        <button
+          type="button"
           onClick={() => onPaintChange({ type: "pattern" })}
           className={
             "rounded-md px-2.5 py-1 text-xs " +

@@ -142,6 +142,18 @@ M2M: **events ↔ tags**.
 | position | int | порядок в цикле |
 | kind_id | FK → shift_kinds, NULL | NULL = выходной |
 
+## shift_day_bonuses
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| id | PK | |
+| layer_id | FK → shift_layers | CASCADE |
+| date | date | уникален в паре (layer, date) |
+| amount | decimal 10,2 | > 0 |
+| comment | string 200 | опционально |
+
+Не затирает смену, не в цикле. Одна доплата на дату слоя.
+
 ## shift_day_overrides
 
 | Поле | Тип | Описание |
@@ -150,6 +162,7 @@ M2M: **events ↔ tags**.
 | layer_id | FK → shift_layers | |
 | date | date | уникален в паре (layer, date) |
 | kind_id | FK → shift_kinds, NULL | NULL = выходной поверх шаблона |
+| duration_hours | decimal 4,2, NULL | часы только этого дня; NULL = длина типа |
 
 ## day_notes
 
@@ -214,6 +227,7 @@ ShiftCalendar 1 ── 2 ShiftLayer
 ShiftLayer 1 ── * ShiftKind
 ShiftLayer 1 ── 1 ShiftPattern ── * ShiftPatternSlot
 ShiftLayer 1 ── * ShiftDayOverride
+ShiftLayer 1 ── * ShiftDayBonus
 User 1 ── * Event
 Event 1 ── * EventAttendance
 User 1 ── * DayNote

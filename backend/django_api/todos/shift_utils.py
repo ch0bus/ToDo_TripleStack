@@ -89,6 +89,9 @@ def _expand_layer_days(layer: ShiftLayer, start: date, end: date) -> list[dict]:
                     "date": cursor,
                     "layer_id": layer.id,
                     "kind": override.kind,
+                    "duration_hours": override.duration_hours
+                    if override.kind
+                    else None,
                     "source": "override",
                 }
             )
@@ -105,6 +108,7 @@ def _expand_layer_days(layer: ShiftLayer, start: date, end: date) -> list[dict]:
                         "date": cursor,
                         "layer_id": layer.id,
                         "kind": slot.kind,
+                        "duration_hours": None,
                         "source": "pattern",
                     }
                 )

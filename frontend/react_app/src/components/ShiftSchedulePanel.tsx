@@ -291,6 +291,11 @@ export function ShiftSchedulePanel({
             <h3 className="text-[10px] font-semibold uppercase tracking-wider text-app-subtle">
               Типы смен
             </h3>
+            <p className="text-xs text-app-subtle">
+              «Выходной» и «Доплата» ставятся кистью на месяце, не типами смены.
+              Доплата привязана к выбранному слою, не затирает смену и не входит
+              в цикл.
+            </p>
             {kinds.length > 0 && (
               <ul className="space-y-2">
                 {kinds.map((kind) => (

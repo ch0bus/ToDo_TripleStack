@@ -530,3 +530,222 @@ class DayNoteListTests(APITestCase):
         self.client.force_authenticate(user=None)
         res = self.client.get("/api/day-notes/")
         self.assertEqual(res.status_code, 401)
+
+
+class ShiftBonusTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="bonus",
+            email="bonus@example.com",
+            password="password123",
+        )
+        self.other = User.objects.create_user(
+            username="other-bonus",
+            email="other-bonus@example.com",
+            password="password123",
+        )
+        self.client.force_authenticate(self.user)
+        calendars = self.client.get("/api/shift-calendars/")
+        self.assertEqual(calendars.status_code, 200, calendars.data)
+        self.calendar_id = calendars.data[0]["id"]
+        layers = self.client.get(f"/api/shift-layers/?calendar={self.calendar_id}")
+        self.assertEqual(layers.status_code, 200, layers.data)
+        self.layer_id = layers.data[0]["id"]
+        self.layer2_id = layers.data[1]["id"]
+
+    def test_put_get_delete(self):
+        res = self.client.put(
+            "/api/shift-bonuses/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "amount": "1500.50",
+                "comment": "Премия",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["date"], "2026-10-20")
+        self.assertEqual(res.data["layer_id"], self.layer_id)
+        self.assertEqual(res.data["comment"], "Премия")
+        listed = self.client.get(
+            f"/api/shift-bonuses/?from=2026-10-01&to=2026-10-31&calendar={self.calendar_id}"
+        )
+        self.assertEqual(listed.status_code, 200, listed.data)
+        self.assertEqual(len(listed.data), 1)
+        self.assertEqual(listed.data[0]["comment"], "Премия")
+        self.assertEqual(listed.data[0]["layer_id"], self.layer_id)
+        deleted = self.client.delete(
+            f"/api/shift-bonuses/2026-10-20/?layer={self.layer_id}"
+        )
+        self.assertEqual(deleted.status_code, 204)
+        empty = self.client.get(
+            f"/api/shift-bonuses/?from=2026-10-01&to=2026-10-31&calendar={self.calendar_id}"
+        )
+        self.assertEqual(empty.data, [])
+
+    def test_per_layer_same_day(self):
+        first = self.client.put(
+            "/api/shift-bonuses/",
+            {"date": "2026-10-20", "layer_id": self.layer_id, "amount": "100"},
+            format="json",
+        )
+        second = self.client.put(
+            "/api/shift-bonuses/",
+            {"date": "2026-10-20", "layer_id": self.layer2_id, "amount": "200"},
+            format="json",
+        )
+        self.assertEqual(first.status_code, 200, first.data)
+        self.assertEqual(second.status_code, 200, second.data)
+        listed = self.client.get(
+            f"/api/shift-bonuses/?from=2026-10-01&to=2026-10-31&calendar={self.calendar_id}"
+        )
+        self.assertEqual(len(listed.data), 2)
+        self.client.delete(f"/api/shift-bonuses/2026-10-20/?layer={self.layer_id}")
+        left = self.client.get(
+            f"/api/shift-bonuses/?from=2026-10-01&to=2026-10-31&calendar={self.calendar_id}"
+        )
+        self.assertEqual(len(left.data), 1)
+        self.assertEqual(left.data[0]["layer_id"], self.layer2_id)
+
+    def test_amount_must_be_positive(self):
+        res = self.client.put(
+            "/api/shift-bonuses/",
+            {"date": "2026-10-20", "layer_id": self.layer_id, "amount": "0"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_layer_required(self):
+        res = self.client.put(
+            "/api/shift-bonuses/",
+            {"date": "2026-10-20", "amount": "100"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_other_user_isolated(self):
+        self.client.put(
+            "/api/shift-bonuses/",
+            {"date": "2026-10-20", "layer_id": self.layer_id, "amount": "100"},
+            format="json",
+        )
+        self.client.force_authenticate(self.other)
+        other_cals = self.client.get("/api/shift-calendars/")
+        other_id = other_cals.data[0]["id"]
+        listed = self.client.get(
+            f"/api/shift-bonuses/?from=2026-10-01&to=2026-10-31&calendar={other_id}"
+        )
+        self.assertEqual(listed.data, [])
+        stolen = self.client.delete(
+            f"/api/shift-bonuses/2026-10-20/?layer={self.layer_id}"
+        )
+        self.assertEqual(stolen.status_code, 400)
+
+
+class ShiftDayHoursTests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="hours",
+            email="hours@example.com",
+            password="password123",
+        )
+        self.client.force_authenticate(self.user)
+        calendars = self.client.get("/api/shift-calendars/")
+        self.calendar_id = calendars.data[0]["id"]
+        layers = self.client.get(f"/api/shift-layers/?calendar={self.calendar_id}")
+        self.layer_id = layers.data[0]["id"]
+        kind = self.client.post(
+            "/api/shift-kinds/",
+            {
+                "layer_id": self.layer_id,
+                "name": "День",
+                "color": "#2563eb",
+                "duration_hours": "8.00",
+                "break_minutes": 60,
+                "hourly_rate": "200",
+            },
+            format="json",
+        )
+        self.assertEqual(kind.status_code, 201, kind.data)
+        self.kind_id = kind.data["id"]
+
+    def test_put_hours_for_day(self):
+        painted = self.client.put(
+            "/api/shift-days/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "kind_id": self.kind_id,
+            },
+            format="json",
+        )
+        self.assertEqual(painted.status_code, 200, painted.data)
+        self.assertIsNone(painted.data["duration_hours"])
+        custom = self.client.put(
+            "/api/shift-days/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "kind_id": self.kind_id,
+                "duration_hours": "10.50",
+            },
+            format="json",
+        )
+        self.assertEqual(custom.status_code, 200, custom.data)
+        self.assertEqual(custom.data["duration_hours"], "10.50")
+        listed = self.client.get(
+            f"/api/shift-days/?from=2026-10-20&to=2026-10-20&calendar={self.calendar_id}"
+        )
+        self.assertEqual(listed.status_code, 200, listed.data)
+        row = next(item for item in listed.data if item["layer_id"] == self.layer_id)
+        self.assertEqual(row["duration_hours"], "10.50")
+        self.assertEqual(row["kind"]["duration_hours"], "8.00")
+
+    def test_paint_clears_day_hours(self):
+        self.client.put(
+            "/api/shift-days/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "kind_id": self.kind_id,
+                "duration_hours": "11",
+            },
+            format="json",
+        )
+        painted = self.client.put(
+            "/api/shift-days/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "kind_id": self.kind_id,
+            },
+            format="json",
+        )
+        self.assertIsNone(painted.data["duration_hours"])
+
+    def test_hours_require_shift(self):
+        res = self.client.put(
+            "/api/shift-days/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "kind_id": None,
+                "duration_hours": "8",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_hours_range(self):
+        res = self.client.put(
+            "/api/shift-days/",
+            {
+                "date": "2026-10-20",
+                "layer_id": self.layer_id,
+                "kind_id": self.kind_id,
+                "duration_hours": "0",
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)

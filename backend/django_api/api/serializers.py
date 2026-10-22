@@ -13,6 +13,7 @@ from todos.models import (
     DayNote,
     Event,
     ShiftCalendar,
+    ShiftDayBonus,
     ShiftDayOverride,
     ShiftKind,
     ShiftLayer,
@@ -494,6 +495,14 @@ class ShiftDaySerializer(serializers.Serializer):
     date = serializers.DateField()
     layer_id = serializers.IntegerField()
     kind_id = serializers.IntegerField(allow_null=True)
+    duration_hours = serializers.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        min_value=Decimal("0.25"),
+        max_value=Decimal("24"),
+        required=False,
+        allow_null=True,
+    )
     kind = ShiftKindSerializer(read_only=True, allow_null=True)
     source = serializers.CharField(read_only=True)
 
@@ -510,19 +519,62 @@ class ShiftDaySerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"kind_id": "Тип смены должен принадлежать этому слою."}
             )
+        if kind_id is None and attrs.get("duration_hours") is not None:
+            raise serializers.ValidationError(
+                {"duration_hours": "Часы задаются только для смены."}
+            )
         return attrs
 
     def save(self, **kwargs):
         layer = self.validated_data["layer"]
         day = self.validated_data["date"]
         kind_id = self.validated_data.get("kind_id")
+        duration = (
+            self.validated_data["duration_hours"]
+            if "duration_hours" in self.validated_data
+            else None
+        )
+        if kind_id is None:
+            duration = None
         override, _ = ShiftDayOverride.objects.update_or_create(
             layer=layer,
             date=day,
-            defaults={"kind_id": kind_id},
+            defaults={"kind_id": kind_id, "duration_hours": duration},
         )
         override.refresh_from_db()
         return override
+
+
+class ShiftBonusSerializer(serializers.Serializer):
+    date = serializers.DateField()
+    layer_id = serializers.IntegerField()
+    amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, min_value=Decimal("0.01")
+    )
+    comment = serializers.CharField(max_length=200, allow_blank=True, required=False)
+
+    def validate_comment(self, value):
+        return (value or "").strip()
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        layer = layer_for_user(user, attrs["layer_id"])
+        if not layer:
+            raise serializers.ValidationError({"layer_id": "Неизвестный слой."})
+        attrs["layer"] = layer
+        return attrs
+
+    def save(self, **kwargs):
+        comment = self.validated_data.get("comment", "")
+        bonus, _ = ShiftDayBonus.objects.update_or_create(
+            layer=self.validated_data["layer"],
+            date=self.validated_data["date"],
+            defaults={
+                "amount": self.validated_data["amount"],
+                "comment": comment,
+            },
+        )
+        return bonus
 
 
 class EventAttendanceWriteSerializer(serializers.Serializer):
