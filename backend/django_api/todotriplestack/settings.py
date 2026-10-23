@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,6 +28,16 @@ def _env_bool(name: str, default: bool) -> bool:
 def _env_list(name: str, default: str) -> list[str]:
     raw = os.environ.get(name, default)
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
 
 
 # Quick-start development settings - unsuitable for production
@@ -176,6 +187,19 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# Access — короткий ключ к API. Refresh — «сессия»: пока он жив, клиент
+# сам обновляет access без логина. Ротация сдвигает срок при каждом обновлении.
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        hours=max(1, _env_int("JWT_ACCESS_HOURS", 12))
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        days=max(1, _env_int("JWT_REFRESH_DAYS", 30))
+    ),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": False,
+}
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Todo API',
     'DESCRIPTION': """
@@ -209,17 +233,6 @@ SPECTACULAR_SETTINGS = {
 }
 
 TELEGRAM_TZ = os.environ.get("TELEGRAM_TZ", "Europe/Moscow").strip() or "Europe/Moscow"
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if raw is None or not raw.strip():
-        return default
-    try:
-        return int(raw.strip())
-    except ValueError:
-        return default
-
 
 TELEGRAM_DIGEST_HOUR = max(0, min(23, _env_int("TELEGRAM_DIGEST_HOUR", 8)))
 TELEGRAM_REMIND_MINUTES = max(5, min(24 * 60, _env_int("TELEGRAM_REMIND_MINUTES", 30)))

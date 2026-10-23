@@ -219,7 +219,7 @@ export function formatShiftTotalsLine(
   totals: ShiftTotals,
   bonus = 0,
 ): string {
-  return `${label}: ${formatHours(totals.hours)} · Доплата ${formatRub(bonus)} · ${formatRub(totals.pay)}`;
+  return `${label}: ${formatHours(totals.hours)} · ${formatRub(totals.pay)} · Доплата ${formatRub(bonus)} · ${formatRub(totals.pay + bonus)}`;
 }
 
 export function bonusAmount(bonus: ShiftBonus | null | undefined): number {
